@@ -15,6 +15,10 @@
   "build": {
     "appId": "com.smartprint.admin",
     "productName": "SmartPrint Admin",
+    "protocols": {
+      "name": "SmartPrint Auth",
+      "schemes": ["smartprint"]
+    },
     "directories": {
       "output": "dist"
     },
@@ -27,7 +31,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
     },
     "mac": {
       "identity": null

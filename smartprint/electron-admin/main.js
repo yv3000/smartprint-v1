@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, protocol, net } = require('electron')
+const { app, BrowserWindow, shell, protocol, net, ipcMain } = require('electron')
 const path = require('path')
 const https = require('https')
 
@@ -205,7 +205,48 @@ if (!gotTheLock) {
   })
 }
 
-// macOS: deep link
+// Handle silent printing from dashboard
+ipcMain.on('smartprint-print', (event, { data, color, landscape, pageSize, copies }) => {
+  console.log('[Print] Received print request:', { color, landscape, pageSize, copies })
+  
+  let printWindow = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  })
+
+  // Load the file data (DataURL)
+  printWindow.loadURL(data)
+
+  printWindow.webContents.on('did-finish-load', () => {
+    console.log('[Print] Content loaded, starting silent print...')
+    
+    // Slight delay to ensure rendering is complete (especially for images)
+    setTimeout(() => {
+      printWindow.webContents.print({
+        silent: true,
+        printBackground: true,
+        color: !!color,
+        landscape: !!landscape,
+        pageSize: pageSize || 'A4',
+        copies: parseInt(copies) || 1
+      }, (success, failureReason) => {
+        console.log('[Print] Result:', success ? 'Success' : 'Failed', failureReason || '')
+        event.reply('print-result', { success, reason: failureReason })
+        printWindow.close()
+      })
+    }, 1000)
+  })
+
+  printWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('[Print] Failed to load content:', errorDescription)
+    event.reply('print-result', { success: false, reason: 'Failed to load content' })
+    printWindow.close()
+  })
+})
+
 app.on('open-url', (event, url) => {
   event.preventDefault()
   handleDeepLink(url)

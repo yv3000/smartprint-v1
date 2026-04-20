@@ -206,8 +206,16 @@ if (!gotTheLock) {
   })
 }
 
+// Get list of system printers
+ipcMain.handle('smartprint-get-printers', async () => {
+  const dummyWin = new BrowserWindow({ show: false })
+  const printers = await dummyWin.webContents.getPrintersAsync()
+  dummyWin.close()
+  return printers
+})
+
 // Handle silent printing from dashboard
-ipcMain.on('smartprint-print', async (event, { data, color, landscape, pageSize, copies }) => {
+ipcMain.on('smartprint-print', async (event, { data, color, landscape, pageSize, copies, printerName }) => {
   console.log('[Print] Received print request:', { color, landscape, pageSize, copies })
   
   let printWindow = new BrowserWindow({
@@ -228,13 +236,16 @@ ipcMain.on('smartprint-print', async (event, { data, color, landscape, pageSize,
       const printers = await printWindow.webContents.getPrintersAsync();
       let selectedPrinter = printers.find(p => p.isDefault);
       
-      // If default is a virtual printer (PDF, XPS, etc), try to find a physical one
-      const virtualKeywords = ['pdf', 'xps', 'onenote', 'fax', 'microsoft print'];
-      if (selectedPrinter && virtualKeywords.some(k => selectedPrinter.name.toLowerCase().includes(k))) {
-        const physicalPrinter = printers.find(p => !virtualKeywords.some(k => p.name.toLowerCase().includes(k)));
-        if (physicalPrinter) {
-          console.log('[Print] Default is virtual, switching to physical:', physicalPrinter.name);
-          selectedPrinter = physicalPrinter;
+      // If a specific printer was requested, use it
+      if (printerName) {
+        const target = printers.find(p => p.name === printerName);
+        if (target) selectedPrinter = target;
+      } else {
+        // Otherwise, if default is virtual, try to find a physical one
+        const virtualKeywords = ['pdf', 'xps', 'onenote', 'fax', 'microsoft print', 'send to'];
+        if (selectedPrinter && virtualKeywords.some(k => selectedPrinter.name.toLowerCase().includes(k))) {
+          const physicalPrinter = printers.find(p => !virtualKeywords.some(k => p.name.toLowerCase().includes(k)));
+          if (physicalPrinter) selectedPrinter = physicalPrinter;
         }
       }
 

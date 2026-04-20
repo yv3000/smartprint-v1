@@ -59,14 +59,24 @@ function createWindow() {
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.includes('accounts.google.com') || url.includes('oauth2.googleapis.com')) {
+    // If it's a Google OAuth URL or our special auth-mode URL, open in system browser
+    if (
+      url.includes('accounts.google.com') || 
+      url.includes('oauth2.googleapis.com') ||
+      url.includes('mode=electron') ||
+      url.includes('/admin/auth-bridge')
+    ) {
       shell.openExternal(url)
       return { action: 'deny' }
     }
-    if (url.includes('smartprint-tau.vercel.app')) {
+
+    // URLs within our app dashboard — load in the main window
+    if (url.includes('smartprint-tau.vercel.app/admin/dashboard')) {
       mainWindow.loadURL(url)
       return { action: 'deny' }
     }
+
+    // All other URLs — open externally
     shell.openExternal(url)
     return { action: 'deny' }
   })

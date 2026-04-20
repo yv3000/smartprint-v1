@@ -18,5 +18,8 @@ contextBridge.exposeInMainWorld('electron', {
     if (validChannels.includes(channel)) {
       ipcRenderer.once(channel, (event, ...args) => func(...args))
     }
+  },
+  getPrinters: () => {
+    return ipcRenderer.invoke('smartprint-get-printers')
   }
 })

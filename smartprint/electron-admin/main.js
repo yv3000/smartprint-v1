@@ -157,37 +157,36 @@ function verifyTransferToken(token) {
 function setSessionAndLoadDashboard(sessionToken) {
   if (!mainWindow) return
   
-  // Set the session cookie in Electron
-  mainWindow.webContents.session.cookies.set({
-    url: BASE_URL,
-    name: '__Secure-next-auth.session-token',
-    value: sessionToken,
-    secure: true,
-    httpOnly: true,
-    path: '/',
-    sameSite: 'lax'
-  }).then(() => {
-    console.log('[Auth] Session cookie set, loading dashboard...')
-    mainWindow.loadURL(DASHBOARD_URL)
-    mainWindow.focus()
-  }).catch((err) => {
-    console.error('[Auth] Cookie set error:', err)
-    // Try without __Secure prefix
-    mainWindow.webContents.session.cookies.set({
+  const cookieNames = [
+    '__Secure-authjs.session-token',
+    'authjs.session-token',
+    '__Secure-next-auth.session-token',
+    'next-auth.session-token'
+  ]
+
+  const setCookie = (name) => {
+    return mainWindow.webContents.session.cookies.set({
       url: BASE_URL,
-      name: 'next-auth.session-token',
+      name: name,
       value: sessionToken,
+      secure: true,
       httpOnly: true,
       path: '/',
       sameSite: 'lax'
-    }).then(() => {
+    })
+  }
+
+  // Set all possible session cookie names for compatibility
+  Promise.all(cookieNames.map(name => setCookie(name)))
+    .then(() => {
+      console.log('[Auth] All session cookies set, loading dashboard...')
       mainWindow.loadURL(DASHBOARD_URL)
       mainWindow.focus()
-    }).catch(e => {
-      console.error('[Auth] Fallback cookie error:', e)
+    })
+    .catch((err) => {
+      console.error('[Auth] Cookie set error:', err)
       mainWindow.loadURL(DASHBOARD_URL)
     })
-  })
 }
 
 // Single instance + deep link handling

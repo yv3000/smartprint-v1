@@ -1,34 +1,21 @@
-const { app, BrowserWindow, shell, session } = require('electron')
+const { app, BrowserWindow, shell, protocol, net } = require('electron')
 const path = require('path')
+const https = require('https')
 
-const PROTOCOL = 'smartprint'
 const BASE_URL = 'https://smartprint-tau.vercel.app'
 const AUTH_URL = `${BASE_URL}/admin/auth`
 const DASHBOARD_URL = `${BASE_URL}/admin/dashboard`
+const BRIDGE_URL = `${BASE_URL}/admin/auth-bridge`
 
 let mainWindow = null
 
-// ============================================================
-// Register custom protocol: smartprint://
-// This is how the system browser sends auth data back to Electron
-// ============================================================
+// Register smartprint:// protocol BEFORE app is ready
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [path.resolve(process.argv[1])])
+    app.setAsDefaultProtocolClient('smartprint', process.execPath, [path.resolve(process.argv[1])])
   }
 } else {
-  app.setAsDefaultProtocolClient(PROTOCOL)
-}
-
-// Helper: check if a URL should be opened in the system browser
-function isOAuthUrl(url) {
-  return (
-    url.includes('accounts.google.com') ||
-    url.includes('oauth2.googleapis.com') ||
-    // Catch NextAuth's internal signin redirect chain too
-    url.includes('/api/auth/signin') ||
-    url.includes('/api/auth/callback')
-  )
+  app.setAsDefaultProtocolClient('smartprint')
 }
 
 function createWindow() {
@@ -44,7 +31,6 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: false,
-      // partition: 'persist:smartprint-admin',
     },
     autoHideMenuBar: true,
   })
@@ -56,64 +42,36 @@ function createWindow() {
 
   mainWindow.loadURL(AUTH_URL)
 
-  // ============================================================
-  // CORE FIX: Intercept Google OAuth navigation → system browser
-  // Google blocks embedded WebView OAuth since 2021.
-  // We must open the OAuth URL in the user's real browser.
-  // ============================================================
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    console.log('[will-navigate]', url.substring(0, 120))
-
-    if (isOAuthUrl(url)) {
+    console.log('[will-navigate]', url.substring(0, 100))
+    
+    // Intercept Google OAuth and open in system browser
+    if (url.includes('accounts.google.com') || url.includes('oauth2.googleapis.com')) {
       event.preventDefault()
       shell.openExternal(url)
-      console.log('[OAuth] Redirected to system browser')
+      console.log('[OAuth] Opened in system browser')
       return
     }
-
-    // Redirect root to dashboard
-    if (url === BASE_URL || url === BASE_URL + '/') {
-      event.preventDefault()
-      mainWindow.loadURL(DASHBOARD_URL)
-      return
-    }
-
-    // All other navigations (within our app) proceed normally
   })
 
   mainWindow.webContents.on('did-navigate', (event, url) => {
-    console.log('[did-navigate]', url.substring(0, 120))
-    if (url === BASE_URL || url === BASE_URL + '/') {
-      setTimeout(() => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.loadURL(DASHBOARD_URL)
-        }
-      }, 500)
-    }
+    console.log('[did-navigate]', url.substring(0, 80))
   })
 
-  // Handle window.open() calls — also intercept OAuth
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    console.log('[window.open]', url.substring(0, 100))
-
-    if (isOAuthUrl(url)) {
+    if (url.includes('accounts.google.com') || url.includes('oauth2.googleapis.com')) {
       shell.openExternal(url)
-      console.log('[OAuth popup] Opened in system browser')
       return { action: 'deny' }
     }
-
-    // URLs within our app — load in the main window
     if (url.includes('smartprint-tau.vercel.app')) {
       mainWindow.loadURL(url)
       return { action: 'deny' }
     }
-
-    // All other URLs — open externally
     shell.openExternal(url)
     return { action: 'deny' }
   })
 
-  // Security: block keyboard shortcuts
+  // Security
   mainWindow.webContents.on('before-input-event', (event, input) => {
     const ctrl = input.control || input.meta
     const key = input.key.toLowerCase()
@@ -121,15 +79,11 @@ function createWindow() {
     if (ctrl && key === 's') { event.preventDefault(); return }
     if (input.key === 'F12') { event.preventDefault(); return }
     if (ctrl && input.shift && key === 'i') { event.preventDefault(); return }
-    if (ctrl && input.shift && key === 'j') { event.preventDefault(); return }
-    if (ctrl && key === 'u') { event.preventDefault(); return }
     if (input.key === 'PrintScreen') { event.preventDefault(); return }
   })
 
-  // No right-click
   mainWindow.webContents.on('context-menu', e => e.preventDefault())
-
-  // Block downloads
+  
   mainWindow.webContents.session.on('will-download', (event, item) => {
     event.preventDefault()
     item.cancel()
@@ -138,92 +92,98 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null })
 }
 
-// ============================================================
-// Handle the protocol callback from system browser
-// After OAuth completes, browser redirects to:
-//   smartprint://auth?token=SESSION_TOKEN&cookie=COOKIE_NAME
-// OR:
-//   smartprint://auth-success  (no token — just signal)
-//
-// If token is provided, we set it as a cookie in Electron's
-// session store so the WebView can authenticate with Vercel.
-// Then we load the dashboard.
-// ============================================================
-async function handleAuthCallback(protocolUrl) {
-  console.log('[Protocol callback]', protocolUrl)
-
+// Handle deep link: smartprint://auth?token=XXXX
+function handleDeepLink(url) {
+  console.log('[Deep link received]', url)
+  
+  if (!url.startsWith('smartprint://')) return
+  
   try {
-    const url = new URL(protocolUrl)
-    const token = url.searchParams.get('token')
-    const cookieName = url.searchParams.get('cookie') || '__Secure-authjs.session-token'
-
-    if (token) {
-      console.log('[Auth] Setting session cookie:', cookieName)
-
-      // Set the session cookie in Electron's default session store
-      const ses = session.defaultSession
-
-      // Set all possible cookie name variants so NextAuth can find the session
-      const cookieVariants = [
-        { name: '__Secure-authjs.session-token', secure: true },
-        { name: 'authjs.session-token', secure: false },
-        { name: '__Secure-next-auth.session-token', secure: true },
-        { name: 'next-auth.session-token', secure: false },
-      ]
-
-      for (const variant of cookieVariants) {
-        await ses.cookies.set({
-          url: BASE_URL,
-          name: variant.name,
-          value: token,
-          secure: variant.secure,
-          httpOnly: true,
-          sameSite: 'lax',
-          path: '/',
-          expirationDate: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
-        })
-      }
-
-      console.log('[Auth] All cookies set successfully')
-    } else {
-      console.log('[Auth] No token in callback — loading dashboard anyway')
+    const urlObj = new URL(url)
+    const token = urlObj.searchParams.get('token')
+    
+    if (urlObj.hostname === 'auth' && token) {
+      console.log('[Auth] Got transfer token, verifying...')
+      verifyTransferToken(token)
     }
-
-    // Load the dashboard in Electron
-    console.log('[Auth] Loading dashboard...')
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.show()
-      mainWindow.focus()
-      mainWindow.loadURL(DASHBOARD_URL)
-    }
-  } catch (err) {
-    console.error('[Auth] Error handling callback:', err)
-    // Still try to load dashboard as fallback
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.show()
-      mainWindow.focus()
-      mainWindow.loadURL(AUTH_URL)
-    }
+  } catch (e) {
+    console.error('[Deep link] Parse error:', e)
   }
 }
 
-// ============================================================
-// Single instance lock + protocol handling for Windows
-// On Windows, protocol URLs arrive via second-instance event
-// ============================================================
+function verifyTransferToken(token) {
+  const apiUrl = `${BASE_URL}/api/auth/transfer?token=${token}`
+  
+  https.get(apiUrl, (res) => {
+    let data = ''
+    res.on('data', chunk => data += chunk)
+    res.on('end', () => {
+      try {
+        const result = JSON.parse(data)
+        
+        if (result.success && result.sessionToken) {
+          console.log('[Auth] Session verified for:', result.userEmail)
+          setSessionAndLoadDashboard(result.sessionToken)
+        } else {
+          console.error('[Auth] Token verification failed:', result.error)
+          if (mainWindow) mainWindow.loadURL(AUTH_URL)
+        }
+      } catch (e) {
+        console.error('[Auth] Response parse error:', e)
+        if (mainWindow) mainWindow.loadURL(AUTH_URL)
+      }
+    })
+  }).on('error', (err) => {
+    console.error('[Auth] API request failed:', err)
+    if (mainWindow) mainWindow.loadURL(AUTH_URL)
+  })
+}
+
+function setSessionAndLoadDashboard(sessionToken) {
+  if (!mainWindow) return
+  
+  // Set the session cookie in Electron
+  mainWindow.webContents.session.cookies.set({
+    url: BASE_URL,
+    name: '__Secure-next-auth.session-token',
+    value: sessionToken,
+    secure: true,
+    httpOnly: true,
+    path: '/',
+    sameSite: 'lax'
+  }).then(() => {
+    console.log('[Auth] Session cookie set, loading dashboard...')
+    mainWindow.loadURL(DASHBOARD_URL)
+    mainWindow.focus()
+  }).catch((err) => {
+    console.error('[Auth] Cookie set error:', err)
+    // Try without __Secure prefix
+    mainWindow.webContents.session.cookies.set({
+      url: BASE_URL,
+      name: 'next-auth.session-token',
+      value: sessionToken,
+      httpOnly: true,
+      path: '/',
+      sameSite: 'lax'
+    }).then(() => {
+      mainWindow.loadURL(DASHBOARD_URL)
+      mainWindow.focus()
+    }).catch(e => {
+      console.error('[Auth] Fallback cookie error:', e)
+      mainWindow.loadURL(DASHBOARD_URL)
+    })
+  })
+}
+
+// Single instance + deep link handling
 const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
-  // Another instance is running. Check if we received a protocol URL.
-  // If so, the primary instance will handle it via second-instance event.
   app.quit()
 } else {
+  // Windows: deep link comes via second-instance
   app.on('second-instance', (event, commandLine) => {
-    // Find protocol URL in command line args
-    const protocolUrl = commandLine.find(arg => arg.startsWith(`${PROTOCOL}://`))
-    if (protocolUrl) {
-      console.log('[Protocol callback Windows]', protocolUrl)
-      handleAuthCallback(protocolUrl)
-    }
+    const deepLink = commandLine.find(arg => arg.startsWith('smartprint://'))
+    if (deepLink) handleDeepLink(deepLink)
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore()
       mainWindow.focus()
@@ -231,10 +191,10 @@ if (!gotTheLock) {
   })
 }
 
-// macOS: protocol URLs arrive via open-url event
+// macOS: deep link
 app.on('open-url', (event, url) => {
   event.preventDefault()
-  handleAuthCallback(url)
+  handleDeepLink(url)
 })
 
 app.whenReady().then(() => {

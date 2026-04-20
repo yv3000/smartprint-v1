@@ -44,7 +44,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: false,
-      partition: 'persist:smartprint-admin',
+      // partition: 'persist:smartprint-admin',
     },
     autoHideMenuBar: true,
   })
@@ -160,8 +160,8 @@ async function handleAuthCallback(protocolUrl) {
     if (token) {
       console.log('[Auth] Setting session cookie:', cookieName)
 
-      // Set the session cookie in Electron's persistent session store
-      const ses = session.fromPartition('persist:smartprint-admin')
+      // Set the session cookie in Electron's default session store
+      const ses = session.defaultSession
 
       // Set all possible cookie name variants so NextAuth can find the session
       const cookieVariants = [

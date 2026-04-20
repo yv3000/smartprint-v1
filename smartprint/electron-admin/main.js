@@ -10,11 +10,11 @@ const BRIDGE_URL = `${BASE_URL}/admin/auth-bridge`
 let mainWindow = null
 
 // Register smartprint:// protocol BEFORE app is ready
-if (process.defaultApp) {
-  if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient('smartprint', process.execPath, [path.resolve(process.argv[1])])
-  }
-} else {
+// Register smartprint:// protocol
+const protocolClientSet = app.setAsDefaultProtocolClient('smartprint', process.execPath, [path.resolve(process.argv[1])])
+console.log('[Protocol] Registration success:', protocolClientSet)
+
+if (!process.defaultApp) {
   app.setAsDefaultProtocolClient('smartprint')
 }
 
@@ -46,10 +46,15 @@ function createWindow() {
     console.log('[will-navigate]', url.substring(0, 100))
     
     // Intercept Google OAuth and open in system browser
-    if (url.includes('accounts.google.com') || url.includes('oauth2.googleapis.com')) {
+    if (
+      url.includes('accounts.google.com') || 
+      url.includes('oauth2.googleapis.com') ||
+      url.includes('mode=electron') ||
+      url.includes('/admin/auth-bridge')
+    ) {
       event.preventDefault()
       shell.openExternal(url)
-      console.log('[OAuth] Opened in system browser')
+      console.log('[OAuth/Bridge] Redirected to system browser via will-navigate')
       return
     }
   })

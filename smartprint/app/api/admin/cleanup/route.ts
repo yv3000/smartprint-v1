@@ -7,11 +7,11 @@ export async function GET(req: NextRequest) {
   try {
     const expiredJobs = await prisma.job.findMany({
       where: {
-        openedAt: { not: null },
-        status: { notIn: ["expired", "deleted"] },
-        openedAt: {
-          lt: new Date(Date.now() - 100000), // More than 100s ago
+        openedAt: { 
+          not: null,
+          lt: new Date(Date.now() - 100000) // More than 100s ago
         },
+        status: { notIn: ["expired", "deleted"] },
       },
     });
 

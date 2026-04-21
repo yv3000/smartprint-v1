@@ -5,14 +5,17 @@ export default function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
   
   // Check for NextAuth session cookies directly to avoid importing Prisma in Edge Runtime
-  const sessionCookie = req.cookies.get('next-auth.session-token') || 
+  // NextAuth v4 uses 'next-auth.session-token', v5 uses 'authjs.session-token'
+  const sessionCookie = req.cookies.get('__Secure-authjs.session-token') ||
+                        req.cookies.get('authjs.session-token') ||
+                        req.cookies.get('next-auth.session-token') || 
                         req.cookies.get('__Secure-next-auth.session-token');
   const isLoggedIn = !!sessionCookie;
 
   // Admin routes — require authentication
   if (pathname.startsWith('/admin')) {
-    // Allow auth page always
-    if (pathname === '/admin/auth') {
+    // Allow auth page, electron callback, and bridge always
+    if (pathname === '/admin/auth' || pathname === '/admin/electron-callback' || pathname === '/admin/auth-bridge') {
       return NextResponse.next()
     }
     // Allow NextAuth API routes

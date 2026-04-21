@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import CountdownTimer from "./CountdownTimer";
 import type { JobResponse, PrintSettings } from "@/lib/types";
 import mammoth from "mammoth";
@@ -123,32 +123,44 @@ export default function JobViewer({
       return;
     }
     
-    // For secure files in Electron: use Electron's print API
-    // This sends directly to printer without preview
-    const { ipcRenderer } = (window as any).require('electron');
+    const electron = (window as any).electron;
+    if (!electron) {
+      toast.error('Electron bridge not found. Please restart the app.');
+      return;
+    }
     
-    // Convert blob to data URL for electron print
-    const reader = new FileReader();
-    return new Promise<void>((resolve) => {
+    return new Promise<void>((resolve, reject) => {
+      const reader = new FileReader();
       reader.onload = (e) => {
-        ipcRenderer.send('smartprint-print', {
+        const dataUrl = e.target?.result as string;
+        
+        electron.send('smartprint-print', {
+          data: dataUrl,
           color: settings.colorMode !== 'Black & White',
           landscape: settings.orientation === 'Landscape',
           pageSize: settings.paperSize || 'A4',
           scale: settings.scale || 100,
           copies: settings.copies || 1,
+          printerName: selectedPrinterName,
         });
         
-        ipcRenderer.once('print-result', (event: any, result: any) => {
+        electron.once('print-result', (result: any) => {
           if (result.success) {
             toast.success('Printing complete');
             handleMarkPrinted();
+            resolve();
           } else {
             toast.error('Printing failed: ' + result.reason);
+            reject(new Error(result.reason));
           }
-          resolve();
         });
       };
+      
+      reader.onerror = () => {
+        toast.error('Failed to read file for printing');
+        reject(new Error('File read failed'));
+      };
+      
       reader.readAsDataURL(fileBlob);
     });
   };
@@ -313,8 +325,7 @@ export default function JobViewer({
       
       const filename = currentJob.fileNames?.[fileIndex] || currentJob.fileNames?.[0];
       if (!filename) {
-        toast.error('File not found');
-        return;
+        throw new Error('File not found');
       }
       
       const extractToken = previewUrls[fileIndex]?.split('token=')[1]?.split('&')[0];
@@ -326,12 +337,8 @@ export default function JobViewer({
       );
       
       if (!response.ok) {
-        if (response.status === 404) {
-          toast.error('File has been deleted or expired');
-        } else {
-          toast.error('Failed to fetch file');
-        }
-        return;
+        if (response.status === 404) throw new Error('File has been deleted or expired');
+        throw new Error('Failed to fetch file from server');
       }
       
       const blob = await response.blob();
@@ -353,7 +360,12 @@ export default function JobViewer({
           const iv = encryptedBuffer.slice(0, 12);
           const data = encryptedBuffer.slice(12);
           
-          const keyBytes = Uint8Array.from(atob(keyBase64), c => c.charCodeAt(0));
+          const binaryString = atob(keyBase64);
+          const keyBytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            keyBytes[i] = binaryString.charCodeAt(i);
+          }
+
           const cryptoKey = await crypto.subtle.importKey(
             'raw', keyBytes, { name: 'AES-GCM' }, false, ['decrypt']
           );
@@ -368,8 +380,7 @@ export default function JobViewer({
           printType = originalType;
         } catch (decryptErr) {
           console.error('Decryption error:', decryptErr);
-          toast.error('Failed to decrypt file for printing');
-          return;
+          throw new Error('Failed to decrypt file. Key might be invalid.');
         }
       }
       
@@ -389,9 +400,10 @@ export default function JobViewer({
         onJobUpdate();
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Print error:', error);
-      toast.error('Printing failed. Please try again.');
+      toast.error(error.message || 'Printing failed. Please try again.');
+      throw error; // Re-throw to stop handlePrintAll
     } finally {
       setIsPrinting(false);
       setPrintingIndex(null);
@@ -401,25 +413,94 @@ export default function JobViewer({
   const handlePrintAll = async () => {
     if (!jobData || !previewUrls.length) return;
     const fileCount = jobData.fileCount || 1;
-    for (let i = 0; i < fileCount; i++) {
-      setPrintProgress(`Printing ${i + 1} of ${fileCount}...`);
-      await handlePrintFile(jobData, i);
-      if (i < fileCount - 1) {
-        await new Promise(resolve => setTimeout(resolve, 2500));
+    
+    try {
+      for (let i = 0; i < fileCount; i++) {
+        setPrintProgress(`Printing ${i + 1} of ${fileCount}...`);
+        await handlePrintFile(jobData, i);
+        if (i < fileCount - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2500));
+        }
       }
+      toast.success(`All ${fileCount} files sent to printer`);
+      setPrintProgress("");
+      handleMarkPrinted();
+    } catch (err) {
+      // Error already handled in handlePrintFile
+      setPrintProgress("");
     }
-    toast.success(`All ${fileCount} files sent to printer`);
-    setPrintProgress("");
-    handleMarkPrinted();
   };
 
   const handleExpired = useCallback(() => setIsExpired(true), []);
+
+  const [availablePrinters, setAvailablePrinters] = useState<any[]>([]);
+  const [selectedPrinterName, setSelectedPrinterName] = useState<string>("");
+
+  useEffect(() => {
+    if (isElectron) {
+      (window as any).electron.getPrinters().then((printers: any[]) => {
+        setAvailablePrinters(printers);
+        const saved = localStorage.getItem('sp_selected_printer');
+        if (saved) {
+           setSelectedPrinterName(saved);
+        } else {
+           // Proactively avoid virtual printers for the initial selection
+           const virtualKeywords = ['pdf', 'xps', 'onenote', 'fax', 'microsoft print', 'send to'];
+           const physicalPrinters = printers.filter(p => !virtualKeywords.some(k => p.name.toLowerCase().includes(k)));
+           
+           if (physicalPrinters.length > 0) {
+             setSelectedPrinterName(physicalPrinters[0].name);
+           } else {
+             const def = printers.find(p => p.isDefault);
+             if (def) setSelectedPrinterName(def.name);
+           }
+        }
+      });
+    }
+  }, [isElectron]);
+
+  const handlePrinterChange = (name: string) => {
+    setSelectedPrinterName(name);
+    localStorage.setItem('sp_selected_printer', name);
+  };
+
+  const isVirtualSelected = useMemo(() => {
+    const virtualKeywords = ['pdf', 'xps', 'onenote', 'fax', 'microsoft print', 'send to'];
+    return virtualKeywords.some(k => selectedPrinterName.toLowerCase().includes(k));
+  }, [selectedPrinterName]);
 
   const renderSettings = (s: any) => {
     if (!s) return null;
     const val = (k: string, v: any) => v || "Default";
     return (
-      <div className="space-y-4">
+      <div className="space-y-5">
+        {/* Printer Selection */}
+        {isElectron && availablePrinters.length > 0 && (
+          <div className="pb-4 border-b border-border">
+            <div className="text-[10px] text-secondary uppercase tracking-widest mb-2 font-bold">Target Printer</div>
+            <select 
+              value={selectedPrinterName}
+              onChange={(e) => handlePrinterChange(e.target.value)}
+              className={`w-full bg-surface border rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 transition-all ${
+                isVirtualSelected ? 'border-amber-400 focus:ring-amber-500' : 'border-border focus:ring-black'
+              }`}
+            >
+              {availablePrinters.map(p => (
+                <option key={p.name} value={p.name}>
+                  {p.name} {p.isDefault ? '(Default)' : ''}
+                </option>
+              ))}
+            </select>
+            {isVirtualSelected ? (
+              <p className="text-[10px] text-amber-600 mt-1.5 leading-tight font-medium">
+                ⚠️ Virtual printer selected. Windows will ask where to save the file. Use a physical printer for direct printing.
+              </p>
+            ) : (
+              <p className="text-[10px] text-secondary mt-1.5 leading-tight">Physical printer selected. Printing will be silent and direct.</p>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3 pb-3 border-b border-border">
           <div><div className="text-[10px] text-secondary uppercase tracking-widest mb-0.5">Paper</div><div className="text-sm font-medium">{val('paper', s.paperSize)}</div></div>
           <div><div className="text-[10px] text-secondary uppercase tracking-widest mb-0.5">Mode</div><div className="text-sm font-medium">{val('color', s.colorMode)}</div></div>

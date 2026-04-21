@@ -41,6 +41,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   adminProfile  Admin?
+  electronTransferTokens ElectronTransferToken[]
 }
 
 model VerificationToken {
@@ -85,4 +86,14 @@ model Job {
 model Counter {
   id    String @id
   value Int    @default(0)
+}
+
+model ElectronTransferToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
 }

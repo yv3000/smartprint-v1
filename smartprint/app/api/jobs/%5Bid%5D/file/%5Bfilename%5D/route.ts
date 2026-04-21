@@ -16,10 +16,10 @@ export async function GET(
   // 1. Verify job ownership (admin)
   const job = await prisma.job.findUnique({
     where: { id: params.id },
-    include: { admin: true }
+    include: { admin: { include: { user: true } } }
   });
 
-  if (!job || job.admin.email !== session.user.email) {
+  if (!job || job.admin.user.email !== session.user.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

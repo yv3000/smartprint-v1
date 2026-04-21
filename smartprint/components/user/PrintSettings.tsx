@@ -144,11 +144,11 @@ export default function PrintSettings({
           <div className="flex gap-4">
             <div>
               <label className="text-xs text-secondary mb-1 block">Top/Bottom (in)</label>
-              <input type="number" step="0.1" value={settings.customMarginTopBottom || 1} onChange={e => update({ customMarginTopBottom: parseFloat(e.target.value) })} className="w-full px-2 py-1 border border-border rounded text-sm" />
+              <input type="number" step="0.1" value={settings.customMarginTopBottom ?? 1} onChange={e => update({ customMarginTopBottom: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm" />
             </div>
             <div>
               <label className="text-xs text-secondary mb-1 block">Left/Right (in)</label>
-              <input type="number" step="0.1" value={settings.customMarginLeftRight || 1} onChange={e => update({ customMarginLeftRight: parseFloat(e.target.value) })} className="w-full px-2 py-1 border border-border rounded text-sm" />
+              <input type="number" step="0.1" value={settings.customMarginLeftRight ?? 1} onChange={e => update({ customMarginLeftRight: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm" />
             </div>
           </div>
         )}
@@ -233,11 +233,11 @@ export default function PrintSettings({
           <div className="flex gap-4">
             <div>
               <label className="text-xs text-secondary mb-1 block">Width</label>
-              <input type="number" value={settings.customWidthDimensions || 100} onChange={e => update({ customWidthDimensions: parseFloat(e.target.value) })} className="w-full px-2 py-1 border border-border rounded text-sm" />
+              <input type="number" value={settings.customWidthDimensions ?? 100} onChange={e => update({ customWidthDimensions: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm" />
             </div>
             <div>
               <label className="text-xs text-secondary mb-1 block">Height</label>
-              <input type="number" value={settings.customHeightDimensions || 100} onChange={e => update({ customHeightDimensions: parseFloat(e.target.value) })} className="w-full px-2 py-1 border border-border rounded text-sm" />
+              <input type="number" value={settings.customHeightDimensions ?? 100} onChange={e => update({ customHeightDimensions: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm" />
             </div>
           </div>
         )}
@@ -265,7 +265,7 @@ export default function PrintSettings({
       <div className="p-4 rounded-xl border border-border bg-white space-y-4">
         <label className="block text-sm font-semibold mb-3">Adjustments</label>
         <div>
-          <div className="flex justify-between text-xs mb-1"><span>Exposure</span><span>{settings.exposure}</span></div>
+          <div className="flex justify-between text-xs mb-1"><span>Exposure (Saturate)</span><span>{settings.exposure}</span></div>
           <input type="range" min="-100" max="100" value={settings.exposure} onChange={e => update({ exposure: parseInt(e.target.value) })} className="w-full accent-[#4F46E5]" />
         </div>
         <div>
@@ -275,6 +275,10 @@ export default function PrintSettings({
         <div>
           <div className="flex justify-between text-xs mb-1"><span>Contrast</span><span>{settings.contrast}</span></div>
           <input type="range" min="-100" max="100" value={settings.contrast} onChange={e => update({ contrast: parseInt(e.target.value) })} className="w-full accent-[#4F46E5]" />
+        </div>
+        <div>
+          <div className="flex justify-between text-xs mb-1"><span>Saturation</span><span>{settings.saturation}</span></div>
+          <input type="range" min="-100" max="100" value={settings.saturation} onChange={e => update({ saturation: parseInt(e.target.value) })} className="w-full accent-[#4F46E5]" />
         </div>
       </div>
 
@@ -294,11 +298,11 @@ export default function PrintSettings({
           <div className="flex gap-4">
             <div>
               <label className="text-xs text-secondary mb-1 block">Top/Bottom (in)</label>
-              <input type="number" step="0.1" value={settings.customMarginTopBottom || 1} onChange={e => update({ customMarginTopBottom: parseFloat(e.target.value) })} className="w-full px-2 py-1 border border-border rounded text-sm" />
+              <input type="number" step="0.1" value={settings.customMarginTopBottom ?? 1} onChange={e => update({ customMarginTopBottom: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm" />
             </div>
             <div>
               <label className="text-xs text-secondary mb-1 block">Left/Right (in)</label>
-              <input type="number" step="0.1" value={settings.customMarginLeftRight || 1} onChange={e => update({ customMarginLeftRight: parseFloat(e.target.value) })} className="w-full px-2 py-1 border border-border rounded text-sm" />
+              <input type="number" step="0.1" value={settings.customMarginLeftRight ?? 1} onChange={e => update({ customMarginLeftRight: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm" />
             </div>
           </div>
         )}
@@ -324,9 +328,6 @@ export default function PrintSettings({
               <div className="text-xs text-secondary">{l.desc}</div>
             </div>
           ))}
-          <div
-            className={`p-3 rounded-lg border cursor-pointer transition-all ${![1, 2, 4, 9, 35].includes(settings.photosPerPage) ? "border-[#4F46E5] bg-[#4F46E5]/5" : "border-border hover:bg-surface"}`}
-          >
             <div className="text-sm font-semibold mb-1">Custom</div>
             <input type="number" min="1" max="100" value={![1, 2, 4, 9, 35].includes(settings.photosPerPage) ? settings.photosPerPage : ""} placeholder="e.g. 6" onChange={(e) => update({ photosPerPage: parseInt(e.target.value) || 1 })} className="w-full px-2 py-1 border border-border bg-white rounded text-xs text-center focus:outline-none" />
           </div>

@@ -15,7 +15,7 @@ export async function GET(
 
   const job = await prisma.job.findUnique({
     where: { id: params.id },
-    include: { admin: true },
+    include: { admin: { include: { user: true } } },
   });
 
   if (!job) {
@@ -23,7 +23,7 @@ export async function GET(
   }
 
   // Multi-admin isolation check
-  if (job.admin.email !== session.user.email) {
+  if (job.admin.user.email !== session.user.email) {
     return NextResponse.json({ error: "Unauthorized access to this job" }, { status: 403 });
   }
 
@@ -41,7 +41,7 @@ export async function GET(
         openedAt: new Date(),
         status: "opened"
       },
-      include: { admin: true },
+      include: { admin: { include: { user: true } } },
     });
   }
 

@@ -1,14 +1,6 @@
-/**
- * GET /api/jobs/[jobId] — Get job details
- * DELETE /api/jobs/[jobId] — Delete a job
- * 
- * GET records openedAt timestamp on first open (starts 100s countdown).
- * Returns job metadata and signed file URLs.
- */
-
 import { NextRequest, NextResponse } from "next/server";
-import { getJob, markJobOpened, markJobDeleted } from "@/lib/db";
-import { generateFileToken, deleteJobFiles, jobFilesExist } from "@/lib/storage";
+import prisma from "@/lib/prisma";
+import { generateFileToken, deleteJobFiles } from "@/lib/storage";
 import type { JobResponse } from "@/lib/types";
 
 export async function GET(
@@ -17,7 +9,10 @@ export async function GET(
 ) {
   try {
     const { jobId } = await params;
-    const job = getJob(jobId);
+    
+    const job = await prisma.job.findUnique({
+      where: { id: jobId }
+    });
 
     if (!job) {
       return NextResponse.json(
@@ -33,17 +28,22 @@ export async function GET(
       );
     }
 
+    let updatedJob = job;
     // Record openedAt on first open — this starts the 100s countdown
-    if (!job.opened_at) {
-      markJobOpened(jobId);
-      job.opened_at = Date.now();
-      job.status = "opened";
+    if (!job.openedAt) {
+      updatedJob = await prisma.job.update({
+        where: { id: jobId },
+        data: { 
+          openedAt: new Date(),
+          status: "opened"
+        }
+      });
     }
 
     // Generate signed file URLs
-    const fileNames: string[] = job.file_names
-      ? JSON.parse(job.file_names)
-      : [];
+    // In Prisma, we don't store fileNames, so we list them from disk
+    const { listJobFiles } = await import("@/lib/storage");
+    const fileNames = listJobFiles(jobId);
 
     const fileUrls = fileNames.map((name) => {
       const token = generateFileToken(jobId, name);
@@ -51,21 +51,21 @@ export async function GET(
     });
 
     // Calculate remaining seconds
-    const remainingSeconds = job.opened_at
-      ? Math.max(0, 100 - Math.floor((Date.now() - job.opened_at) / 1000))
+    const remainingSeconds = updatedJob.openedAt
+      ? Math.max(0, 100 - Math.floor((Date.now() - updatedJob.openedAt.getTime()) / 1000))
       : 100;
 
     const response: JobResponse = {
-      id: job.id,
-      userId: job.user_id,
-      createdAt: job.created_at,
-      openedAt: job.opened_at,
-      printedAt: job.printed_at,
-      expiredAt: job.expired_at,
-      isEncrypted: job.is_encrypted === 1,
-      settings: job.settings ? JSON.parse(job.settings) : null,
-      fileCount: job.file_count,
-      status: job.status,
+      id: updatedJob.id,
+      userId: updatedJob.userId,
+      createdAt: updatedJob.createdAt.getTime(),
+      openedAt: updatedJob.openedAt?.getTime() || null,
+      printedAt: updatedJob.printedAt?.getTime() || null,
+      expiredAt: updatedJob.expiredAt?.getTime() || null,
+      isEncrypted: updatedJob.isEncrypted,
+      settings: updatedJob.settings as any,
+      fileCount: updatedJob.fileCount,
+      status: updatedJob.status,
       fileNames,
       fileUrls,
       remainingSeconds,
@@ -89,19 +89,26 @@ export async function DELETE(
     const { jobId } = await params;
     const { searchParams } = new URL(request.url);
     const userToken = searchParams.get("userToken");
-    const job = getJob(jobId);
+    
+    const job = await prisma.job.findUnique({
+      where: { id: jobId }
+    });
 
     if (!job) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
     // If userToken is provided, verify it matches (user-side deletion)
-    if (userToken && (job as any).user_token !== userToken) {
+    if (userToken && job.userToken !== userToken) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     deleteJobFiles(jobId);
-    markJobDeleted(jobId);
+    
+    await prisma.job.update({
+      where: { id: jobId },
+      data: { status: "deleted" }
+    });
 
     return NextResponse.json({ success: true, message: "Job deleted" });
   } catch (error) {

@@ -19,6 +19,7 @@ export default function AdminDashboard() {
   const [showQR, setShowQR] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [shopName, setShopName] = useState("SmartPrint");
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/admin/auth");
@@ -40,6 +41,15 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (status === "authenticated") {
       fetchJobs();
+      
+      // Also fetch shop name
+      fetch("/api/admin/profile")
+        .then(res => res.json())
+        .then(data => {
+          if (data.shopName) setShopName(data.shopName);
+        })
+        .catch(err => console.error("Error fetching shop name:", err));
+
       const interval = setInterval(fetchJobs, 5000);
       return () => clearInterval(interval);
     }
@@ -90,7 +100,7 @@ export default function AdminDashboard() {
                   <polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" />
                 </svg>
               </div>
-              <span className="text-base font-semibold tracking-tight text-[#111827]">SmartPrint</span>
+              <span className="text-base font-semibold tracking-tight text-[#111827]">{shopName}</span>
               <span className="text-[10px] text-[#6B7280] px-1.5 py-0.5 rounded bg-[#F9FAFB] border border-[#E5E7EB] ml-1 font-medium">Admin</span>
             </div>
             <div className="flex items-center gap-2">

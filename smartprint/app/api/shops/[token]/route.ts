@@ -36,6 +36,7 @@ export async function GET(
     }
 
     return NextResponse.json({
+      valid: true,
       shopName: admin.shopName,
       qrCode: admin.qrCode,
       address: admin.address,

@@ -28,6 +28,7 @@ export interface PrintSettings {
   exposure: number;
   brightness: number;
   contrast: number;
+  saturation: number;
   photosPerPage: number; // 1 (Full), 2, 4, 9, 35, or custom number 
   encryptionKeys?: string;
   fileInfos?: any[];
@@ -71,5 +72,6 @@ export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
   exposure: 0,
   brightness: 0,
   contrast: 0,
+  saturation: 0,
   photosPerPage: 1,
 };

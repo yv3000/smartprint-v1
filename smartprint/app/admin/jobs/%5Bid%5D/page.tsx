@@ -199,8 +199,9 @@ export default function JobDetail() {
                </div>
                {job.openedAt && (
                  <CountdownTimer 
-                   openedAt={job.openedAt} 
-                   onExpire={() => {
+                   totalSeconds={100}
+                   initialRemaining={Math.max(0, 100 - Math.floor((Date.now() - new Date(job.openedAt).getTime()) / 1000))}
+                   onExpired={() => {
                      toast.error("Time expired. File deleted.");
                      router.push("/admin/dashboard");
                    }} 
@@ -215,9 +216,9 @@ export default function JobDetail() {
                      {[
                        { label: "Copies", value: job.settings?.copies },
                        { label: "Paper", value: job.settings?.paperSize },
-                       { label: "Color", value: job.settings?.colorMode === 'color' ? 'Full Color' : 'B&W' },
-                       { label: "Pages", value: job.settings?.pageRange || 'All' },
-                       { label: "Double-sided", value: job.settings?.doubleSided },
+                       { label: "Color", value: job.settings?.colorMode === 'Color' ? 'Full Color' : 'B&W' },
+                       { label: "Pages", value: job.settings?.allPagesColor ? 'All' : (job.settings?.colorPagesRange || 'All') },
+                       { label: "Orientation", value: job.settings?.orientation || 'Portrait' },
                        { label: "Layout", value: `${job.settings?.pagesPerSheet || 1} per sheet` }
                      ].map((cfg, i) => (
                        <div key={i} className="bg-[#F9FAFB] p-3 rounded-xl border border-[#E5E7EB]">

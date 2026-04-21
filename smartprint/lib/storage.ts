@@ -11,7 +11,8 @@ import path from "path";
 import crypto from "crypto";
 
 // Temp directory for file storage
-const STORAGE_DIR = path.join(process.cwd(), "tmp", "smartprint");
+// Use /tmp which is the only writable directory on Vercel
+const STORAGE_DIR = "/tmp/smartprint";
 
 // Ensure storage directory exists on import
 if (!fs.existsSync(STORAGE_DIR)) {

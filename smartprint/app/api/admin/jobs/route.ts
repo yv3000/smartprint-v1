@@ -9,8 +9,8 @@ export async function GET(req: NextRequest) {
   }
 
   // Find admin by email
-  const admin = await prisma.admin.findUnique({
-    where: { email: session.user.email },
+  const admin = await prisma.admin.findFirst({
+    where: { user: { email: session.user.email } },
   });
 
   if (!admin) {

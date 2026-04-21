@@ -47,6 +47,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session
     },
     async redirect({ url, baseUrl }) {
+      // Always redirect to dashboard after successful login
+      // Use absolute Vercel URL to prevent redirect issues
+      if (url.startsWith('/')) {
+        return `${baseUrl}${url}`
+      }
+      if (url.startsWith(baseUrl)) {
+        return url
+      }
       return `${baseUrl}/admin/dashboard`
     }
   },

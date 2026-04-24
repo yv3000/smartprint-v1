@@ -547,8 +547,21 @@ function UserPageContent() {
                           return { width: cellHeight * ratioValue, height: cellHeight };
                         };
 
+                        const previewRenderKey = [
+                          settings.orientation,
+                          settings.aspectRatio,
+                          settings.photosPerPage,
+                          settings.margins,
+                          marginX,
+                          marginY,
+                          settings.customWidthDimensions,
+                          settings.customHeightDimensions,
+                          files[selectedFileIndex]?.preview,
+                        ].join("|");
+
                         return (
                           <div
+                            key={previewRenderKey}
                             className="bg-white shadow-lg transition-all duration-500 overflow-hidden"
                             style={{
                               width: settings.orientation === 'Landscape' ? 440 : 320,
@@ -567,7 +580,9 @@ function UserPageContent() {
                                 gridTemplateRows: `repeat(${rows}, 1fr)`,
                                 gap: settings.photosPerPage > 1 ? 4 : 0,
                                 overflow: 'hidden',
-                                placeContent: 'center'
+                                placeContent: 'center',
+                                outline: '1px dashed rgba(99, 102, 241, 0.25)',
+                                outlineOffset: '-1px'
                               }}
                             >
                               {Array.from({ length: settings.photosPerPage || 1 }).map((_, idx) => (
@@ -598,7 +613,8 @@ function UserPageContent() {
                                       width: ratioValue ? `${Math.round(frame.width)}px` : '100%',
                                       height: ratioValue ? `${Math.round(frame.height)}px` : '100%',
                                       backgroundColor: '#f3f4f6',
-                                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                      border: ratioValue ? '1px solid rgba(79, 70, 229, 0.35)' : 'none'
                                     }}
                                   >
                                     <img

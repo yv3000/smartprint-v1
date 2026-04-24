@@ -158,6 +158,7 @@ function UserPageContent() {
   };
 
   const handleSettingsChange = (newSettings: PrintSettingsType) => {
+    const cropEnabledNow = !settings.enableCrop && newSettings.enableCrop;
     setSettings(newSettings);
     // Persist per-file adjustments
     setFiles(prev => prev.map((f, i) => i === selectedFileIndex ? { ...f, adjustments: {
@@ -177,6 +178,10 @@ function UserPageContent() {
       customMarginTopBottom: newSettings.customMarginTopBottom,
       customMarginLeftRight: newSettings.customMarginLeftRight
     }} : f));
+
+    if (cropEnabledNow && files[selectedFileIndex]?.file.type.startsWith("image/")) {
+      setShowEditor(true);
+    }
   };
 
   const handleEditorSave = (editedFile: File) => {
@@ -484,66 +489,161 @@ function UserPageContent() {
                       )}
                     </div>
 
-                    <div className="flex-1 bg-[#F9FAFB] rounded-xl overflow-hidden relative flex items-center justify-center border border-dashed border-border min-h-[400px]">
-                      {files[selectedFileIndex]?.preview ? (
-                        <div 
-                          className="relative w-full h-full flex items-center justify-center overflow-hidden transition-all duration-500"
-                          style={{
-                            padding: settings.margins === "None" ? "0" :
-                                     settings.margins === "Narrow" ? "12px" :
-                                     settings.margins === "Normal" ? "24px" :
-                                     settings.margins === "Wide" ? "48px" :
-                                     settings.margins === "Custom" ? `${settings.customMarginTopBottom || 1}in ${settings.customMarginLeftRight || 1}in` : "20px"
-                          }}
-                        >
-                          <div 
-                            className={`grid gap-2 transition-all duration-500 ${
-                              settings.photosPerPage > 9 ? 'grid-cols-6' : 
-                              settings.photosPerPage > 4 ? 'grid-cols-3' : 
-                              settings.photosPerPage > 1 ? 'grid-cols-2' : 'grid-cols-1'
-                            }`}
+                    <div className="flex-1 bg-[#E8E8E8] rounded-xl overflow-hidden relative flex items-center justify-center border border-border" style={{ minHeight: 480 }}>
+                      {files[selectedFileIndex]?.preview ? (() => {
+                        /* ── compute helpers ─────────────────── */
+                        const parseAspectRatioValue = (ratio: string): number | null => {
+                          if (!ratio || ratio === "Original") return null;
+                          if (ratio === "1:1 Square") return 1;
+                          if (ratio === "Full Page") {
+                            return settings.orientation === "Portrait" ? 210 / 297 : 297 / 210;
+                          }
+                          if (ratio === "Custom") {
+                            const w = settings.customWidthDimensions || 0;
+                            const h = settings.customHeightDimensions || 0;
+                            return w > 0 && h > 0 ? w / h : null;
+                          }
+                          const [w, h] = ratio.split(":").map(Number);
+                          if (!w || !h) return null;
+                          return w / h;
+                        };
+
+                        const ratioValue = parseAspectRatioValue(settings.aspectRatio);
+                        const marginY =
+                          settings.margins === "None" ? 0 :
+                          settings.margins === "Narrow" ? 8 :
+                          settings.margins === "Normal" ? 16 :
+                          settings.margins === "Wide" ? 32 :
+                          settings.margins === "Custom" ? Math.max(0, (settings.customMarginTopBottom ?? 1) * 18) : 16;
+                        const marginX =
+                          settings.margins === "None" ? 0 :
+                          settings.margins === "Narrow" ? 8 :
+                          settings.margins === "Normal" ? 16 :
+                          settings.margins === "Wide" ? 32 :
+                          settings.margins === "Custom" ? Math.max(0, (settings.customMarginLeftRight ?? 1) * 18) : 16;
+
+                        const cols =
+                          settings.photosPerPage >= 35 ? 7 :
+                          settings.photosPerPage >= 16 ? 4 :
+                          settings.photosPerPage >= 9  ? 3 :
+                          settings.photosPerPage >= 4  ? 2 :
+                          settings.photosPerPage >= 2  ? 2 : 1;
+
+                        const rows = Math.ceil((settings.photosPerPage || 1) / cols);
+
+                        const imgFilter = `
+                          brightness(${100 + (settings.brightness || 0)}%)
+                          contrast(${100 + (settings.contrast || 0)}%)
+                          saturate(${100 + (settings.saturation || 0)}%)
+                          grayscale(${settings.colorMode === 'Black & White' ? '100%' : '0%'})
+                        `;
+
+                        const getFrameDimensions = (cellWidth: number, cellHeight: number) => {
+                          if (!ratioValue) return { width: cellWidth, height: cellHeight };
+                          const byWidthHeight = cellWidth / ratioValue;
+                          if (byWidthHeight <= cellHeight) {
+                            return { width: cellWidth, height: byWidthHeight };
+                          }
+                          return { width: cellHeight * ratioValue, height: cellHeight };
+                        };
+
+                        return (
+                          <div
+                            className="bg-white shadow-lg transition-all duration-500 overflow-hidden"
                             style={{
-                              aspectRatio: settings.aspectRatio === "1:1 Square" ? "1/1" :
-                                           settings.aspectRatio === "3:4" ? "3/4" :
-                                           settings.aspectRatio === "4:3" ? "4/3" :
-                                           settings.aspectRatio === "2:3" ? "2/3" :
-                                           settings.aspectRatio === "3:2" ? "3/2" :
-                                           settings.aspectRatio === "5:7" ? "5/7" :
-                                           settings.aspectRatio === "7:5" ? "7/5" :
-                                           settings.aspectRatio === "9:16" ? "9/16" :
-                                           settings.aspectRatio === "16:9" ? "16/9" :
-                                           settings.aspectRatio === "Custom" ? `${settings.customWidthDimensions || 100}/${settings.customHeightDimensions || 100}` : 
-                                           settings.aspectRatio === "Full Page" ? (settings.orientation === 'Portrait' ? "210/297" : "297/210") : "auto",
-                              width: (settings.aspectRatio !== "Original" && settings.aspectRatio !== "Full Page") ? "100%" : "auto",
-                              maxHeight: "100%"
+                              width: settings.orientation === 'Landscape' ? 440 : 320,
+                              height: settings.orientation === 'Landscape' ? 320 : 440,
+                              padding: `${marginY}px ${marginX}px`,
+                              display: 'flex',
+                              flexDirection: 'column',
                             }}
                           >
-                            {Array.from({ length: settings.photosPerPage || 1 }).map((_, idx) => (
-                              <img 
-                                key={idx}
-                                src={files[selectedFileIndex].preview} 
-                                alt="Preview" 
-                                className="w-full h-full object-cover shadow-sm transition-all duration-300"
-                                style={{
-                                  filter: `
-                                    brightness(${100 + (settings.brightness || 0)}%)
-                                    contrast(${100 + (settings.contrast || 0)}%)
-                                    saturate(${100 + (settings.saturation || 0)}%)
-                                    grayscale(${settings.colorMode === 'Black & White' ? '100%' : '0%'})
-                                    opacity(${100 + (settings.exposure || 0)}%)
-                                  `,
-                                  transform: settings.orientation === 'Landscape' && settings.photosPerPage === 1 ? 'rotate(90deg)' : 'rotate(0deg)'
-                                }}
-                              />
-                            ))}
+                            {/* Page simulation */}
+                            <div
+                              style={{
+                                flex: 1,
+                                display: 'grid',
+                                gridTemplateColumns: `repeat(${cols}, 1fr)`,
+                                gridTemplateRows: `repeat(${rows}, 1fr)`,
+                                gap: settings.photosPerPage > 1 ? 4 : 0,
+                                overflow: 'hidden',
+                                placeContent: 'center'
+                              }}
+                            >
+                              {Array.from({ length: settings.photosPerPage || 1 }).map((_, idx) => (
+                                (() => {
+                                  const pageWidth = settings.orientation === "Landscape" ? 440 : 320;
+                                  const pageHeight = settings.orientation === "Landscape" ? 320 : 440;
+                                  const contentWidth = Math.max(40, pageWidth - marginX * 2);
+                                  const contentHeight = Math.max(40, pageHeight - marginY * 2 - (settings.photosPerPage > 1 ? 20 : 0));
+                                  const cellWidth = contentWidth / cols;
+                                  const cellHeight = contentHeight / rows;
+                                  const frame = getFrameDimensions(cellWidth, cellHeight);
+
+                                  return (
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-center overflow-hidden"
+                                  style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    minHeight: 0,
+                                    minWidth: 0
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      position: 'relative',
+                                      overflow: 'hidden',
+                                      width: ratioValue ? `${Math.round(frame.width)}px` : '100%',
+                                      height: ratioValue ? `${Math.round(frame.height)}px` : '100%',
+                                      backgroundColor: '#f3f4f6',
+                                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                    }}
+                                  >
+                                    <img
+                                      src={files[selectedFileIndex].preview}
+                                      alt="Preview"
+                                      className="transition-all duration-300"
+                                      style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: (ratioValue || settings.photosPerPage > 1) ? 'cover' : 'contain',
+                                        filter: imgFilter,
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                                  );
+                                })()
+                              ))}
+                            </div>
+
+                            {/* Layout label overlay */}
+                            {settings.photosPerPage > 1 && (
+                              <div className="text-center pt-1 border-t border-gray-100 mt-1">
+                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">
+                                  Layout: {settings.photosPerPage} Photos per page
+                                </span>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ) : (
+                        );
+                      })() : (
                         <div className="text-center p-8">
                           <AlertCircle className="w-8 h-8 text-secondary/40 mx-auto mb-2" />
                           <p className="text-sm text-secondary">No preview available for this file type.</p>
                         </div>
                       )}
+                    </div>
+
+                    {/* Margin indicator */}
+                    <div className="flex items-center justify-between mt-2 px-1">
+                      <span className="text-[10px] font-bold text-secondary/50 uppercase">Margin: {settings.margins}</span>
+                      <span className="text-[10px] font-bold text-secondary/50 uppercase">
+                        {settings.aspectRatio !== 'Original' ? `Ratio: ${settings.aspectRatio}` : 'Original Size'}
+                        {settings.aspectRatio === 'Custom' ? ` (${settings.customWidthDimensions}×${settings.customHeightDimensions})` : ''}
+                      </span>
                     </div>
                     {/* ... rest of the preview footers ... */}
                     <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">

@@ -200,18 +200,38 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
       </div>
 
       {/* Canvas Preview */}
-      <div className="flex justify-center bg-[#F9FAFB] rounded-2xl p-4 border border-[#E5E7EB] relative overflow-hidden" style={{ minHeight: 200 }}>
-        <canvas
-          ref={canvasRef}
-          className={`max-w-full max-h-[400px] rounded-lg ${isCropping ? "cursor-crosshair" : ""}`}
-          onMouseDown={handleCropMouseDown}
-          onMouseMove={handleCropMouseMove}
-          onMouseUp={handleCropMouseUp}
-        />
-        {/* Crop overlay */}
-        {isCropping && cropStart && cropEnd && getCropStyle() && (
-          <div className="absolute border-2 border-[#4F46E5] bg-[#4F46E5]/10 pointer-events-none" style={getCropStyle()!} />
-        )}
+      <div className="flex justify-center bg-[#F9FAFB] rounded-2xl p-8 border border-[#E5E7EB] min-h-[300px]">
+        <div className="relative inline-block h-fit w-fit">
+          <canvas
+            ref={canvasRef}
+            className={`max-w-full max-h-[400px] rounded-lg shadow-md ${isCropping ? "cursor-crosshair" : ""}`}
+            onMouseDown={handleCropMouseDown}
+            onMouseMove={handleCropMouseMove}
+            onMouseUp={handleCropMouseUp}
+          />
+          {/* Crop overlay */}
+          {isCropping && cropStart && cropEnd && (
+            <div 
+              className="absolute border-2 border-[#4F46E5] bg-[#4F46E5]/10 pointer-events-none" 
+              style={{
+                ...getCropStyle()!,
+                boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.4)'
+              }} 
+            >
+              <div className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-[#4F46E5] rounded-full ring-2 ring-white" />
+              <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#4F46E5] rounded-full ring-2 ring-white" />
+              <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-[#4F46E5] rounded-full ring-2 ring-white" />
+              <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-[#4F46E5] rounded-full ring-2 ring-white" />
+            </div>
+          )}
+          {isCropping && !cropStart && (
+            <div className="absolute inset-0 bg-black/20 flex items-center justify-center pointer-events-none rounded-lg">
+              <p className="bg-white px-4 py-2 rounded-full text-xs font-bold text-[#4F46E5] shadow-xl animate-bounce">
+                Click and drag to select area
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Controls in horizontal row */}

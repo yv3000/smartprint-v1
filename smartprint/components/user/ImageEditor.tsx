@@ -31,6 +31,7 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
 
   // Crop state
   const [isCropping, setIsCropping] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [cropStart, setCropStart] = useState<{ x: number; y: number } | null>(null);
   const [cropEnd, setCropEnd] = useState<{ x: number; y: number } | null>(null);
   const [appliedCrop, setAppliedCrop] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -96,16 +97,17 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
     const rect = canvasRef.current!.getBoundingClientRect();
     setCropStart({ x: e.clientX - rect.left, y: e.clientY - rect.top });
     setCropEnd(null);
+    setIsDragging(true);
   };
 
   const handleCropMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isCropping || !cropStart) return;
+    if (!isCropping || !isDragging || !cropStart) return;
     const rect = canvasRef.current!.getBoundingClientRect();
     setCropEnd({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
 
   const handleCropMouseUp = () => {
-    // Crop selection complete, keep it visible
+    setIsDragging(false);
   };
 
   const applyCrop = () => {
@@ -208,6 +210,7 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
             onMouseDown={handleCropMouseDown}
             onMouseMove={handleCropMouseMove}
             onMouseUp={handleCropMouseUp}
+            onMouseLeave={handleCropMouseUp}
           />
           {/* Crop overlay */}
           {isCropping && cropStart && cropEnd && (
@@ -267,8 +270,13 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
           </div>
           {isCropping ? (
             <div className="flex gap-2">
-              <button onClick={applyCrop} className="px-3 py-2 text-xs font-bold bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA]">Apply</button>
-              <button onClick={() => { setIsCropping(false); setCropStart(null); setCropEnd(null); }} className="px-3 py-2 text-xs font-bold bg-white border border-[#E5E7EB] rounded-lg">Cancel</button>
+              <button 
+                onClick={applyCrop} 
+                className="px-4 py-2 text-xs font-bold bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] shadow-lg shadow-indigo-200 animate-pulse"
+              >
+                Apply Crop
+              </button>
+              <button onClick={() => { setIsCropping(false); setCropStart(null); setCropEnd(null); setIsDragging(false); }} className="px-3 py-2 text-xs font-bold bg-white border border-[#E5E7EB] rounded-lg">Cancel</button>
             </div>
           ) : (
             <button onClick={() => setIsCropping(true)} className="w-full px-3 py-2 text-xs font-bold bg-white border border-[#E5E7EB] rounded-lg hover:border-[#4F46E5] transition-all">

@@ -164,17 +164,53 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
 
   // Save edited image
   const handleSave = () => {
-    renderCanvas();
-    setTimeout(() => {
+    if (!sourceRef.current) return;
+    const img = sourceRef.current;
+
+    // Use applied crop or current selection
+    let finalCrop = appliedCrop;
+    if (!finalCrop && cropStart && cropEnd) {
       const canvas = canvasRef.current;
-      if (!canvas) return;
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const newFile = new File([blob], file.name, { type: file.type || "image/png" });
-          onSave(newFile);
+      if (canvas) {
+        const scaleX = img.naturalWidth / canvas.width;
+        const scaleY = img.naturalHeight / canvas.height;
+        const x = Math.min(cropStart.x, cropEnd.x) * scaleX;
+        const y = Math.min(cropStart.y, cropEnd.y) * scaleY;
+        const w = Math.abs(cropEnd.x - cropStart.x) * scaleX;
+        const h = Math.abs(cropEnd.y - cropStart.y) * scaleY;
+        if (w > 10 && h > 10) {
+          finalCrop = { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) };
         }
-      }, file.type || "image/png", 0.95);
-    }, 100);
+      }
+    }
+
+    // Create an off-screen canvas for high-quality save
+    const saveCanvas = document.createElement("canvas");
+    const sx = finalCrop?.x ?? 0;
+    const sy = finalCrop?.y ?? 0;
+    const sw = finalCrop?.w ?? img.naturalWidth;
+    const sh = finalCrop?.h ?? img.naturalHeight;
+
+    const isRotated90 = rotation === 90 || rotation === 270;
+    saveCanvas.width = isRotated90 ? sh : sw;
+    saveCanvas.height = isRotated90 ? sw : sh;
+
+    const sctx = saveCanvas.getContext("2d");
+    if (!sctx) return;
+
+    sctx.save();
+    sctx.filter = `brightness(${100 + brightness}%) contrast(${100 + contrast}%) saturate(${100 + saturation}%)`;
+    sctx.translate(saveCanvas.width / 2, saveCanvas.height / 2);
+    sctx.rotate((rotation * Math.PI) / 180);
+    sctx.drawImage(img, sx, sy, sw, sh, -sw / 2, -sh / 2, sw, sh);
+    sctx.restore();
+
+    saveCanvas.toBlob((blob) => {
+      if (blob) {
+        const newFile = new File([blob], file.name, { type: "image/png" });
+        onSave(newFile);
+      }
+    }, "image/png", 0.95);
   };
 
   // Crop overlay rendering
@@ -195,8 +231,11 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
           <button onClick={onCancel} className="px-4 py-2 text-sm font-medium text-[#1A1A1A]/50 hover:text-[#1A1A1A] transition-colors flex items-center gap-1">
             <X className="w-4 h-4" /> Cancel
           </button>
-          <button onClick={handleSave} className="px-5 py-2 bg-[#4F46E5] text-white text-sm font-bold rounded-xl hover:bg-[#4338CA] active:scale-[0.98] transition-all flex items-center gap-1">
-            <Check className="w-4 h-4" /> Apply
+          <button 
+            onClick={handleSave} 
+            className="px-6 py-2.5 bg-[#4F46E5] text-white text-sm font-extrabold rounded-xl hover:bg-[#4338CA] active:scale-[0.98] transition-all flex items-center gap-2 shadow-lg shadow-indigo-100"
+          >
+            <Check className="w-5 h-5" /> Save Changes
           </button>
         </div>
       </div>

@@ -314,16 +314,6 @@ function UserPageContent() {
           )}
         </AnimatePresence>
 
-        <div className="flex items-center gap-2 mb-8">
-          <button 
-            onClick={() => { setActiveTab(activeTab === "recent" ? "none" : "recent"); }}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-              activeTab === "recent" ? "bg-[#111827] text-white" : "bg-white border border-[#E5E7EB] text-[#111827] hover:border-[#6B7280]"
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" /> Recent
-          </button>
-        </div>
 
         {/* ── Main Content ────────────────────────────────────── */}
         <AnimatePresence mode="wait">

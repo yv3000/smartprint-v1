@@ -159,13 +159,13 @@ export default function NearbyMap({ userLat: initialLat, userLng: initialLng, sh
           
           {/* Removed Header */}
 
-          <div className="absolute bottom-10 left-6 z-[110]">
+          <div className="absolute bottom-8 left-6 z-[110]">
             <button 
               onClick={handleLocateMe}
-              className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:bg-gray-50 transition-all active:scale-95 border border-gray-100 group"
+              className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.15)] hover:bg-gray-50 transition-all active:scale-95 border border-gray-100 group"
               aria-label="Locate Me"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="group-hover:scale-110 transition-transform">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="group-hover:scale-110 transition-transform">
                 <circle cx="12" cy="12" r="3" fill="#4F46E5" fillOpacity="0.2" />
                 <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
                 <circle cx="12" cy="12" r="10" />

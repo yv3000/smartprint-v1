@@ -253,12 +253,12 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
           />
           {/* Crop overlay */}
           {isCropping && cropStart && cropEnd && (
-            <div 
-              className="absolute border-2 border-[#4F46E5] bg-[#4F46E5]/10 pointer-events-none" 
+            <div
+              className="absolute border-2 border-[#4F46E5] bg-[#4F46E5]/10 pointer-events-none"
               style={{
                 ...getCropStyle()!,
                 boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.4)'
-              }} 
+              }}
             >
               <div className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-[#4F46E5] rounded-full ring-2 ring-white" />
               <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#4F46E5] rounded-full ring-2 ring-white" />
@@ -289,11 +289,10 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
               <button
                 key={p.value}
                 onClick={() => applySizePreset(p.value)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                  sizePreset === p.value
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${sizePreset === p.value
                     ? "bg-[#4F46E5] text-white"
                     : "bg-white border border-[#E5E7EB] text-[#1A1A1A] hover:border-[#4F46E5]"
-                }`}
+                  }`}
               >
                 {p.label}
               </button>
@@ -363,11 +362,10 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
               <button
                 key={deg}
                 onClick={() => setRotation(deg)}
-                className={`px-2 py-2 text-xs font-medium rounded-lg transition-all ${
-                  rotation === deg
+                className={`px-2 py-2 text-xs font-medium rounded-lg transition-all ${rotation === deg
                     ? "bg-[#4F46E5] text-white"
                     : "bg-white border border-[#E5E7EB] text-[#1A1A1A] hover:border-[#4F46E5]"
-                }`}
+                  }`}
               >
                 {deg}°
               </button>

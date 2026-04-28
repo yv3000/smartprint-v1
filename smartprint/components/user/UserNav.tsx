@@ -1,8 +1,8 @@
 "use client";
 
-import { QrCode, MapPin, Clock } from "lucide-react";
+import { QrCode, Clock } from "lucide-react";
 
-export type UserTab = "scan" | "nearby" | "recent" | "upload";
+export type UserTab = "scan" | "recent" | "upload";
 
 interface UserNavProps {
   activeTab: UserTab;
@@ -21,16 +21,6 @@ export default function UserNav({ activeTab, onTabChange }: UserNavProps) {
         >
           <QrCode className="w-4 h-4" />
           <span>Scan QR</span>
-        </button>
-        
-        <button
-          onClick={() => onTabChange("nearby")}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-full text-[13px] font-semibold transition-all duration-300 ${
-            activeTab === "nearby" ? "bg-[#1A1A1A] text-white shadow-lg" : "text-[#1A1A1A]/40 hover:bg-[#1A1A1A]/5"
-          }`}
-        >
-          <MapPin className="w-4 h-4" />
-          <span>Nearby</span>
         </button>
 
         <button

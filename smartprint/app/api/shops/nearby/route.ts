@@ -34,14 +34,15 @@ export async function GET(request: NextRequest) {
       return {
         shopName: a.shopName,
         qrCode: a.qrCode,
+        latitude: a.latitude,
+        longitude: a.longitude,
         address: a.address || "",
-        distance: dist < 1 ? `${Math.round(dist * 1000)} m away` : `${dist.toFixed(1)} km away`,
+        distance: dist < 1 ? `${Math.round(dist * 1000)}m away` : `${dist.toFixed(1)}km away`,
         distanceKm: dist,
       };
     })
-    .filter((s) => s.distanceKm < 50) // Within 50km
-    .sort((a, b) => a.distanceKm - b.distanceKm)
-    .slice(0, 10);
+    .filter((s) => s.distanceKm <= 1) // Within 1km
+    .sort((a, b) => a.distanceKm - b.distanceKm);
 
   return NextResponse.json(nearby);
 }

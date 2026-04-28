@@ -15,16 +15,6 @@ import SuccessScreen from "@/components/user/SuccessScreen";
 import QRScanner from "@/components/user/QRScanner";
 import ImageEditor from "@/components/user/ImageEditor";
 
-const NearbyMap = dynamic(() => import("@/components/user/NearbyMap"), { 
-  ssr: false,
-  loading: () => <div className="h-[400px] w-full bg-surface animate-pulse rounded-2xl flex items-center justify-center text-sm text-secondary">Loading Map...</div>
-}) as React.ComponentType<{
-  userLat: number;
-  userLng: number;
-  shops: any[];
-  onClose: () => void;
-}>;
-
 /* ── Helpers ─────────────────────────────────────────────── */
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -49,12 +39,8 @@ function UserPageContent() {
   const [shopIdError, setShopIdError] = useState('');
 
   // Discovery tabs
-  const [activeTab, setActiveTab] = useState<"none" | "recent" | "nearby">("none");
+  const [activeTab, setActiveTab] = useState<"none" | "recent">("none");
   const [recentShops, setRecentShops] = useState<any[]>([]);
-  const [nearbyShops, setNearbyShops] = useState<any[] | null>(null);
-  const [nearbyLoading, setNearbyLoading] = useState(false);
-  const [nearbyError, setNearbyError] = useState<string | null>(null);
-  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
 
   // Job flow
   const [step, setStep] = useState(1);
@@ -100,26 +86,6 @@ function UserPageContent() {
     setShowQRModal(false);
     router.push(`/user?shop=${token}`);
   };
-
-  const fetchNearby = useCallback(async () => {
-    setNearbyLoading(true);
-    setNearbyError(null);
-    try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) => 
-        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 })
-      );
-      const { latitude, longitude } = pos.coords;
-      setUserLocation({ lat: latitude, lng: longitude });
-      const res = await fetch(`/api/shops/nearby?lat=${latitude}&lng=${longitude}`);
-      const data = await res.json();
-      setNearbyShops(Array.isArray(data) ? data : []);
-    } catch (err: any) {
-      if (err?.code === 1) setNearbyError("Please allow location access to find nearby shops.");
-      else setNearbyError("Could not get your location. Please try again.");
-    } finally {
-      setNearbyLoading(false);
-    }
-  }, []);
 
   const handleShopIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 6);
@@ -322,14 +288,6 @@ function UserPageContent() {
             >
               <Clock className="w-3.5 h-3.5" /> Recent
             </button>
-            <button
-              onClick={() => { setActiveTab(activeTab === "nearby" ? "none" : "nearby"); if (activeTab !== "nearby") fetchNearby(); }}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                activeTab === "nearby" ? "bg-[#111827] text-white" : "bg-white border border-[#E5E7EB] text-[#111827] hover:border-[#6B7280]"
-              }`}
-            >
-              <MapPin className="w-3.5 h-3.5" /> Nearby
-            </button>
           </div>
         )}
 
@@ -354,36 +312,18 @@ function UserPageContent() {
               </div>
             </motion.div>
           )}
-
-          {step === 1 && activeTab === "nearby" && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-              <div className="space-y-2">
-                {nearbyLoading ? (
-                  <div className="bg-white border border-[#E5E7EB] rounded-xl p-12 flex flex-col items-center gap-3">
-                    <Loader2 className="w-6 h-6 animate-spin text-[#4F46E5]" />
-                    <p className="text-sm text-[#6B7280]">Finding nearby shops...</p>
-                  </div>
-                ) : nearbyError ? (
-                  <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 text-center">
-                    <AlertCircle className="w-8 h-8 text-[#EF4444] mx-auto mb-3" />
-                    <p className="text-sm text-[#6B7280]">{nearbyError}</p>
-                  </div>
-                ) : nearbyShops && nearbyShops.length === 0 ? (
-                  <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 text-center">
-                    <p className="text-sm text-[#6B7280]">No SmartPrint shops found nearby.</p>
-                  </div>
-                ) : userLocation && nearbyShops && nearbyShops.length > 0 ? (
-                  <NearbyMap
-                    userLat={userLocation.lat}
-                    userLng={userLocation.lng}
-                    shops={nearbyShops}
-                    onClose={() => setActiveTab("none")}
-                  />
-                ) : null}
-              </div>
-            </motion.div>
-          )}
         </AnimatePresence>
+
+        <div className="flex items-center gap-2 mb-8">
+          <button 
+            onClick={() => { setActiveTab(activeTab === "recent" ? "none" : "recent"); }}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              activeTab === "recent" ? "bg-[#111827] text-white" : "bg-white border border-[#E5E7EB] text-[#111827] hover:border-[#6B7280]"
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" /> Recent
+          </button>
+        </div>
 
         {/* ── Main Content ────────────────────────────────────── */}
         <AnimatePresence mode="wait">

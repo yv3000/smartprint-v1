@@ -1,9 +1,52 @@
-"use client";
+import { useState, useCallback } from "react";
+import dynamic from "next/dynamic";
+import { MapPin, Loader2 } from "lucide-react";
 
-import { useRouter } from "next/navigation";
+const NearbyMap = dynamic(() => import("@/components/user/NearbyMap"), { 
+  ssr: false,
+  loading: () => <div className="fixed inset-0 z-[100] bg-black/20 backdrop-blur-sm flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-white" /></div>
+});
 
 export default function HomePage() {
   const router = useRouter();
+  const [showMap, setShowMap] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [nearbyShops, setNearbyShops] = useState<any[]>([]);
+  const [loadingNearby, setLoadingNearby] = useState(false);
+
+  const handleNearbyClick = useCallback(() => {
+    setLoadingNearby(true);
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser");
+      setLoadingNearby(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserLocation({ lat: latitude, lng: longitude });
+        
+        try {
+          const res = await fetch(`/api/shops/nearby?lat=${latitude}&lng=${longitude}`);
+          const data = await res.json();
+          setNearbyShops(Array.isArray(data) ? data : []);
+          setShowMap(true);
+        } catch (error) {
+          console.error("Error fetching nearby shops:", error);
+          alert("Could not fetch nearby shops. Please try again.");
+        } finally {
+          setLoadingNearby(false);
+        }
+      },
+      (error) => {
+        console.error("Error getting location:", error);
+        alert("Please allow location access to find nearby shops.");
+        setLoadingNearby(false);
+      },
+      { enableHighAccuracy: true }
+    );
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -56,15 +99,23 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
                 onClick={() => router.push("/user")}
-                className="w-full sm:w-auto px-8 py-3.5 bg-[#4F46E5] text-white rounded-xl text-[15px] font-medium hover:bg-[#4338CA] transition-all active:scale-[0.98] shadow-sm"
+                className="w-full sm:w-auto px-8 py-3.5 bg-[#4F46E5] text-white rounded-xl text-[15px] font-bold hover:bg-[#4338CA] transition-all active:scale-[0.98] shadow-lg shadow-indigo-100"
               >
                 Start Printing
+              </button>
+              <button
+                onClick={handleNearbyClick}
+                disabled={loadingNearby}
+                className="w-full sm:w-auto px-8 py-3.5 bg-white text-[#1A1A1A] border border-[#E5E7EB] rounded-xl text-[15px] font-bold hover:bg-gray-50 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                {loadingNearby ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                Nearby Printout
               </button>
               <button
                 onClick={() => {
                   document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" });
                 }}
-                className="w-full sm:w-auto px-8 py-3.5 bg-white text-foreground border border-border rounded-xl text-[15px] font-medium hover:bg-surface transition-all active:scale-[0.98]"
+                className="w-full sm:w-auto px-8 py-3.5 text-secondary text-[15px] font-medium hover:text-foreground transition-all"
               >
                 How it Works
               </button>
@@ -165,6 +216,14 @@ export default function HomePage() {
             </div>
           </div>
         </footer>
+        {showMap && userLocation && (
+          <NearbyMap 
+            userLat={userLocation.lat} 
+            userLng={userLocation.lng} 
+            shops={nearbyShops} 
+            onClose={() => setShowMap(false)} 
+          />
+        )}
       </main>
     </div>
   );

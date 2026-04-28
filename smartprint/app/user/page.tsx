@@ -161,23 +161,10 @@ function UserPageContent() {
     const cropEnabledNow = !settings.enableCrop && newSettings.enableCrop;
     setSettings(newSettings);
     // Persist per-file adjustments
-    setFiles(prev => prev.map((f, i) => i === selectedFileIndex ? { ...f, adjustments: {
-      ...f.adjustments,
-      exposure: newSettings.exposure,
-      brightness: newSettings.brightness,
-      contrast: newSettings.contrast,
-      saturation: newSettings.saturation,
-      aspectRatio: newSettings.aspectRatio,
-      orientation: newSettings.orientation,
-      colorMode: newSettings.colorMode,
-      enableCrop: newSettings.enableCrop,
-      margins: newSettings.margins,
-      photosPerPage: newSettings.photosPerPage,
-      customWidthDimensions: newSettings.customWidthDimensions,
-      customHeightDimensions: newSettings.customHeightDimensions,
-      customMarginTopBottom: newSettings.customMarginTopBottom,
-      customMarginLeftRight: newSettings.customMarginLeftRight
-    }} : f));
+    setFiles(prev => prev.map((f, i) => i === selectedFileIndex ? { 
+      ...f, 
+      adjustments: { ...newSettings } 
+    } : f));
 
     if (cropEnabledNow && files[selectedFileIndex]?.file.type.startsWith("image/")) {
       setShowEditor(true);
@@ -409,6 +396,7 @@ function UserPageContent() {
                   id: Math.random().toString(), 
                   progress: 100,
                   preview: f.type.startsWith("image/") ? URL.createObjectURL(f) : null,
+                  adjustments: { ...DEFAULT_PRINT_SETTINGS }
                 }))])}
                 onRemoveFile={(id) => setFiles(prev => {
                   const filtered = prev.filter(f => f.id !== id);
@@ -446,7 +434,7 @@ function UserPageContent() {
                             key={f.id} 
                             onClick={() => {
                               setSelectedFileIndex(i);
-                              setSettings(prev => ({ ...prev, ...f.adjustments }));
+                              setSettings(f.adjustments || DEFAULT_PRINT_SETTINGS);
                             }}
                             className={`relative min-w-[60px] h-[60px] rounded-lg border-2 transition-all overflow-hidden shrink-0 ${selectedFileIndex === i ? 'border-[#4F46E5] ring-2 ring-[#4F46E5]/20' : 'border-transparent opacity-60 hover:opacity-100'}`}
                           >
@@ -491,6 +479,8 @@ function UserPageContent() {
 
                     <div className="flex-1 bg-[#E8E8E8] rounded-xl overflow-hidden relative flex items-center justify-center border border-border" style={{ minHeight: 480 }}>
                       {files[selectedFileIndex]?.preview ? (() => {
+                        const currentFile = files[selectedFileIndex];
+                        const currentAdjustments = settings; // use current settings
                         /* ── compute helpers ─────────────────── */
                         const parseAspectRatioValue = (ratio: string): number | null => {
                           if (!ratio || ratio === "Original") return null;
@@ -556,7 +546,8 @@ function UserPageContent() {
                           marginY,
                           settings.customWidthDimensions,
                           settings.customHeightDimensions,
-                          files[selectedFileIndex]?.preview,
+                          currentFile.preview, // Use reference to force update
+                          Date.now() // added to ensure freshness
                         ].join("|");
 
                         return (
@@ -617,17 +608,22 @@ function UserPageContent() {
                                       border: ratioValue ? '1px solid rgba(79, 70, 229, 0.35)' : 'none'
                                     }}
                                   >
-                                    <img
-                                      src={files[selectedFileIndex].preview}
-                                      alt="Preview"
-                                      className="transition-all duration-300"
-                                      style={{
-                                        width: '100%',
-                                        height: '100%',
-                                        objectFit: (ratioValue || settings.photosPerPage > 1) ? 'cover' : 'contain',
-                                        filter: imgFilter,
-                                      }}
-                                    />
+                                      <img
+                                        src={currentFile.preview}
+                                        alt="Preview"
+                                        className={`transition-all duration-300 ${settings.enableCrop ? 'ring-2 ring-dashed ring-[#4F46E5] ring-offset-2' : ''}`}
+                                        style={{
+                                          width: '100%',
+                                          height: '100%',
+                                          objectFit: (ratioValue || settings.photosPerPage > 1) ? 'cover' : 'contain',
+                                          filter: imgFilter,
+                                        }}
+                                      />
+                                      {settings.enableCrop && (
+                                        <div className="absolute inset-0 pointer-events-none border-2 border-dashed border-[#4F46E5]/40 flex items-center justify-center">
+                                          <div className="bg-[#4F46E5] text-white text-[8px] font-bold px-1 py-0.5 rounded absolute top-1 left-1 uppercase">Crop Active</div>
+                                        </div>
+                                      )}
                                   </div>
                                 </div>
                                   );

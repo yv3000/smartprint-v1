@@ -21,6 +21,7 @@ export interface PrintSettings {
   colorPagesRange?: string; // e.g. "1,3,5-8"
   enableBWRange: boolean;
   bwPagesRange?: string; // e.g. "2,4,9-12"
+  allPagesColor: boolean;
 
   // Mode B (Images)
   aspectRatio: string;

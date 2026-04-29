@@ -335,7 +335,7 @@ function UserPageContent() {
                   file: f, 
                   id: Math.random().toString(), 
                   progress: 100,
-                  preview: (f.type.startsWith("image/") || f.type === "application/pdf") ? URL.createObjectURL(f) : null,
+                  preview: (f.type.startsWith("image/") || f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf") || f.name.toLowerCase().endsWith(".jpg") || f.name.toLowerCase().endsWith(".jpeg") || f.name.toLowerCase().endsWith(".png")) ? URL.createObjectURL(f) : null,
                   adjustments: { ...DEFAULT_PRINT_SETTINGS }
                 }))])}
                 onRemoveFile={(id) => setFiles(prev => {

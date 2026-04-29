@@ -21,5 +21,8 @@ contextBridge.exposeInMainWorld('electron', {
   },
   getPrinters: () => {
     return ipcRenderer.invoke('smartprint-get-printers')
+  },
+  verifyToken: (token) => {
+    ipcRenderer.send('smartprint-verify-token', token)
   }
 })

@@ -2,7 +2,12 @@ const { app, BrowserWindow, shell, protocol, net, ipcMain } = require('electron'
 const path = require('path')
 const https = require('https')
 
-const BASE_URL = 'https://smartprint-tau.vercel.app'
+// --- CONFIGURATION ---
+// Set to http://localhost:3000 for local development
+const IS_DEV = process.env.NODE_ENV === 'development' || process.env.DEBUG_AUTH === 'true';
+const BASE_URL = IS_DEV ? 'http://localhost:3000' : 'https://smartprint-tau.vercel.app';
+// ---------------------
+
 const AUTH_URL = `${BASE_URL}/admin/auth`
 const DASHBOARD_URL = `${BASE_URL}/admin/dashboard`
 const BRIDGE_URL = `${BASE_URL}/admin/auth-bridge`
@@ -170,7 +175,7 @@ function setSessionAndLoadDashboard(sessionToken) {
       url: BASE_URL,
       name: name,
       value: sessionToken,
-      secure: true,
+      secure: BASE_URL.startsWith('https'),
       httpOnly: true,
       path: '/',
       sameSite: 'lax'
@@ -212,6 +217,12 @@ ipcMain.handle('smartprint-get-printers', async () => {
   const printers = await dummyWin.webContents.getPrintersAsync()
   dummyWin.close()
   return printers
+})
+
+// Handle manual token verification
+ipcMain.on('smartprint-verify-token', (event, token) => {
+  console.log('[IPC] Manual token verification requested')
+  verifyTransferToken(token)
 })
 
 // Handle silent printing from dashboard

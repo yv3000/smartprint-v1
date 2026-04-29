@@ -17,6 +17,7 @@ export interface PrintSettings {
   customScalePercentage?: number;
   pagesPerSheet: number;
   enableAdvancedColor: boolean;
+  allPagesColor: boolean;
   colorPagesRange?: string; // e.g. "1,3,5-8"
   bwPagesRange?: string; // e.g. "2,4,9-12"
 

@@ -132,38 +132,38 @@ export default function AuthBridgePage() {
 
         {status === 'success' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+             <div style={{ 
+               padding: '12px', 
+               backgroundColor: '#F0FDF4', 
+               borderRadius: '12px', 
+               border: '1px solid #DCFCE7',
+               marginBottom: '8px'
+             }}>
+               <p style={{ fontSize: '13px', color: '#166534', fontWeight: '500', margin: 0 }}>
+                 App launch request sent. Check your taskbar.
+               </p>
+             </div>
             <button
               onClick={handleManualLaunch}
               style={{
                 background: '#4F46E5',
                 color: 'white',
                 border: 'none',
-                padding: '12px 24px',
-                borderRadius: '10px',
+                padding: '14px 24px',
+                borderRadius: '12px',
                 fontSize: '15px',
-                fontWeight: '600',
+                fontWeight: '700',
                 cursor: 'pointer',
-                width: '100%'
+                width: '100%',
+                boxShadow: '0 4px 12px rgba(79, 70, 229, 0.2)',
+                transition: 'all 0.2s'
               }}
             >
-              Launch SmartPrint App →
+              Open SmartPrint App Now
             </button>
-            <button
-              onClick={() => router.push('/admin/dashboard')}
-              style={{
-                background: '#F9FAFB',
-                color: '#374151',
-                border: '1px solid #E5E7EB',
-                padding: '12px 24px',
-                borderRadius: '10px',
-                fontSize: '14px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                width: '100%'
-              }}
-            >
-              Stay in Browser
-            </button>
+            <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '12px' }}>
+              You can safely close this browser window once the app opens.
+            </p>
           </div>
         )}
       </div>

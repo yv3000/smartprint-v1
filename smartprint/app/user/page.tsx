@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import Cookies from "js-cookie";
 import { toast } from "react-hot-toast";
-import { Loader2, QrCode, Printer, Crop, AlertCircle, MapPin, Clock, ChevronRight } from "lucide-react";
+import { Loader2, QrCode, Printer, Crop, AlertCircle, MapPin, Clock, ChevronRight, FileText } from "lucide-react";
 import type { PrintSettings as PrintSettingsType } from "@/lib/types";
 import { DEFAULT_PRINT_SETTINGS } from "@/lib/types";
 import FileUpload from "@/components/user/FileUpload";
@@ -325,7 +325,7 @@ function UserPageContent() {
                   file: f, 
                   id: Math.random().toString(), 
                   progress: 100,
-                  preview: f.type.startsWith("image/") ? URL.createObjectURL(f) : null,
+                  preview: (f.type.startsWith("image/") || f.type === "application/pdf") ? URL.createObjectURL(f) : null,
                   adjustments: { ...DEFAULT_PRINT_SETTINGS }
                 }))])}
                 onRemoveFile={(id) => setFiles(prev => {
@@ -410,6 +410,31 @@ function UserPageContent() {
                     <div className="flex-1 bg-[#E8E8E8] rounded-xl overflow-hidden relative flex items-center justify-center border border-border" style={{ minHeight: 480 }}>
                       {files[selectedFileIndex]?.preview ? (() => {
                         const currentFile = files[selectedFileIndex];
+                        const isImage = currentFile.file.type.startsWith("image/");
+                        const isPDF = currentFile.file.type === "application/pdf";
+                        
+                        if (isPDF) {
+                          return (
+                            <div className="w-full h-full bg-white flex flex-col items-center justify-center overflow-auto p-4">
+                              <iframe 
+                                src={`${currentFile.preview}#toolbar=0&navpanes=0&scrollbar=0`} 
+                                className="w-full h-full border-none shadow-lg"
+                                title="PDF Preview"
+                              />
+                            </div>
+                          );
+                        }
+
+                        if (!isImage) {
+                          return (
+                            <div className="text-center p-8">
+                              <FileText className="w-12 h-12 text-secondary/40 mx-auto mb-3" />
+                              <p className="text-[15px] font-bold text-secondary mb-1">{currentFile.file.name}</p>
+                              <p className="text-xs text-secondary/60">Preview not available for this format</p>
+                            </div>
+                          );
+                        }
+
                         const currentAdjustments = settings; // use current settings
                         /* ── compute helpers ─────────────────── */
                         const parseAspectRatioValue = (ratio: string): number | null => {
@@ -587,25 +612,27 @@ function UserPageContent() {
                         {settings.aspectRatio === 'Custom' ? ` (${settings.customWidthDimensions}×${settings.customHeightDimensions})` : ''}
                       </span>
                     </div>
-                    {/* ... rest of the preview footers ... */}
-                    <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
-                      <div className="text-center p-2 bg-surface rounded-lg">
-                        <p className="text-[10px] text-secondary uppercase font-bold">Brightness</p>
-                        <p className="text-sm font-bold">{settings.brightness || 0}%</p>
+                    {/* Adjustments (Photos Only) */}
+                    {files[selectedFileIndex]?.file.type.startsWith("image/") && (
+                      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <div className="text-center p-2 bg-surface rounded-lg">
+                          <p className="text-[10px] text-secondary uppercase font-bold">Brightness</p>
+                          <p className="text-sm font-bold">{settings.brightness || 0}%</p>
+                        </div>
+                        <div className="text-center p-2 bg-surface rounded-lg">
+                          <p className="text-[10px] text-secondary uppercase font-bold">Contrast</p>
+                          <p className="text-sm font-bold">{settings.contrast || 0}%</p>
+                        </div>
+                        <div className="text-center p-2 bg-surface rounded-lg">
+                          <p className="text-[10px] text-secondary uppercase font-bold">Saturation</p>
+                          <p className="text-sm font-bold">{settings.saturation || 0}%</p>
+                        </div>
+                        <div className="text-center p-2 bg-surface rounded-lg">
+                          <p className="text-[10px] text-secondary uppercase font-bold">Exposure</p>
+                          <p className="text-sm font-bold">{settings.exposure || 0}%</p>
+                        </div>
                       </div>
-                      <div className="text-center p-2 bg-surface rounded-lg">
-                        <p className="text-[10px] text-secondary uppercase font-bold">Contrast</p>
-                        <p className="text-sm font-bold">{settings.contrast || 0}%</p>
-                      </div>
-                      <div className="text-center p-2 bg-surface rounded-lg">
-                        <p className="text-[10px] text-secondary uppercase font-bold">Saturation</p>
-                        <p className="text-sm font-bold">{settings.saturation || 0}%</p>
-                      </div>
-                      <div className="text-center p-2 bg-surface rounded-lg">
-                        <p className="text-[10px] text-secondary uppercase font-bold">Exposure</p>
-                        <p className="text-sm font-bold">{settings.exposure || 0}%</p>
-                      </div>
-                    </div>
+                    )}
                   </div>
                   
                   <div className="bg-[#111827] p-4 rounded-2xl text-white">

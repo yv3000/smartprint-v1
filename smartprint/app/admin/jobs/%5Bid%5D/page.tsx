@@ -217,7 +217,9 @@ export default function JobDetail() {
                        { label: "Copies", value: job.settings?.copies },
                        { label: "Paper", value: job.settings?.paperSize },
                        { label: "Color", value: job.settings?.colorMode === 'Color' ? 'Full Color' : 'B&W' },
-                       { label: "Pages", value: job.settings?.allPagesColor ? 'All' : (job.settings?.colorPagesRange || 'All') },
+                       { label: "Pages", value: job.settings?.enableAdvancedColor ? 
+                          (job.settings?.enableColorRange ? `Color: ${job.settings?.colorPagesRange || 'none'}` : `B&W: ${job.settings?.bwPagesRange || 'none'}`) : 
+                          ((job.settings as any)?.allPagesColor ? 'All' : 'Selected') },
                        { label: "Orientation", value: job.settings?.orientation || 'Portrait' },
                        { label: "Layout", value: `${job.settings?.pagesPerSheet || 1} per sheet` }
                      ].map((cfg, i) => (

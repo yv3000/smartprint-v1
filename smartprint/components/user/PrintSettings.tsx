@@ -173,21 +173,21 @@ export default function PrintSettings({
           {settings.enableAdvancedColor && (
             <div className="space-y-5 animate-in fade-in slide-in-from-top-2 pt-4 border-t border-gray-50">
               {/* Color Pages Selection */}
-              <div className={`space-y-3 p-3 rounded-2xl transition-all ${settings.enableColorRange ? 'bg-indigo-50/30 ring-1 ring-indigo-100' : 'bg-transparent'}`}>
+              <div className={`space-y-3 p-4 rounded-2xl transition-all duration-300 ${settings.enableColorRange ? 'bg-indigo-50/50 ring-1 ring-indigo-100 shadow-sm' : 'bg-gray-50/30 border border-transparent'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${settings.enableColorRange ? 'bg-indigo-500 animate-pulse' : 'bg-gray-300'}`} />
-                    <span className={`text-xs font-bold uppercase ${settings.enableColorRange ? 'text-indigo-600' : 'text-secondary'}`}>Specific Color Pages</span>
+                    <div className={`w-2.5 h-2.5 rounded-full transition-colors ${settings.enableColorRange ? 'bg-indigo-500 animate-pulse' : 'bg-gray-300'}`} />
+                    <span className={`text-xs font-black uppercase tracking-tight ${settings.enableColorRange ? 'text-indigo-600' : 'text-gray-500'}`}>Specific Color Pages</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-bold uppercase ${settings.enableColorRange ? 'text-indigo-600' : 'text-gray-400'}`}>
-                      {settings.enableColorRange ? 'Active' : 'Off'}
+                  <div className="flex items-center gap-2.5">
+                    <span className={`text-[9px] font-black uppercase tracking-widest ${settings.enableColorRange ? 'text-indigo-600' : 'text-gray-400'}`}>
+                      {settings.enableColorRange ? 'ACTIVE' : 'OFF'}
                     </span>
                     <div 
-                      className={`w-10 h-5 rounded-full transition-all relative cursor-pointer ${settings.enableColorRange ? 'bg-indigo-500' : 'bg-gray-200'}`} 
+                      className={`w-11 h-6 rounded-full transition-all relative cursor-pointer ${settings.enableColorRange ? 'bg-indigo-600 shadow-inner' : 'bg-gray-200'}`} 
                       onClick={() => update({ enableColorRange: !settings.enableColorRange })}
                     >
-                       <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${settings.enableColorRange ? 'left-5.5' : 'left-0.5'}`} />
+                       <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-300 ${settings.enableColorRange ? 'translate-x-5' : 'translate-x-0'}`} />
                     </div>
                   </div>
                 </div>
@@ -197,27 +197,27 @@ export default function PrintSettings({
                     placeholder="e.g. 1, 3, 5-10"
                     value={settings.colorPagesRange || ""}
                     onChange={(e) => update({ colorPagesRange: e.target.value.replace(/[^0-9,\-\s]/g, '') })}
-                    className="w-full px-3 py-2.5 border border-indigo-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all bg-white shadow-sm animate-in zoom-in-95 duration-200"
+                    className="w-full px-4 py-3 border border-indigo-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all bg-white shadow-sm placeholder:text-gray-300 animate-in slide-in-from-top-1"
                   />
                 )}
               </div>
 
               {/* B&W Pages Selection */}
-              <div className={`space-y-3 p-3 rounded-2xl transition-all ${settings.enableBWRange ? 'bg-gray-50 ring-1 ring-gray-200' : 'bg-transparent'}`}>
+              <div className={`space-y-3 p-4 rounded-2xl transition-all duration-300 ${settings.enableBWRange ? 'bg-gray-100/80 ring-1 ring-gray-200 shadow-sm' : 'bg-gray-50/30 border border-transparent'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${settings.enableBWRange ? 'bg-gray-600 animate-pulse' : 'bg-gray-300'}`} />
-                    <span className={`text-xs font-bold uppercase ${settings.enableBWRange ? 'text-gray-700' : 'text-secondary'}`}>Specific B&W Pages</span>
+                    <div className={`w-2.5 h-2.5 rounded-full transition-colors ${settings.enableBWRange ? 'bg-gray-600 animate-pulse' : 'bg-gray-300'}`} />
+                    <span className={`text-xs font-black uppercase tracking-tight ${settings.enableBWRange ? 'text-gray-700' : 'text-gray-500'}`}>Specific B&W Pages</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                     <span className={`text-[10px] font-bold uppercase ${settings.enableBWRange ? 'text-gray-600' : 'text-gray-400'}`}>
-                      {settings.enableBWRange ? 'Active' : 'Off'}
+                  <div className="flex items-center gap-2.5">
+                     <span className={`text-[9px] font-black uppercase tracking-widest ${settings.enableBWRange ? 'text-gray-700' : 'text-gray-400'}`}>
+                      {settings.enableBWRange ? 'ACTIVE' : 'OFF'}
                      </span>
                      <div 
-                      className={`w-10 h-5 rounded-full transition-all relative cursor-pointer ${settings.enableBWRange ? 'bg-gray-600' : 'bg-gray-200'}`} 
+                      className={`w-11 h-6 rounded-full transition-all relative cursor-pointer ${settings.enableBWRange ? 'bg-gray-700 shadow-inner' : 'bg-gray-200'}`} 
                       onClick={() => update({ enableBWRange: !settings.enableBWRange })}
                     >
-                        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${settings.enableBWRange ? 'left-5.5' : 'left-0.5'}`} />
+                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-300 ${settings.enableBWRange ? 'translate-x-5' : 'translate-x-0'}`} />
                      </div>
                   </div>
                 </div>
@@ -227,7 +227,7 @@ export default function PrintSettings({
                     placeholder="e.g. 2, 4, 11-15"
                     value={settings.bwPagesRange || ""}
                     onChange={(e) => update({ bwPagesRange: e.target.value.replace(/[^0-9,\-\s]/g, '') })}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 transition-all bg-white shadow-sm animate-in zoom-in-95 duration-200"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm font-medium focus:outline-none focus:ring-4 focus:ring-gray-500/10 focus:border-gray-500 transition-all bg-white shadow-sm placeholder:text-gray-300 animate-in slide-in-from-top-1"
                   />
                 )}
               </div>

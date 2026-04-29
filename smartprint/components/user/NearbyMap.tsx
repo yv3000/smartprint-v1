@@ -159,7 +159,7 @@ export default function NearbyMap({ userLat: initialLat, userLng: initialLng, sh
           
           {/* Removed Header */}
 
-          <div className="absolute bottom-20 left-6 z-[110]">
+          <div className="absolute top-28 left-4 z-[9999]">
             <button 
               onClick={handleLocateMe}
               className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.15)] hover:bg-gray-50 transition-all active:scale-95 border border-gray-100 group"

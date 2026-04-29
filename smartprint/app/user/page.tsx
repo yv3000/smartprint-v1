@@ -429,6 +429,8 @@ function UserPageContent() {
                               fileUrl={currentFile.preview!} 
                               colorPagesRange={settings.colorPagesRange || ""}
                               bwPagesRange={settings.bwPagesRange || ""}
+                              enableColorRange={settings.enableColorRange}
+                              enableBWRange={settings.enableBWRange}
                               enableAdvancedColor={settings.enableAdvancedColor}
                               baseColorMode={settings.colorMode}
                             />

@@ -11,11 +11,13 @@ interface PDFPreviewProps {
   fileUrl: string;
   colorPagesRange: string;
   bwPagesRange: string;
+  enableColorRange: boolean;
+  enableBWRange: boolean;
   enableAdvancedColor: boolean;
   baseColorMode: string;
 }
 
-export default function PDFPreview({ fileUrl, colorPagesRange, bwPagesRange, enableAdvancedColor, baseColorMode }: PDFPreviewProps) {
+export default function PDFPreview({ fileUrl, colorPagesRange, bwPagesRange, enableColorRange, enableBWRange, enableAdvancedColor, baseColorMode }: PDFPreviewProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [scale, setScale] = useState(0.8);
   
@@ -50,21 +52,18 @@ export default function PDFPreview({ fileUrl, colorPagesRange, bwPagesRange, ena
     const colorPages = parsePageRange(colorPagesRange);
     const bwPages = parsePageRange(bwPagesRange);
 
-    // If both are filled, follow the user's "remaining pages go to the other mode" logic
-    // but with specific priority for the defined ranges.
-    if (colorPages.length > 0 && bwPages.length > 0) {
+    // Use explicit flags from settings
+    if (enableColorRange && enableBWRange) {
       if (colorPages.includes(pageNumber)) return true;
       if (bwPages.includes(pageNumber)) return false;
-      // For pages in neither range, we use the fallback logic based on which one was "primary"
-      // or just fallback to base mode.
       return baseColorMode === 'Color';
     }
 
-    if (colorPages.length > 0) {
+    if (enableColorRange) {
       return colorPages.includes(pageNumber);
     }
     
-    if (bwPages.length > 0) {
+    if (enableBWRange) {
       return !bwPages.includes(pageNumber);
     }
 

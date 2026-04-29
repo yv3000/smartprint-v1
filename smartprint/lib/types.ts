@@ -17,8 +17,9 @@ export interface PrintSettings {
   customScalePercentage?: number;
   pagesPerSheet: number;
   enableAdvancedColor: boolean;
-  allPagesColor: boolean;
+  enableColorRange: boolean;
   colorPagesRange?: string; // e.g. "1,3,5-8"
+  enableBWRange: boolean;
   bwPagesRange?: string; // e.g. "2,4,9-12"
 
   // Mode B (Images)
@@ -69,6 +70,8 @@ export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
   scaleMode: "Fit to Page Width",
   pagesPerSheet: 1,
   enableAdvancedColor: false,
+  enableColorRange: false,
+  enableBWRange: false,
   allPagesColor: true,
   aspectRatio: "Original",
   enableCrop: false,

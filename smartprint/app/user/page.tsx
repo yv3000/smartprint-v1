@@ -614,9 +614,17 @@ function UserPageContent() {
                           </div>
                         );
                       })() : (
-                        <div className="text-center p-8">
-                          <AlertCircle className="w-8 h-8 text-secondary/40 mx-auto mb-2" />
-                          <p className="text-sm text-secondary">No preview available for this file type.</p>
+                        <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 max-w-[280px] animate-in fade-in zoom-in-95 duration-500">
+                          <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 rotate-3">
+                            <FileText className="w-8 h-8 text-gray-400" />
+                          </div>
+                          <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight mb-1">{files[selectedFileIndex]?.file.name || 'Unknown File'}</h3>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4">
+                            {files[selectedFileIndex] ? (files[selectedFileIndex].file.size / 1024).toFixed(1) : '0'} KB
+                          </p>
+                          <div className="px-3 py-1.5 bg-gray-100 rounded-full">
+                            <span className="text-[9px] font-black text-gray-500 uppercase">Preview not available for this format</span>
+                          </div>
                         </div>
                       )}
                     </div>

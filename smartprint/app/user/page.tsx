@@ -15,6 +15,16 @@ import SuccessScreen from "@/components/user/SuccessScreen";
 import QRScanner from "@/components/user/QRScanner";
 import ImageEditor from "@/components/user/ImageEditor";
 
+const PDFPreview = dynamic(() => import("@/components/user/PDFPreview"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col items-center justify-center p-20 gap-3">
+      <Loader2 className="w-8 h-8 text-[#4F46E5] animate-spin" />
+      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Initializing PDF Engine...</p>
+    </div>
+  )
+});
+
 /* ── Helpers ─────────────────────────────────────────────── */
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -415,13 +425,12 @@ function UserPageContent() {
                         
                         if (isPDF) {
                           return (
-                            <div className="w-full h-full bg-white flex flex-col items-center justify-center overflow-auto p-4">
-                              <iframe 
-                                src={`${currentFile.preview}#toolbar=0&navpanes=0&scrollbar=0`} 
-                                className="w-full h-full border-none shadow-lg"
-                                title="PDF Preview"
-                              />
-                            </div>
+                            <PDFPreview 
+                              fileUrl={currentFile.preview!} 
+                              colorPagesRange={settings.colorPagesRange || ""}
+                              allPagesColor={settings.allPagesColor}
+                              baseColorMode={settings.colorMode}
+                            />
                           );
                         }
 

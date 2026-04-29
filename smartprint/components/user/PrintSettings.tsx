@@ -155,12 +155,12 @@ export default function PrintSettings({
           )}
         </div>
 
-        {/* SECTION 7: Colour Pages */}
-        {settings.colorMode === "Color" && (
-          <div className="p-4 rounded-xl border border-border bg-white">
-            <label className="block text-sm font-semibold mb-3">Colour Pages</label>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm">All pages color</span>
+        {/* SECTION 7: Advanced Colour Management */}
+        <div className="p-4 rounded-xl border border-border bg-white">
+          <label className="block text-sm font-semibold mb-3">Colour Management</label>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Print all pages in color</span>
               <div
                 className={`w-10 h-6 rounded-full cursor-pointer transition-colors relative ${settings.allPagesColor ? 'bg-[#4F46E5]' : 'bg-gray-300'}`}
                 onClick={() => update({ allPagesColor: !settings.allPagesColor })}
@@ -168,19 +168,29 @@ export default function PrintSettings({
                 <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.allPagesColor ? 'translate-x-4' : ''}`} />
               </div>
             </div>
+
             {!settings.allPagesColor && (
-              <div className="mt-2">
-                <label className="text-xs text-secondary mb-1 block">Color pages (e.g. 1,3,5-8)</label>
-                <input
-                  type="text"
-                  value={settings.colorPagesRange || ""}
-                  onChange={(e) => update({ colorPagesRange: e.target.value.replace(/[^0-9,-]/g, '') })}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none"
-                />
+              <div className="pt-2 border-t border-gray-100 animate-in fade-in slide-in-from-top-2">
+                <div className="mb-3">
+                  <label className="text-xs font-bold text-secondary uppercase mb-2 block tracking-wider">Specify Color Pages</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1, 3, 5-10"
+                    value={settings.colorPagesRange || ""}
+                    onChange={(e) => update({ colorPagesRange: e.target.value.replace(/[^0-9,\-\s]/g, '') })}
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5] transition-all"
+                  />
+                </div>
+                <div className="p-3 bg-amber-50 rounded-lg border border-amber-100 flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 bg-amber-500 rounded-full mt-1.5 shrink-0" />
+                  <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
+                    Specified pages will be printed in <span className="font-bold">Color</span>. All other pages will automatically print in <span className="font-bold">Black & White</span>.
+                  </p>
+                </div>
               </div>
             )}
           </div>
-        )}
+        </div>
       </div>
     );
   };

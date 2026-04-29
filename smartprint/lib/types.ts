@@ -16,8 +16,9 @@ export interface PrintSettings {
   scaleMode: "Fit to Page Width" | "Custom Scale";
   customScalePercentage?: number;
   pagesPerSheet: number;
-  allPagesColor: boolean;
+  enableAdvancedColor: boolean;
   colorPagesRange?: string; // e.g. "1,3,5-8"
+  bwPagesRange?: string; // e.g. "2,4,9-12"
 
   // Mode B (Images)
   aspectRatio: string;
@@ -66,6 +67,7 @@ export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
   paperSize: "A4",
   scaleMode: "Fit to Page Width",
   pagesPerSheet: 1,
+  enableAdvancedColor: false,
   allPagesColor: true,
   aspectRatio: "Original",
   enableCrop: false,

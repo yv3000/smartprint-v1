@@ -428,7 +428,8 @@ function UserPageContent() {
                             <PDFPreview 
                               fileUrl={currentFile.preview!} 
                               colorPagesRange={settings.colorPagesRange || ""}
-                              allPagesColor={settings.allPagesColor}
+                              bwPagesRange={settings.bwPagesRange || ""}
+                              enableAdvancedColor={settings.enableAdvancedColor}
                               baseColorMode={settings.colorMode}
                             />
                           );
@@ -436,10 +437,15 @@ function UserPageContent() {
 
                         if (!isImage) {
                           return (
-                            <div className="text-center p-8">
-                              <FileText className="w-12 h-12 text-secondary/40 mx-auto mb-3" />
-                              <p className="text-[15px] font-bold text-secondary mb-1">{currentFile.file.name}</p>
-                              <p className="text-xs text-secondary/60">Preview not available for this format</p>
+                            <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 max-w-[280px]">
+                              <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 rotate-3 group-hover:rotate-6 transition-transform duration-500">
+                                <FileText className="w-8 h-8 text-gray-400" />
+                              </div>
+                              <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight mb-1">{currentFile.file.name}</h3>
+                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4">{(currentFile.file.size / 1024).toFixed(1)} KB</p>
+                              <div className="px-3 py-1.5 bg-gray-100 rounded-full">
+                                <span className="text-[9px] font-black text-gray-500 uppercase">Preview not available for this format</span>
+                              </div>
                             </div>
                           );
                         }

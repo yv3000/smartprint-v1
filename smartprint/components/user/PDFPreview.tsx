@@ -10,11 +10,12 @@ pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pd
 interface PDFPreviewProps {
   fileUrl: string;
   colorPagesRange: string;
-  allPagesColor: boolean;
+  bwPagesRange: string;
+  enableAdvancedColor: boolean;
   baseColorMode: string;
 }
 
-export default function PDFPreview({ fileUrl, colorPagesRange, allPagesColor, baseColorMode }: PDFPreviewProps) {
+export default function PDFPreview({ fileUrl, colorPagesRange, bwPagesRange, enableAdvancedColor, baseColorMode }: PDFPreviewProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [scale, setScale] = useState(0.8);
   
@@ -43,11 +44,31 @@ export default function PDFPreview({ fileUrl, colorPagesRange, allPagesColor, ba
     return Array.from(pages);
   };
 
-  const colorPages = parsePageRange(colorPagesRange);
-
   const isPageColor = (pageNumber: number) => {
-    if (allPagesColor) return true;
-    return colorPages.includes(pageNumber);
+    if (!enableAdvancedColor) return baseColorMode === 'Color';
+    
+    const colorPages = parsePageRange(colorPagesRange);
+    const bwPages = parsePageRange(bwPagesRange);
+
+    // If both are filled, follow the user's "remaining pages go to the other mode" logic
+    // but with specific priority for the defined ranges.
+    if (colorPages.length > 0 && bwPages.length > 0) {
+      if (colorPages.includes(pageNumber)) return true;
+      if (bwPages.includes(pageNumber)) return false;
+      // For pages in neither range, we use the fallback logic based on which one was "primary"
+      // or just fallback to base mode.
+      return baseColorMode === 'Color';
+    }
+
+    if (colorPages.length > 0) {
+      return colorPages.includes(pageNumber);
+    }
+    
+    if (bwPages.length > 0) {
+      return !bwPages.includes(pageNumber);
+    }
+
+    return baseColorMode === 'Color';
   };
 
   return (
@@ -89,8 +110,20 @@ export default function PDFPreview({ fileUrl, colorPagesRange, allPagesColor, ba
             </div>
           }
           error={
-            <div className="p-10 text-center text-red-500">
-              <p className="text-sm font-bold">Failed to load PDF</p>
+            <div className="p-16 text-center flex flex-col items-center gap-4">
+              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
+                <span className="text-2xl text-red-500">!</span>
+              </div>
+              <div className="space-y-1">
+                <p className="text-base font-bold text-gray-900">Unable to load preview</p>
+                <p className="text-xs text-gray-400 max-w-[200px] leading-relaxed">This could be due to file corruption or an unsupported PDF format.</p>
+              </div>
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-2 px-4 py-2 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-all"
+              >
+                Retry Loading
+              </button>
             </div>
           }
         >

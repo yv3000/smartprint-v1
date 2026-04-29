@@ -156,40 +156,106 @@ export default function PrintSettings({
         </div>
 
         {/* SECTION 7: Advanced Colour Management */}
-        <div className="p-4 rounded-xl border border-border bg-white">
-          <label className="block text-sm font-semibold mb-3">Colour Management</label>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Print all pages in color</span>
-              <div
-                className={`w-10 h-6 rounded-full cursor-pointer transition-colors relative ${settings.allPagesColor ? 'bg-[#4F46E5]' : 'bg-gray-300'}`}
-                onClick={() => update({ allPagesColor: !settings.allPagesColor })}
-              >
-                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.allPagesColor ? 'translate-x-4' : ''}`} />
+        <div className="p-4 rounded-xl border border-border bg-white overflow-hidden">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col">
+              <label className="text-sm font-semibold">Advanced Colour Management</label>
+              <span className="text-[10px] text-secondary font-medium uppercase tracking-tight">Mixed color/B&W printing</span>
+            </div>
+            <div
+              className={`w-12 h-7 rounded-full cursor-pointer transition-all relative ${settings.enableAdvancedColor ? 'bg-[#4F46E5]' : 'bg-gray-200'}`}
+              onClick={() => update({ enableAdvancedColor: !settings.enableAdvancedColor })}
+            >
+              <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${settings.enableAdvancedColor ? 'left-6' : 'left-1 shadow-sm'}`} />
+            </div>
+          </div>
+
+          {settings.enableAdvancedColor && (
+            <div className="space-y-5 animate-in fade-in slide-in-from-top-2 pt-4 border-t border-gray-50">
+              {/* Color Pages Selection */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-indigo-500 rounded-full" />
+                    <span className="text-xs font-bold text-secondary uppercase">Specific Color Pages</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase">{settings.colorPagesRange ? 'Active' : 'Off'}</span>
+                    <div className={`w-8 h-4 rounded-full bg-gray-100 relative cursor-pointer`} onClick={() => !settings.colorPagesRange && update({ colorPagesRange: "" })}>
+                       <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-all ${settings.colorPagesRange !== undefined ? 'translate-x-4 bg-indigo-500' : ''}`} />
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. 1, 3, 5-10"
+                  value={settings.colorPagesRange || ""}
+                  onChange={(e) => update({ colorPagesRange: e.target.value.replace(/[^0-9,\-\s]/g, '') })}
+                  className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all bg-gray-50/50"
+                />
+              </div>
+
+              {/* B&W Pages Selection */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full" />
+                    <span className="text-xs font-bold text-secondary uppercase">Specific B&W Pages</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                     <span className="text-[10px] font-bold text-gray-400 uppercase">{settings.bwPagesRange ? 'Active' : 'Off'}</span>
+                     <div className={`w-8 h-4 rounded-full bg-gray-100 relative cursor-pointer`} onClick={() => !settings.bwPagesRange && update({ bwPagesRange: "" })}>
+                        <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-all ${settings.bwPagesRange !== undefined ? 'translate-x-4 bg-gray-600' : ''}`} />
+                     </div>
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. 2, 4, 11-15"
+                  value={settings.bwPagesRange || ""}
+                  onChange={(e) => update({ bwPagesRange: e.target.value.replace(/[^0-9,\-\s]/g, '') })}
+                  className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 transition-all bg-gray-50/50"
+                />
+              </div>
+
+              {/* Mixed Mode Info */}
+              <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                <p className="text-[11px] text-indigo-900 leading-relaxed font-medium">
+                  {settings.colorPagesRange && !settings.bwPagesRange && "Only specified pages will be Color, others will be B&W."}
+                  {!settings.colorPagesRange && settings.bwPagesRange && "Only specified pages will be B&W, others will be Color."}
+                  {settings.colorPagesRange && settings.bwPagesRange && "Individual page overrides will be applied as specified."}
+                  {!settings.colorPagesRange && !settings.bwPagesRange && "Enter page numbers above to enable mixed-mode printing."}
+                </p>
+              </div>
+
+              {/* How it works section */}
+              <div className="pt-2">
+                <details className="group">
+                  <summary className="list-none flex items-center gap-2 cursor-pointer text-[#4F46E5] text-[11px] font-bold uppercase tracking-wider hover:underline">
+                    How it works?
+                    <span className="group-open:rotate-180 transition-transform">↓</span>
+                  </summary>
+                  <div className="mt-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-bold text-gray-700 uppercase">Single Pages</p>
+                      <p className="text-[11px] text-gray-500 leading-relaxed">Use commas to separate specific pages.</p>
+                      <code className="block p-2 bg-white border border-gray-100 rounded-lg text-xs text-indigo-600 font-mono">1, 3, 4, 7, 11, 23</code>
+                    </div>
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-bold text-gray-700 uppercase">Page Ranges</p>
+                      <p className="text-[11px] text-gray-500 leading-relaxed">Use a hyphen for continuous sequences.</p>
+                      <code className="block p-2 bg-white border border-gray-100 rounded-lg text-xs text-indigo-600 font-mono">1-10, 23-28, 40-49</code>
+                    </div>
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-bold text-gray-700 uppercase">Mixed Example</p>
+                      <p className="text-[11px] text-gray-500 leading-relaxed">Combine both for complex needs.</p>
+                      <code className="block p-2 bg-white border border-gray-100 rounded-lg text-[10px] text-indigo-600 font-mono">1, 2, 5, 9-15, 17, 18-23, 25</code>
+                    </div>
+                  </div>
+                </details>
               </div>
             </div>
-
-            {!settings.allPagesColor && (
-              <div className="pt-2 border-t border-gray-100 animate-in fade-in slide-in-from-top-2">
-                <div className="mb-3">
-                  <label className="text-xs font-bold text-secondary uppercase mb-2 block tracking-wider">Specify Color Pages</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 1, 3, 5-10"
-                    value={settings.colorPagesRange || ""}
-                    onChange={(e) => update({ colorPagesRange: e.target.value.replace(/[^0-9,\-\s]/g, '') })}
-                    className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5] transition-all"
-                  />
-                </div>
-                <div className="p-3 bg-amber-50 rounded-lg border border-amber-100 flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 bg-amber-500 rounded-full mt-1.5 shrink-0" />
-                  <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
-                    Specified pages will be printed in <span className="font-bold">Color</span>. All other pages will automatically print in <span className="font-bold">Black & White</span>.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
     );

@@ -34,7 +34,7 @@ function AuthForm() {
   useEffect(() => {
     if (mode === "electron" && status === "unauthenticated") {
       signIn("google", {
-        callbackUrl: "https://smartprint-tau.vercel.app/admin/auth-bridge",
+        callbackUrl: `${window.location.origin}/admin/auth-bridge`,
       });
     }
   }, [mode, status]);
@@ -73,9 +73,22 @@ function AuthForm() {
       //   → Loads the dashboard
       // ================================================================
       setWaitingForBrowser(true);
-      // This window.open call will be intercepted by Electron's
-      // setWindowOpenHandler → shell.openExternal
-      window.open(`${APP_URL}/admin/auth?mode=electron`, "_blank");
+      // Construct the URL dynamically based on current origin if possible, 
+      // but fallback to hardcoded if we are in Electron and need a stable link.
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : APP_URL;
+      const authUrl = `${baseUrl}/admin/auth?mode=electron`;
+      
+      // Try multiple ways to open in system browser
+      // 1. window.open (intercepted by Electron)
+      const win = window.open(authUrl, "_blank");
+      
+      // 2. If window.open failed or returned null (sometimes happens in Electron)
+      if (!win) {
+        const a = document.createElement('a');
+        a.href = authUrl;
+        a.target = '_blank';
+        a.click();
+      }
     } else {
       // Normal browser: standard NextAuth flow
       await signIn("google", {

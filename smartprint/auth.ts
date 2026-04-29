@@ -48,7 +48,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async redirect({ url, baseUrl }) {
       // Always redirect to dashboard after successful login
-      // Use absolute Vercel URL to prevent redirect issues
+      // BUT if we have a specific callbackUrl in the params, use it
+      try {
+        const searchParams = new URL(url, baseUrl).searchParams;
+        const callbackUrl = searchParams.get('callbackUrl');
+        
+        if (callbackUrl && callbackUrl.includes('/admin/auth-bridge')) {
+          return callbackUrl;
+        }
+      } catch (e) {
+        // Fallback for invalid URLs
+      }
+
       if (url.startsWith('/')) {
         return `${baseUrl}${url}`
       }

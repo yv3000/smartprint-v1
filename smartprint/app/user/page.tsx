@@ -25,6 +25,16 @@ const PDFPreview = dynamic(() => import("@/components/user/PDFPreview"), {
   )
 });
 
+const DocxPreview = dynamic(() => import("@/components/user/DocxPreview"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col items-center justify-center p-20 gap-3">
+      <Loader2 className="w-8 h-8 text-[#4F46E5] animate-spin" />
+      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Loading Document Viewer...</p>
+    </div>
+  )
+});
+
 /* ── Helpers ─────────────────────────────────────────────── */
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -335,7 +345,7 @@ function UserPageContent() {
                   file: f, 
                   id: Math.random().toString(), 
                   progress: 100,
-                  preview: (f.type.startsWith("image/") || f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf") || f.name.toLowerCase().endsWith(".jpg") || f.name.toLowerCase().endsWith(".jpeg") || f.name.toLowerCase().endsWith(".png")) ? URL.createObjectURL(f) : null,
+                  preview: (f.type.startsWith("image/") || f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf") || f.name.toLowerCase().endsWith(".jpg") || f.name.toLowerCase().endsWith(".jpeg") || f.name.toLowerCase().endsWith(".png") || f.name.toLowerCase().endsWith(".docx") || f.name.toLowerCase().endsWith(".pptx")) ? URL.createObjectURL(f) : "preview-active",
                   adjustments: { ...DEFAULT_PRINT_SETTINGS }
                 }))])}
                 onRemoveFile={(id) => setFiles(prev => {
@@ -421,7 +431,9 @@ function UserPageContent() {
                       {files[selectedFileIndex]?.preview ? (() => {
                         const currentFile = files[selectedFileIndex];
                         const isImage = currentFile.file.type.startsWith("image/");
-                        const isPDF = currentFile.file.type === "application/pdf";
+                        const isPDF = currentFile.file.type === "application/pdf" || currentFile.file.name.toLowerCase().endsWith(".pdf");
+                        const isDocx = currentFile.file.name.toLowerCase().endsWith(".docx") || currentFile.file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                        const isPptx = currentFile.file.name.toLowerCase().endsWith(".pptx") || currentFile.file.name.toLowerCase().endsWith(".ppt") || currentFile.file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation";
                         
                         if (isPDF) {
                           return (
@@ -434,6 +446,28 @@ function UserPageContent() {
                               enableAdvancedColor={settings.enableAdvancedColor}
                               baseColorMode={settings.colorMode}
                             />
+                          );
+                        }
+
+                        if (isDocx) {
+                          return (
+                            <DocxPreview file={currentFile.file} />
+                          );
+                        }
+
+                        if (isPptx) {
+                          return (
+                            <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-orange-100 max-w-[280px] animate-in fade-in zoom-in-95 duration-500">
+                              <div className="w-16 h-16 bg-orange-50 rounded-2xl flex items-center justify-center mb-4 rotate-3">
+                                <FileText className="w-8 h-8 text-orange-400" />
+                              </div>
+                              <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight mb-1">{currentFile.file.name}</h3>
+                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4">{(currentFile.file.size / 1024).toFixed(1)} KB</p>
+                              <div className="px-3 py-1.5 bg-orange-100 rounded-full">
+                                <span className="text-[9px] font-black text-orange-600 uppercase">Interactive PPT Preview Coming Soon</span>
+                              </div>
+                              <p className="text-[10px] text-gray-400 mt-4 leading-relaxed">We are currently integrating a high-fidelity PowerPoint viewer. For now, you can still proceed to print.</p>
+                            </div>
                           );
                         }
 

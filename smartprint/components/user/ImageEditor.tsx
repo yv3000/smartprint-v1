@@ -231,8 +231,8 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
           <button onClick={onCancel} className="px-4 py-2 text-sm font-medium text-[#1A1A1A]/50 hover:text-[#1A1A1A] transition-colors flex items-center gap-1">
             <X className="w-4 h-4" /> Cancel
           </button>
-          <button 
-            onClick={handleSave} 
+          <button
+            onClick={handleSave}
             className="px-6 py-2.5 bg-[#4F46E5] text-white text-sm font-extrabold rounded-xl hover:bg-[#4338CA] active:scale-[0.98] transition-all flex items-center gap-2 shadow-lg shadow-indigo-100"
           >
             <Check className="w-5 h-5" /> Save Changes
@@ -290,8 +290,8 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
                 key={p.value}
                 onClick={() => applySizePreset(p.value)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${sizePreset === p.value
-                    ? "bg-[#4F46E5] text-white"
-                    : "bg-white border border-[#E5E7EB] text-[#1A1A1A] hover:border-[#4F46E5]"
+                  ? "bg-[#4F46E5] text-white"
+                  : "bg-white border border-[#E5E7EB] text-[#1A1A1A] hover:border-[#4F46E5]"
                   }`}
               >
                 {p.label}
@@ -308,8 +308,8 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
           </div>
           {isCropping ? (
             <div className="flex gap-2">
-              <button 
-                onClick={applyCrop} 
+              <button
+                onClick={applyCrop}
                 className="px-4 py-2 text-xs font-bold bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] shadow-lg shadow-indigo-200 animate-pulse"
               >
                 Apply Crop
@@ -363,8 +363,8 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
                 key={deg}
                 onClick={() => setRotation(deg)}
                 className={`px-2 py-2 text-xs font-medium rounded-lg transition-all ${rotation === deg
-                    ? "bg-[#4F46E5] text-white"
-                    : "bg-white border border-[#E5E7EB] text-[#1A1A1A] hover:border-[#4F46E5]"
+                  ? "bg-[#4F46E5] text-white"
+                  : "bg-white border border-[#E5E7EB] text-[#1A1A1A] hover:border-[#4F46E5]"
                   }`}
               >
                 {deg}°

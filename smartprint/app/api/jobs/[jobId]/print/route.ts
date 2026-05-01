@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getJob, markJobPrinted } from "@/lib/db";
+import prisma from "@/lib/prisma";
 import { deleteJobFiles } from "@/lib/storage";
 
 export async function POST(
@@ -15,7 +15,9 @@ export async function POST(
 ) {
   try {
     const { jobId } = await params;
-    const job = getJob(jobId);
+    const job = await prisma.job.findUnique({
+      where: { id: jobId }
+    });
 
     if (!job) {
       return NextResponse.json(
@@ -32,7 +34,11 @@ export async function POST(
     }
 
     // Mark as printed and immediately delete files
-    markJobPrinted(jobId);
+    await prisma.job.update({
+      where: { id: jobId },
+      data: { status: "printed", printedAt: new Date() }
+    });
+    
     deleteJobFiles(jobId);
 
     return NextResponse.json({

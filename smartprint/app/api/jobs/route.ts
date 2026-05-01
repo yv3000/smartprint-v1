@@ -8,18 +8,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { startCleanup } from "@/lib/cleanup";
-import type { JobResponse } from "@/lib/types";
-
-let cleanupStarted = false;
+import { runCleanupSync } from "@/lib/cleanup";
 
 export async function GET(request: NextRequest) {
   try {
-    // Start cleanup on first request
-    if (!cleanupStarted) {
-      startCleanup();
-      cleanupStarted = true;
-    }
+    // Run cleanup synchronously on every request to ensure Vercel purges expired jobs
+    await runCleanupSync();
 
     // Verify admin session via NextAuth
     const session = await auth();

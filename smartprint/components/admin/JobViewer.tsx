@@ -556,13 +556,26 @@ export default function JobViewer({
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin w-8 h-8 border-2 border-foreground/20 border-t-foreground rounded-full" />
           </div>
-        ) : isExpired ? (
-          <div className="text-center py-20 animate-fade-in">
-            <div className="w-20 h-20 rounded-3xl bg-danger/10 flex items-center justify-center mx-auto mb-6">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#FF3B30" strokeWidth="1.5"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+        ) : isExpired || jobData.status === "printed" ? (
+          <div className="text-center py-24 animate-fade-in">
+            <div className="w-24 h-24 rounded-[32px] bg-gray-50 border border-gray-100 flex items-center justify-center mx-auto mb-8 shadow-sm">
+              {isExpired ? (
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+              ) : (
+                <span className="text-4xl">🔒</span>
+              )}
             </div>
-            <h2 className="text-2xl font-semibold mb-2">File Expired</h2>
-            <p className="text-secondary">This file has been automatically deleted.</p>
+            <h2 className="text-2xl font-bold text-[#111827] tracking-tight mb-2">
+              {isExpired ? "Job Expired" : "Job Completed"}
+            </h2>
+            <p className="text-sm text-[#6B7280] max-w-xs mx-auto leading-relaxed">
+              {isExpired 
+                ? "This print job has automatically expired and the files have been purged from the server." 
+                : "This job was marked as printed. For security and privacy, the folder has been locked and files are no longer accessible."}
+            </p>
+            <button onClick={onClose} className="mt-8 px-6 py-2 bg-[#111827] text-white rounded-xl text-sm font-semibold hover:bg-black transition-all">
+              Return to Dashboard
+            </button>
           </div>
         ) : jobData ? (
           <div className="animate-fade-in job-detail-layout">

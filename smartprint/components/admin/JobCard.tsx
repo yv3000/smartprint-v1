@@ -51,7 +51,7 @@ export default function JobCard({ job, onClick }: JobCardProps) {
       className={`w-full text-left p-5 rounded-2xl border transition-all ${
         isActive
           ? "border-border hover:border-secondary/40 hover:shadow-sm cursor-pointer card-hover"
-          : "border-border/60 opacity-60 cursor-default"
+          : "border-border/60 opacity-50 cursor-not-allowed bg-gray-50/50"
       }`}
     >
       {/* Top row: User ID + Status */}

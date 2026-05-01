@@ -1,63 +1,71 @@
 /**
  * Background Cleanup — SmartPrint
  * 
- * Runs every 10 seconds to purge expired jobs.
- * Two cleanup passes:
- * 1. Jobs opened more than 100 seconds ago → expire + delete files
- * 2. Jobs older than 1 hour from CREATION (whether opened or not) → expire + delete files
+ * Migrated to Prisma (Postgres) for production compatibility.
+ * Support for both interval and inline (request-time) cleanup.
  */
 
-import { getExpiredJobs, getStaleJobs, markJobExpired } from "./db";
+import prisma from "./prisma";
 import { deleteJobFiles } from "./storage";
 
-let cleanupInterval: ReturnType<typeof setInterval> | null = null;
-
 /**
- * Run a single cleanup pass
+ * Run a single cleanup pass synchronously (using Prisma)
+ * Used for both background interval and inline request-time cleanup.
  */
-function runCleanup(): void {
+export async function runCleanupSync(): Promise<void> {
   try {
-    // Pass 1: Jobs opened > 100 seconds ago
-    const expiredJobs = getExpiredJobs();
-    for (const job of expiredJobs) {
+    const now = new Date();
+    
+    // Pass 1: Jobs opened more than 100 seconds ago
+    const expiredByOpen = await prisma.job.findMany({
+      where: {
+        status: "opened",
+        openedAt: {
+          lt: new Date(now.getTime() - 100 * 1000)
+        }
+      }
+    });
+
+    for (const job of expiredByOpen) {
       deleteJobFiles(job.id);
-      markJobExpired(job.id);
-      console.log(`[Cleanup] Expired job ${job.id} (user: ${job.user_id}) — 100s TTL after open`);
+      await prisma.job.update({
+        where: { id: job.id },
+        data: { status: "expired", expiredAt: now }
+      });
+      console.log(`[Cleanup] Expired job ${job.id} — 100s TTL after open`);
     }
 
     // Pass 2: ALL jobs older than 1 hour from creation (opened or not)
-    const staleJobs = getStaleJobs();
+    const staleJobs = await prisma.job.findMany({
+      where: {
+        status: { notIn: ["expired", "deleted"] },
+        createdAt: {
+          lt: new Date(now.getTime() - 60 * 60 * 1000)
+        }
+      }
+    });
+
     for (const job of staleJobs) {
       deleteJobFiles(job.id);
-      markJobExpired(job.id);
-      console.log(`[Cleanup] Expired stale job ${job.id} (user: ${job.user_id}) — 1hr from creation`);
+      await prisma.job.update({
+        where: { id: job.id },
+        data: { status: "expired", expiredAt: now }
+      });
+      console.log(`[Cleanup] Expired stale job ${job.id} — 1hr from creation`);
     }
   } catch (error) {
     console.error("[Cleanup] Error during cleanup:", error);
   }
 }
 
-/**
- * Start the background cleanup job.
- * Runs every 10 seconds. Safe to call multiple times — only starts once.
- */
+let cleanupInterval: ReturnType<typeof setInterval> | null = null;
+
 export function startCleanup(): void {
-  if (cleanupInterval) return; // Already running
-
-  console.log("[Cleanup] Background cleanup started (every 10s)");
-  cleanupInterval = setInterval(runCleanup, 10_000);
-
-  // Run immediately on start
-  runCleanup();
-}
-
-/**
- * Stop the background cleanup job
- */
-export function stopCleanup(): void {
-  if (cleanupInterval) {
-    clearInterval(cleanupInterval);
-    cleanupInterval = null;
-    console.log("[Cleanup] Background cleanup stopped");
-  }
+  if (cleanupInterval) return;
+  
+  // Note: On Vercel, this interval will only run as long as the 
+  // serverless function is warm. We rely on runCleanupSync() being 
+  // called inline in the API route for guaranteed cleanup.
+  cleanupInterval = setInterval(runCleanupSync, 60_000); // Check every minute
+  runCleanupSync();
 }

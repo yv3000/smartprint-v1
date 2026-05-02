@@ -207,8 +207,8 @@ function AuthForm() {
             animate={{ scale: 1, opacity: 1 }}
             className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600"
           >
-            <AlertCircle className="w-5 h-5" />
-            <div className="text-sm font-medium">Authentication failed. Please try again.</div>
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <div className="text-sm font-medium">Authentication failed ({error}). Please try again.</div>
           </motion.div>
         )}
 

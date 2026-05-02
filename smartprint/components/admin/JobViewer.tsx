@@ -556,7 +556,7 @@ export default function JobViewer({
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin w-8 h-8 border-2 border-foreground/20 border-t-foreground rounded-full" />
           </div>
-        ) : isExpired || jobData.status === "printed" ? (
+        ) : isExpired || jobData?.status === "printed" ? (
           <div className="text-center py-24 animate-fade-in">
             <div className="w-24 h-24 rounded-[32px] bg-gray-50 border border-gray-100 flex items-center justify-center mx-auto mb-8 shadow-sm">
               {isExpired ? (

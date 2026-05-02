@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { runCleanupSync } from "@/lib/cleanup";
+import type { JobResponse } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
   try {

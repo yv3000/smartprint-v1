@@ -60,12 +60,12 @@ export default function AdminDashboard() {
     fetchJobs();
   }, [fetchJobs]);
 
-  const handleClearCompleted = async () => {
+  const handleClearAll = async () => {
     try {
-      const res = await fetch("/api/jobs/clear-completed", { method: "DELETE", credentials: "include" });
+      const res = await fetch("/api/jobs/clear-all", { method: "DELETE", credentials: "include" });
       const data = await res.json();
       if (data.deleted !== undefined) {
-        toast.success(`${data.deleted} completed job${data.deleted !== 1 ? "s" : ""} cleared`);
+        toast.success(`${data.deleted} job${data.deleted !== 1 ? "s" : ""} cleared`);
       }
       fetchJobs();
     } catch {
@@ -139,24 +139,24 @@ export default function AdminDashboard() {
               <h2 className="text-lg font-semibold tracking-tight text-[#111827]">Print Queue</h2>
               <p className="text-xs text-[#6B7280] mt-0.5">Files auto-delete in 100 seconds after opening.</p>
             </div>
-            {/* Always show the Clear Done button, but disabled if no jobs are ready to clear */}
+            {/* Always show the Clear All button, but disabled if no jobs are ready to clear */}
             {!showClearConfirm ? (
               <button 
-                onClick={() => completedJobs.length > 0 && setShowClearConfirm(true)} 
-                disabled={completedJobs.length === 0}
+                onClick={() => jobs.length > 0 && setShowClearConfirm(true)} 
+                disabled={jobs.length === 0}
                 className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-all border ${
-                  completedJobs.length > 0 
+                  jobs.length > 0 
                     ? "text-[#6B7280] hover:text-[#EF4444] border-[#E5E7EB] hover:border-[#FCA5A5] cursor-pointer" 
                     : "text-gray-300 border-gray-100 cursor-not-allowed"
                 }`}
               >
-                Clear Done
+                Clear All
               </button>
             ) : (
               <div className="flex items-center gap-2 p-1.5 bg-red-50 border border-[#FCA5A5] rounded-lg animate-in fade-in zoom-in duration-200">
-                <span className="text-[10px] text-[#EF4444] font-bold uppercase tracking-wider ml-1">Delete {completedJobs.length}?</span>
+                <span className="text-[10px] text-[#EF4444] font-bold uppercase tracking-wider ml-1">Delete {jobs.length}?</span>
                 <button onClick={() => setShowClearConfirm(false)} className="text-[10px] px-2 py-1 bg-white border border-[#E5E7EB] rounded font-bold uppercase tracking-widest text-[#6B7280] hover:bg-gray-50">No</button>
-                <button onClick={handleClearCompleted} className="text-[10px] px-2 py-1 bg-[#EF4444] text-white rounded font-bold uppercase tracking-widest hover:bg-[#DC2626]">Yes</button>
+                <button onClick={handleClearAll} className="text-[10px] px-2 py-1 bg-[#EF4444] text-white rounded font-bold uppercase tracking-widest hover:bg-[#DC2626]">Yes</button>
               </div>
             )}
           </div>

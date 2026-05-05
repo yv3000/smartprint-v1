@@ -431,7 +431,18 @@ export default function JobViewer({
     }
   };
 
-  const handleExpired = useCallback(() => setIsExpired(true), []);
+  const handleExpired = useCallback(async () => {
+    setIsExpired(true);
+    // Trigger server-side cleanup when timer expires
+    if (job?.id) {
+      try {
+        await fetch(`/api/jobs/${job.id}/print`, { method: "POST", credentials: "include" });
+      } catch (e) {
+        console.error("Failed to expire job on server:", e);
+      }
+      onJobUpdate();
+    }
+  }, [job?.id, onJobUpdate]);
 
   const [availablePrinters, setAvailablePrinters] = useState<any[]>([]);
   const [selectedPrinterName, setSelectedPrinterName] = useState<string>("");

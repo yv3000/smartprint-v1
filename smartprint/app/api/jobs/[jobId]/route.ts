@@ -21,9 +21,9 @@ export async function GET(
       );
     }
 
-    if (job.status === "expired" || job.status === "deleted") {
+    if (job.status === "expired" || job.status === "deleted" || job.status === "printed") {
       return NextResponse.json(
-        { error: "This job has expired and files have been deleted" },
+        { error: "This job has expired or been printed, and files have been deleted" },
         { status: 410 }
       );
     }

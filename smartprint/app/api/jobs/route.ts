@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     const jobs = await prisma.job.findMany({
       where: {
         adminId: admin.id,
-        status: { notIn: ["expired", "deleted"] }
+        status: { notIn: ["expired", "deleted", "printed"] }
       },
       orderBy: { createdAt: "desc" }
     });

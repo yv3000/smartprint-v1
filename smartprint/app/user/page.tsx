@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import Cookies from "js-cookie";
 import { toast } from "react-hot-toast";
+import { PDFDocument } from "pdf-lib";
 import { Loader2, QrCode, Printer, Crop, AlertCircle, MapPin, Clock, ChevronRight, FileText } from "lucide-react";
 import type { PrintSettings as PrintSettingsType } from "@/lib/types";
 import { DEFAULT_PRINT_SETTINGS } from "@/lib/types";
@@ -43,6 +44,84 @@ function timeAgo(iso: string): string {
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+/** Parse a page range string like "1,3,5-8" into an array of page numbers */
+function parsePageRange(rangeStr: string): number[] {
+  if (!rangeStr) return [];
+  const pages = new Set<number>();
+  const parts = rangeStr.split(',');
+  parts.forEach(part => {
+    const trimmed = part.trim();
+    if (trimmed.includes('-')) {
+      const [startStr, endStr] = trimmed.split('-');
+      const start = parseInt(startStr?.trim());
+      const end = parseInt(endStr?.trim());
+      if (!isNaN(start) && !isNaN(end)) {
+        for (let i = start; i <= end; i++) pages.add(i);
+      }
+    } else {
+      const num = parseInt(trimmed);
+      if (!isNaN(num)) pages.add(num);
+    }
+  });
+  return Array.from(pages).sort((a, b) => a - b);
+}
+
+/** Split a PDF file into separate color and B&W files based on page ranges */
+async function splitPdfByColor(
+  file: File,
+  colorPagesRange: string,
+  bwPagesRange: string,
+  enableColorRange: boolean,
+  enableBWRange: boolean
+): Promise<File[]> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfDoc = await PDFDocument.load(arrayBuffer);
+  const totalPages = pdfDoc.getPageCount();
+  const allPages = Array.from({ length: totalPages }, (_, i) => i + 1);
+
+  let colorPageNums: number[] = [];
+  let bwPageNums: number[] = [];
+
+  if (enableColorRange && enableBWRange) {
+    // Both specified — use exact ranges
+    colorPageNums = parsePageRange(colorPagesRange).filter(p => p >= 1 && p <= totalPages);
+    bwPageNums = parsePageRange(bwPagesRange).filter(p => p >= 1 && p <= totalPages);
+  } else if (enableColorRange) {
+    // Only color pages specified — rest is B&W
+    colorPageNums = parsePageRange(colorPagesRange).filter(p => p >= 1 && p <= totalPages);
+    bwPageNums = allPages.filter(p => !colorPageNums.includes(p));
+  } else if (enableBWRange) {
+    // Only B&W pages specified — rest is color
+    bwPageNums = parsePageRange(bwPagesRange).filter(p => p >= 1 && p <= totalPages);
+    colorPageNums = allPages.filter(p => !bwPageNums.includes(p));
+  }
+
+  const result: File[] = [];
+  const baseName = file.name.replace(/\.pdf$/i, '');
+
+  // Create color PDF
+  if (colorPageNums.length > 0) {
+    const colorDoc = await PDFDocument.create();
+    const indices = colorPageNums.map(p => p - 1); // pdf-lib is 0-indexed
+    const pages = await colorDoc.copyPages(pdfDoc, indices);
+    pages.forEach(page => colorDoc.addPage(page));
+    const colorBytes = await colorDoc.save();
+    result.push(new File([colorBytes.buffer as ArrayBuffer], `${baseName}_COLOR_pages.pdf`, { type: 'application/pdf' }));
+  }
+
+  // Create B&W PDF
+  if (bwPageNums.length > 0) {
+    const bwDoc = await PDFDocument.create();
+    const indices = bwPageNums.map(p => p - 1);
+    const pages = await bwDoc.copyPages(pdfDoc, indices);
+    pages.forEach(page => bwDoc.addPage(page));
+    const bwBytes = await bwDoc.save();
+    result.push(new File([bwBytes.buffer as ArrayBuffer], `${baseName}_BW_pages.pdf`, { type: 'application/pdf' }));
+  }
+
+  return result;
 }
 
 function UserPageContent() {
@@ -181,9 +260,48 @@ function UserPageContent() {
       const encryptionKeys: string[] = [];
       const fileInfos: any[] = [];
 
+      // Determine if we need to split PDFs by color/BW
+      const needsSplit = settings.enableAdvancedColor && 
+        (settings.enableColorRange || settings.enableBWRange) &&
+        (settings.colorPagesRange || settings.bwPagesRange);
+
+      // Build the final file list (possibly with split PDFs)
+      let finalFiles: File[] = [];
+
+      if (needsSplit && !isEncrypted) {
+        // Split PDFs into color and B&W files
+        for (const f of files) {
+          const isPDF = f.file.type === 'application/pdf' || f.file.name.toLowerCase().endsWith('.pdf');
+          if (isPDF) {
+            try {
+              toast.loading('Splitting PDF pages...', { id: 'split' });
+              const splitFiles = await splitPdfByColor(
+                f.file,
+                settings.colorPagesRange || '',
+                settings.bwPagesRange || '',
+                settings.enableColorRange,
+                settings.enableBWRange
+              );
+              finalFiles.push(...splitFiles);
+              toast.dismiss('split');
+              toast.success(`PDF split into ${splitFiles.length} file${splitFiles.length > 1 ? 's' : ''}`);
+            } catch (splitErr) {
+              console.error('PDF split failed:', splitErr);
+              toast.dismiss('split');
+              toast.error('PDF split failed. Sending original file instead.');
+              finalFiles.push(f.file);
+            }
+          } else {
+            finalFiles.push(f.file);
+          }
+        }
+      } else {
+        finalFiles = files.map(f => f.file);
+      }
+
       // Handle Encryption
       if (isEncrypted) {
-        const encryptedFiles = await Promise.all(files.map(async (f) => {
+        const encryptedFiles = await Promise.all(finalFiles.map(async (file) => {
           const key = crypto.getRandomValues(new Uint8Array(32));
           const keyBase64 = btoa(String.fromCharCode(...key));
           encryptionKeys.push(keyBase64);
@@ -193,7 +311,7 @@ function UserPageContent() {
             'raw', key, { name: 'AES-GCM' }, false, ['encrypt']
           );
           
-          const fileBuffer = await f.file.arrayBuffer();
+          const fileBuffer = await file.arrayBuffer();
           const encrypted = await crypto.subtle.encrypt(
             { name: 'AES-GCM', iv },
             cryptoKey,
@@ -205,19 +323,19 @@ function UserPageContent() {
           combined.set(new Uint8Array(encrypted), iv.length);
           
           fileInfos.push({
-            originalName: f.file.name,
-            originalType: f.file.type,
+            originalName: file.name,
+            originalType: file.type,
             size: combined.length
           });
 
-          return new File([combined], `${f.file.name}.enc`, { type: 'application/octet-stream' });
+          return new File([combined], `${file.name}.enc`, { type: 'application/octet-stream' });
         }));
 
         encryptedFiles.forEach(f => formData.append("files", f));
         updatedSettings.encryptionKeys = encryptionKeys.join(':');
         updatedSettings.fileInfos = fileInfos;
       } else {
-        files.forEach(f => formData.append("files", f.file));
+        finalFiles.forEach(f => formData.append("files", f));
       }
 
       formData.append("shopToken", shopToken);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Loader2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
 
@@ -19,10 +19,13 @@ interface PDFPreviewProps {
 
 export default function PDFPreview({ fileUrl, colorPagesRange, bwPagesRange, enableColorRange, enableBWRange, enableAdvancedColor, baseColorMode }: PDFPreviewProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
-  const [scale, setScale] = useState(0.8);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [scale, setScale] = useState(1.0);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
+    setCurrentPage(1);
   };
 
   const parsePageRange = (rangeStr: string): number[] => {
@@ -52,7 +55,6 @@ export default function PDFPreview({ fileUrl, colorPagesRange, bwPagesRange, ena
     const colorPages = parsePageRange(colorPagesRange);
     const bwPages = parsePageRange(bwPagesRange);
 
-    // Use explicit flags from settings
     if (enableColorRange && enableBWRange) {
       if (colorPages.includes(pageNumber)) return true;
       if (bwPages.includes(pageNumber)) return false;
@@ -70,8 +72,43 @@ export default function PDFPreview({ fileUrl, colorPagesRange, bwPagesRange, ena
     return baseColorMode === 'Color';
   };
 
+  const goToPage = (page: number) => {
+    if (numPages && page >= 1 && page <= numPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        goToPage(currentPage - 1);
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        goToPage(currentPage + 1);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [currentPage, numPages]);
+
+  // Touch/swipe support
+  const touchStartX = useRef(0);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 60) {
+      if (diff > 0) goToPage(currentPage + 1); // swipe left → next
+      else goToPage(currentPage - 1); // swipe right → prev
+    }
+  };
+
   return (
     <div className="w-full h-full flex flex-col bg-[#F9FAFB]">
+      {/* Top bar */}
       <div className="flex items-center justify-between p-3 bg-white border-b border-gray-100 shadow-sm z-10">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-secondary uppercase tracking-wider">PDF Explorer</span>
@@ -83,14 +120,14 @@ export default function PDFPreview({ fileUrl, colorPagesRange, bwPagesRange, ena
         </div>
         <div className="flex items-center gap-2">
           <button 
-            onClick={() => setScale(prev => Math.max(0.4, prev - 0.1))}
+            onClick={() => setScale(prev => Math.max(0.4, prev - 0.15))}
             className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ZoomOut className="w-4 h-4 text-gray-500" />
           </button>
           <span className="text-[10px] font-bold w-12 text-center text-gray-400">{Math.round(scale * 100)}%</span>
           <button 
-            onClick={() => setScale(prev => Math.min(2, prev + 0.1))}
+            onClick={() => setScale(prev => Math.min(2.5, prev + 0.15))}
             className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ZoomIn className="w-4 h-4 text-gray-500" />
@@ -98,7 +135,13 @@ export default function PDFPreview({ fileUrl, colorPagesRange, bwPagesRange, ena
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-6 flex flex-col items-center gap-8 custom-scrollbar">
+      {/* Page content - single page view */}
+      <div 
+        ref={containerRef}
+        className="flex-1 overflow-auto p-6 flex items-center justify-center custom-scrollbar"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         <Document
           file={fileUrl}
           onLoadSuccess={onDocumentLoadSuccess}
@@ -126,35 +169,95 @@ export default function PDFPreview({ fileUrl, colorPagesRange, bwPagesRange, ena
             </div>
           }
         >
-          {Array.from(new Array(numPages), (el, index) => (
-            <div key={`page_${index + 1}`} className="relative group">
-              <div 
-                className="shadow-[0_10px_40px_rgba(0,0,0,0.08)] border border-gray-100 rounded-sm transition-all duration-300"
-                style={{
-                  filter: isPageColor(index + 1) ? 'none' : 'grayscale(100%)',
-                  opacity: isPageColor(index + 1) ? 1 : 0.85
-                }}
-              >
-                <Page 
-                  pageNumber={index + 1} 
-                  scale={scale}
-                  renderTextLayer={false}
-                  renderAnnotationLayer={false}
-                  className="rounded-sm overflow-hidden"
-                />
-              </div>
-              
-              {/* Page Number & Color Tag */}
-              <div className="absolute -left-16 top-0 flex flex-col items-end gap-1 pointer-events-none">
-                <span className="text-[10px] font-black text-gray-300 group-hover:text-[#4F46E5] transition-colors">#{index + 1}</span>
-                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-tighter ${isPageColor(index + 1) ? 'bg-[#4F46E5] text-white' : 'bg-gray-200 text-gray-500'}`}>
-                  {isPageColor(index + 1) ? 'Color' : 'B&W'}
+          <div className="relative group">
+            <div 
+              className="shadow-[0_10px_40px_rgba(0,0,0,0.08)] border border-gray-100 rounded-sm transition-all duration-300"
+              style={{
+                filter: isPageColor(currentPage) ? 'none' : 'grayscale(100%)',
+                opacity: isPageColor(currentPage) ? 1 : 0.85
+              }}
+            >
+              <Page 
+                pageNumber={currentPage} 
+                scale={scale}
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
+                className="rounded-sm overflow-hidden"
+              />
+            </div>
+            
+            {/* Color/BW tag overlay */}
+            {enableAdvancedColor && (
+              <div className="absolute top-3 right-3 pointer-events-none">
+                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tight shadow-lg ${isPageColor(currentPage) ? 'bg-[#4F46E5] text-white' : 'bg-gray-700 text-white'}`}>
+                  {isPageColor(currentPage) ? '🎨 Color' : '◐ B&W'}
                 </span>
               </div>
-            </div>
-          ))}
+            )}
+          </div>
         </Document>
       </div>
+
+      {/* Bottom navigation bar */}
+      {numPages && numPages > 0 && (
+        <div className="flex items-center justify-between p-3 bg-white border-t border-gray-100 shadow-[0_-2px_10px_rgba(0,0,0,0.03)]">
+          {/* Left arrow */}
+          <button 
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className={`p-2 rounded-lg transition-all ${currentPage <= 1 ? 'opacity-20 cursor-not-allowed' : 'hover:bg-gray-100 active:scale-95'}`}
+          >
+            <ChevronLeft className="w-5 h-5 text-gray-700" />
+          </button>
+
+          {/* Page indicator with dots / numbers */}
+          <div className="flex items-center gap-2">
+            {numPages <= 10 ? (
+              // Show dots for few pages
+              <div className="flex items-center gap-1.5">
+                {Array.from({ length: numPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => goToPage(page)}
+                    className={`transition-all duration-200 rounded-full ${
+                      page === currentPage
+                        ? 'w-7 h-3 bg-[#4F46E5]'
+                        : 'w-3 h-3 bg-gray-200 hover:bg-gray-300'
+                    }`}
+                    title={`Page ${page}`}
+                  />
+                ))}
+              </div>
+            ) : (
+              // Show page number input for many pages
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-400 font-bold">Page</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={numPages}
+                  value={currentPage}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val)) goToPage(val);
+                  }}
+                  className="w-12 text-center text-sm font-bold border border-gray-200 rounded-lg py-1 focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/20"
+                />
+                <span className="text-xs text-gray-400 font-bold">of {numPages}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Right arrow */}
+          <button 
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={currentPage >= numPages}
+            className={`p-2 rounded-lg transition-all ${currentPage >= numPages ? 'opacity-20 cursor-not-allowed' : 'hover:bg-gray-100 active:scale-95'}`}
+          >
+            <ChevronRight className="w-5 h-5 text-gray-700" />
+          </button>
+        </div>
+      )}
 
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {

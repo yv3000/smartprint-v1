@@ -230,8 +230,27 @@ function UserPageContent() {
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Upload failed");
+        let errorMessage = "Upload failed";
+        try {
+          const text = await res.text();
+          // Try to parse as JSON first
+          try {
+            const errorData = JSON.parse(text);
+            errorMessage = errorData.error || errorMessage;
+          } catch {
+            // Not JSON — could be HTML error page from Vercel
+            if (res.status === 413) {
+              errorMessage = "File too large. Please reduce file size and try again.";
+            } else if (res.status === 504) {
+              errorMessage = "Server timeout. Please try again with a smaller file.";
+            } else {
+              errorMessage = `Server error (${res.status}). Please try again.`;
+            }
+          }
+        } catch {
+          errorMessage = `Server error (${res.status}). Please try again.`;
+        }
+        throw new Error(errorMessage);
       }
       
       const data = await res.json();

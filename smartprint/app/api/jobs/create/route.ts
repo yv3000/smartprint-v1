@@ -5,9 +5,19 @@ import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { createId } from "@paralleldrive/cuid2";
 
+// Increase body size limit for file uploads
+export const runtime = "nodejs";
+
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
+    let formData: FormData;
+    try {
+      formData = await req.formData();
+    } catch (parseErr: any) {
+      console.error("[Job Create] FormData parse error:", parseErr);
+      return NextResponse.json({ error: "Failed to process upload. File may be too large (max ~4MB)." }, { status: 413 });
+    }
+
     const settingsStr = formData.get("settings") as string;
     const isEncryptedStr = formData.get("isEncrypted") as string;
     const shopToken = formData.get("shopToken") as string;
@@ -30,7 +40,15 @@ export async function POST(req: NextRequest) {
     const jobId = createId();
     const userId = generateFriendlyId();
     const userToken = createId(); // For user-side deletion
-    const settings = JSON.parse(settingsStr || "{}");
+    
+    let settings: any = {};
+    try {
+      settings = JSON.parse(settingsStr || "{}");
+    } catch (jsonErr) {
+      console.error("[Job Create] Settings JSON parse error:", jsonErr, "Raw:", settingsStr?.substring(0, 200));
+      return NextResponse.json({ error: "Invalid settings data" }, { status: 400 });
+    }
+    
     const isEncrypted = isEncryptedStr === "true";
     
     // Store filenames in settings since they are not in the top-level schema
@@ -70,6 +88,6 @@ export async function POST(req: NextRequest) {
     }, { status: 201 });
   } catch (err: any) {
     console.error("Job Creation Error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Failed to create print job" }, { status: 500 });
   }
 }

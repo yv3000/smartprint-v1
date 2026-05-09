@@ -57,17 +57,17 @@ export default function DocxPreview({ file }: DocxPreviewProps) {
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#525659] overflow-auto">
+    <div className="w-full h-full flex flex-col bg-[#323639] overflow-hidden">
       {/* Top bar */}
-      <div className="flex items-center gap-2 p-2.5 bg-[#3b3b3b] border-b border-[#2a2a2a] shrink-0">
-        <FileText className="w-4 h-4 text-gray-300" />
-        <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">Document Preview</span>
+      <div className="flex items-center gap-2 p-3 bg-[#202124] border-b border-white/5 shrink-0">
+        <FileText className="w-4 h-4 text-indigo-400" />
+        <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em]">Live Document Stream</span>
       </div>
 
       {/* A4-sized document page */}
-      <div className="flex-1 overflow-auto p-8 flex justify-center">
+      <div className="flex-1 overflow-auto p-8 flex justify-center custom-docx-scroll">
         <div 
-          className="bg-white shadow-[0_4px_30px_rgba(0,0,0,0.3)] docx-preview-page"
+          className="bg-white shadow-[0_10px_50px_rgba(0,0,0,0.5)] docx-preview-page animate-in fade-in zoom-in-95 duration-500"
           style={{
             width: '100%',
             maxWidth: '210mm', // A4 width
@@ -87,7 +87,28 @@ export default function DocxPreview({ file }: DocxPreviewProps) {
         </div>
       </div>
 
+      {/* Bottom Bar */}
+      <div className="bg-[#202124] border-t border-white/5 p-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+          <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Optimized for A4</span>
+        </div>
+        <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/10">
+          <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">Mammoth HTML Engine</span>
+        </div>
+      </div>
+
       <style jsx global>{`
+        .custom-docx-scroll::-webkit-scrollbar {
+          width: 8px;
+        }
+        .custom-docx-scroll::-webkit-scrollbar-track {
+          background: rgba(255,255,255,0.02);
+        }
+        .custom-docx-scroll::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.1);
+          border-radius: 10px;
+        }
         .docx-page-content {
           word-wrap: break-word;
           overflow-wrap: break-word;
@@ -102,8 +123,6 @@ export default function DocxPreview({ file }: DocxPreviewProps) {
         .docx-page-content th { background-color: #f3f4f6; font-weight: bold; }
         .docx-page-content ul, .docx-page-content ol { margin-left: 20pt; margin-bottom: 8pt; }
         .docx-page-content li { margin-bottom: 4pt; }
-        .docx-page-content strong, .docx-page-content b { font-weight: bold; }
-        .docx-page-content em, .docx-page-content i { font-style: italic; }
       `}</style>
     </div>
   );

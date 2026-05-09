@@ -110,21 +110,67 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
     setIsDragging(false);
   };
 
-  const applyCrop = () => {
-    if (!cropStart || !cropEnd || !canvasRef.current || !sourceRef.current) return;
+  const getCropRect = (start: { x: number, y: number }, end: { x: number, y: number }) => {
+    if (!canvasRef.current || !sourceRef.current) return null;
     const canvas = canvasRef.current;
     const img = sourceRef.current;
+    const rect = canvas.getBoundingClientRect();
 
-    const scaleX = img.naturalWidth / canvas.width;
-    const scaleY = img.naturalHeight / canvas.height;
+    const getOriginalCoords = (cx_css: number, cy_css: number) => {
+      const cx = cx_css * (canvas.width / rect.width);
+      const cy = cy_css * (canvas.height / rect.height);
 
-    const x = Math.min(cropStart.x, cropEnd.x) * scaleX;
-    const y = Math.min(cropStart.y, cropEnd.y) * scaleY;
-    const w = Math.abs(cropEnd.x - cropStart.x) * scaleX;
-    const h = Math.abs(cropEnd.y - cropStart.y) * scaleY;
+      const sx = appliedCrop?.x ?? 0;
+      const sy = appliedCrop?.y ?? 0;
+      const sw = appliedCrop?.w ?? img.naturalWidth;
+      const sh = appliedCrop?.h ?? img.naturalHeight;
 
-    if (w > 10 && h > 10) {
-      setAppliedCrop({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
+      const isRotated90 = rotation === 90 || rotation === 270;
+      const cw = canvas.width;
+      const ch = canvas.height;
+
+      const w = isRotated90 ? ch : cw;
+      const h = isRotated90 ? cw : ch;
+
+      const dx = cx - cw / 2;
+      const dy = cy - ch / 2;
+
+      const theta = (-rotation * Math.PI) / 180;
+      const rx = dx * Math.cos(theta) - dy * Math.sin(theta);
+      const ry = dx * Math.sin(theta) + dy * Math.cos(theta);
+
+      const px = rx + w / 2;
+      const py = ry + h / 2;
+
+      const ix = sx + px * (sw / w);
+      const iy = sy + py * (sh / h);
+
+      return { x: ix, y: iy };
+    };
+
+    const p1 = getOriginalCoords(start.x, start.y);
+    const p2 = getOriginalCoords(end.x, start.y);
+    const p3 = getOriginalCoords(end.x, end.y);
+    const p4 = getOriginalCoords(start.x, end.y);
+
+    const minX = Math.min(p1.x, p2.x, p3.x, p4.x);
+    const maxX = Math.max(p1.x, p2.x, p3.x, p4.x);
+    const minY = Math.min(p1.y, p2.y, p3.y, p4.y);
+    const maxY = Math.max(p1.y, p2.y, p3.y, p4.y);
+
+    const newX = Math.max(0, Math.min(minX, img.naturalWidth));
+    const newY = Math.max(0, Math.min(minY, img.naturalHeight));
+    const newW = Math.min(maxX - newX, img.naturalWidth - newX);
+    const newH = Math.min(maxY - newY, img.naturalHeight - newY);
+
+    return { x: Math.round(newX), y: Math.round(newY), w: Math.round(newW), h: Math.round(newH) };
+  };
+
+  const applyCrop = () => {
+    if (!cropStart || !cropEnd) return;
+    const rect = getCropRect(cropStart, cropEnd);
+    if (rect && rect.w > 10 && rect.h > 10) {
+      setAppliedCrop(rect);
     }
     setIsCropping(false);
     setCropStart(null);
@@ -143,19 +189,22 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
       return;
     }
 
-    let ratio = 1;
-    if (preset === "passport") ratio = 35 / 45;
-    else if (preset === "square") ratio = 1;
-    else if (preset === "16:9") ratio = 16 / 9;
-    else if (preset === "4:3") ratio = 4 / 3;
+    let targetRatio = 1;
+    if (preset === "passport") targetRatio = 35 / 45;
+    else if (preset === "square") targetRatio = 1;
+    else if (preset === "16:9") targetRatio = 16 / 9;
+    else if (preset === "4:3") targetRatio = 4 / 3;
+
+    const isRotated90 = rotation === 90 || rotation === 270;
+    const imageRatio = isRotated90 ? 1 / targetRatio : targetRatio;
 
     let cw: number, ch: number;
-    if (iw / ih > ratio) {
+    if (iw / ih > imageRatio) {
       ch = ih;
-      cw = Math.round(ch * ratio);
+      cw = Math.round(ch * imageRatio);
     } else {
       cw = iw;
-      ch = Math.round(cw / ratio);
+      ch = Math.round(cw / imageRatio);
     }
     const cx = Math.round((iw - cw) / 2);
     const cy = Math.round((ih - ch) / 2);
@@ -169,18 +218,10 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
 
     // Use applied crop or current selection
     let finalCrop = appliedCrop;
-    if (!finalCrop && cropStart && cropEnd) {
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const scaleX = img.naturalWidth / canvas.width;
-        const scaleY = img.naturalHeight / canvas.height;
-        const x = Math.min(cropStart.x, cropEnd.x) * scaleX;
-        const y = Math.min(cropStart.y, cropEnd.y) * scaleY;
-        const w = Math.abs(cropEnd.x - cropStart.x) * scaleX;
-        const h = Math.abs(cropEnd.y - cropStart.y) * scaleY;
-        if (w > 10 && h > 10) {
-          finalCrop = { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) };
-        }
+    if (isCropping && cropStart && cropEnd) {
+      const rect = getCropRect(cropStart, cropEnd);
+      if (rect && rect.w > 10 && rect.h > 10) {
+        finalCrop = rect;
       }
     }
 

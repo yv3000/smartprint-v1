@@ -28,6 +28,31 @@ export default function PrintSettings({
   const renderModeA = () => {
     return (
       <div className="space-y-6 animate-fade-in text-[#111827]">
+        {/* SECTION 0: Pages Selection */}
+        <div className="p-4 rounded-xl border border-border bg-white">
+          <label className="block text-sm font-semibold mb-3">Pages</label>
+          <div className="space-y-3">
+            <select
+              value={settings.pageSelection}
+              onChange={e => update({ pageSelection: e.target.value as any })}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none"
+            >
+              {["All", "Current", "Odd", "Even", "Custom"].map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+            {settings.pageSelection === "Custom" && (
+              <input
+                type="text"
+                placeholder="e.g. 1, 3, 5-10"
+                value={settings.customPageRange || ""}
+                onChange={(e) => update({ customPageRange: e.target.value.replace(/[^0-9,\-\s]/g, '') })}
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+              />
+            )}
+          </div>
+        </div>
+
         {/* SECTION 1 & 2: Orientation & Color */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 rounded-xl border border-border bg-white">
@@ -76,7 +101,23 @@ export default function PrintSettings({
           </div>
 
           <div className="p-4 rounded-xl border border-border bg-white">
-            <label className="block text-sm font-semibold mb-3">Pages per Sheet</label>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-semibold">Pages per Sheet</label>
+              <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
+                <button
+                  onClick={() => update({ pagesPerSheetFill: 'blank' })}
+                  className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${settings.pagesPerSheetFill === 'blank' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400'}`}
+                >
+                  Blank
+                </button>
+                <button
+                  onClick={() => update({ pagesPerSheetFill: 'repeat' })}
+                  className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${settings.pagesPerSheetFill === 'repeat' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400'}`}
+                >
+                  Repeat
+                </button>
+              </div>
+            </div>
             <div className="flex flex-wrap gap-2">
               {[1, 2, 4, 6, 9, 16].map(num => (
                 <button
@@ -290,6 +331,31 @@ export default function PrintSettings({
   const renderModeB = () => {
     return (
       <div className="space-y-6 animate-fade-in text-[#111827]">
+        {/* SECTION 0: Pages Selection */}
+        <div className="p-4 rounded-xl border border-border bg-white">
+          <label className="block text-sm font-semibold mb-3">Pages</label>
+          <div className="space-y-3">
+            <select
+              value={settings.pageSelection}
+              onChange={e => update({ pageSelection: e.target.value as any })}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none"
+            >
+              {["All", "Current", "Odd", "Even", "Custom"].map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+            {settings.pageSelection === "Custom" && (
+              <input
+                type="text"
+                placeholder="e.g. 1, 3, 5-10"
+                value={settings.customPageRange || ""}
+                onChange={(e) => update({ customPageRange: e.target.value.replace(/[^0-9,\-\s]/g, '') })}
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+              />
+            )}
+          </div>
+        </div>
+
         {/* SECTION 1 & 2: Orientation & Color */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 rounded-xl border border-border bg-white">
@@ -417,7 +483,23 @@ export default function PrintSettings({
 
         {/* SECTION 7: Photos Per Page (Layout Layout) */}
         <div className="p-4 rounded-xl border border-border bg-white">
-          <label className="block text-sm font-semibold mb-3">Layout — Photos per Page</label>
+          <div className="flex items-center justify-between mb-3">
+            <label className="block text-sm font-semibold">Layout — Photos per Page</label>
+            <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
+              <button
+                onClick={() => update({ pagesPerSheetFill: 'blank' })}
+                className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${settings.pagesPerSheetFill === 'blank' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400'}`}
+              >
+                Blank
+              </button>
+              <button
+                onClick={() => update({ pagesPerSheetFill: 'repeat' })}
+                className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${settings.pagesPerSheetFill === 'repeat' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400'}`}
+              >
+                Repeat
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
             {[
               { value: 1, label: "Full Page", desc: "1 photo" },

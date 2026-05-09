@@ -68,34 +68,69 @@ function parsePageRange(rangeStr: string): number[] {
   return Array.from(pages).sort((a, b) => a - b);
 }
 
+/** Filter pages based on selection (All, Current, Odd, Even, Custom) */
+function filterPages(totalPages: number, selection: string, range?: string, currentPage: number = 1): number[] {
+  const allPages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  switch (selection) {
+    case "Current":
+      return [currentPage];
+    case "Odd":
+      return allPages.filter(p => p % 2 !== 0);
+    case "Even":
+      return allPages.filter(p => p % 2 === 0);
+    case "Custom":
+      return parsePageRange(range || "").filter(p => p >= 1 && p <= totalPages);
+    default:
+      return allPages;
+  }
+}
+
 /** Split a PDF file into separate color and B&W files based on page ranges */
 async function splitPdfByColor(
   file: File,
   colorPagesRange: string,
   bwPagesRange: string,
   enableColorRange: boolean,
-  enableBWRange: boolean
+  enableBWRange: boolean,
+  pageSelection: string,
+  customPageRange: string,
+  baseColorMode: string,
+  currentPage: number = 1
 ): Promise<File[]> {
   const arrayBuffer = await file.arrayBuffer();
   const pdfDoc = await PDFDocument.load(arrayBuffer);
   const totalPages = pdfDoc.getPageCount();
-  const allPages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  
+  // First, filter by general page selection
+  const selectedPages = filterPages(totalPages, pageSelection, customPageRange, currentPage);
+  if (selectedPages.length === 0) return [];
 
   let colorPageNums: number[] = [];
   let bwPageNums: number[] = [];
 
   if (enableColorRange && enableBWRange) {
-    // Both specified — use exact ranges
-    colorPageNums = parsePageRange(colorPagesRange).filter(p => p >= 1 && p <= totalPages);
-    bwPageNums = parsePageRange(bwPagesRange).filter(p => p >= 1 && p <= totalPages);
+    // Both specified — use exact ranges, but only from selected pages
+    const colorRequested = parsePageRange(colorPagesRange);
+    const bwRequested = parsePageRange(bwPagesRange);
+    colorPageNums = selectedPages.filter(p => colorRequested.includes(p));
+    bwPageNums = selectedPages.filter(p => bwRequested.includes(p));
   } else if (enableColorRange) {
-    // Only color pages specified — rest is B&W
-    colorPageNums = parsePageRange(colorPagesRange).filter(p => p >= 1 && p <= totalPages);
-    bwPageNums = allPages.filter(p => !colorPageNums.includes(p));
+    // Only color pages specified — rest of SELECTED is B&W
+    const colorRequested = parsePageRange(colorPagesRange);
+    colorPageNums = selectedPages.filter(p => colorRequested.includes(p));
+    bwPageNums = selectedPages.filter(p => !colorPageNums.includes(p));
   } else if (enableBWRange) {
-    // Only B&W pages specified — rest is color
-    bwPageNums = parsePageRange(bwPagesRange).filter(p => p >= 1 && p <= totalPages);
-    colorPageNums = allPages.filter(p => !bwPageNums.includes(p));
+    // Only B&W pages specified — rest of SELECTED is color
+    const bwRequested = parsePageRange(bwPagesRange);
+    bwPageNums = selectedPages.filter(p => bwRequested.includes(p));
+    colorPageNums = selectedPages.filter(p => !bwPageNums.includes(p));
+  } else {
+    // No advanced color — everything selected is processed based on base color mode
+    if (baseColorMode === "Color") {
+      colorPageNums = selectedPages;
+    } else {
+      bwPageNums = selectedPages;
+    }
   }
 
   const result: File[] = [];
@@ -150,6 +185,7 @@ function UserPageContent() {
   const [jobResult, setJobResult] = useState<any>(null);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
   const [showEditor, setShowEditor] = useState(false);
+  const [currentPreviewPage, setCurrentPreviewPage] = useState(1);
 
   // Load recent shops
   useEffect(() => {
@@ -260,15 +296,18 @@ function UserPageContent() {
       const encryptionKeys: string[] = [];
       const fileInfos: any[] = [];
 
-      // Determine if we need to split PDFs by color/BW
-      const needsSplit = settings.enableAdvancedColor && 
+      // Determine if we need to split PDFs by color/BW or filter pages
+      const needsFiltering = settings.pageSelection !== "All";
+      const needsColorSplit = settings.enableAdvancedColor && 
         (settings.enableColorRange || settings.enableBWRange) &&
         (settings.colorPagesRange || settings.bwPagesRange);
+
+      const needsProcessing = needsFiltering || needsColorSplit;
 
       // Build the final file list (possibly with split PDFs)
       let finalFiles: File[] = [];
 
-      if (needsSplit && !isEncrypted) {
+      if (needsProcessing && !isEncrypted) {
         // Split PDFs into color and B&W files
         for (const f of files) {
           const isPDF = f.file.type === 'application/pdf' || f.file.name.toLowerCase().endsWith('.pdf');
@@ -280,7 +319,11 @@ function UserPageContent() {
                 settings.colorPagesRange || '',
                 settings.bwPagesRange || '',
                 settings.enableColorRange,
-                settings.enableBWRange
+                settings.enableBWRange,
+                settings.pageSelection,
+                settings.customPageRange || '',
+                settings.colorMode,
+                currentPreviewPage
               );
               finalFiles.push(...splitFiles);
               toast.dismiss('split');
@@ -582,6 +625,8 @@ function UserPageContent() {
                               enableBWRange={settings.enableBWRange}
                               enableAdvancedColor={settings.enableAdvancedColor}
                               baseColorMode={settings.colorMode}
+                              onPageChange={setCurrentPreviewPage}
+                              currentPage={currentPreviewPage}
                             />
                           );
                         }
@@ -729,6 +774,9 @@ function UserPageContent() {
                                   const cellHeight = contentHeight / rows;
                                   const frame = getFrameDimensions(cellWidth, cellHeight);
 
+                                  // Check if we should show the image or a blank placeholder
+                                  const showImage = settings.pagesPerSheetFill === 'repeat' || idx === 0;
+
                                   return (
                                 <div
                                   key={idx}
@@ -751,18 +799,26 @@ function UserPageContent() {
                                       border: ratioValue ? '1px solid rgba(79, 70, 229, 0.35)' : 'none'
                                     }}
                                   >
-                                      <img
-                                        src={currentFile.preview}
-                                        alt="Preview"
-                                        className={`transition-all duration-300 ${settings.enableCrop ? 'ring-2 ring-dashed ring-[#4F46E5] ring-offset-2' : ''}`}
-                                        style={{
-                                          width: '100%',
-                                          height: '100%',
-                                          objectFit: (ratioValue || settings.photosPerPage > 1) ? 'cover' : 'contain',
-                                          filter: imgFilter,
-                                        }}
-                                      />
-                                      {settings.enableCrop && (
+                                      {showImage ? (
+                                        <img
+                                          src={currentFile.preview}
+                                          alt="Preview"
+                                          className={`transition-all duration-300 ${settings.enableCrop ? 'ring-2 ring-dashed ring-[#4F46E5] ring-offset-2' : ''}`}
+                                          style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: (ratioValue || settings.photosPerPage > 1) ? 'cover' : 'contain',
+                                            filter: imgFilter,
+                                          }}
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-gray-50/50">
+                                          <div className="w-1/2 h-1/2 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center">
+                                            <span className="text-[8px] font-black text-gray-200 uppercase tracking-widest">Blank</span>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {showImage && settings.enableCrop && (
                                         <div className="absolute inset-0 pointer-events-none border-2 border-dashed border-[#4F46E5]/40 flex items-center justify-center">
                                           <div className="bg-[#4F46E5] text-white text-[8px] font-bold px-1 py-0.5 rounded absolute top-1 left-1 uppercase">Crop Active</div>
                                         </div>

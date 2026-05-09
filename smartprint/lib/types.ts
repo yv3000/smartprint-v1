@@ -16,6 +16,9 @@ export interface PrintSettings {
   scaleMode: "Fit to Page Width" | "Custom Scale";
   customScalePercentage?: number;
   pagesPerSheet: number;
+  pagesPerSheetFill: "repeat" | "blank";
+  pageSelection: "All" | "Current" | "Odd" | "Even" | "Custom";
+  customPageRange?: string;
   enableAdvancedColor: boolean;
   enableColorRange: boolean;
   colorPagesRange?: string; // e.g. "1,3,5-8"
@@ -70,6 +73,8 @@ export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
   paperSize: "A4",
   scaleMode: "Fit to Page Width",
   pagesPerSheet: 1,
+  pagesPerSheetFill: "blank",
+  pageSelection: "All",
   enableAdvancedColor: false,
   enableColorRange: false,
   enableBWRange: false,

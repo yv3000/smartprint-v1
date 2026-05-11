@@ -435,7 +435,7 @@ function UserPageContent() {
 
   return (
     <div className="min-h-screen bg-[#F8F7F4]">
-      <div className={`${step === 2 ? 'max-w-6xl' : 'max-w-2xl'} mx-auto px-4 sm:px-6 py-6 pb-24 space-y-6 transition-all duration-500`}>
+      <div className={`${step === 2 ? 'max-w-6xl' : 'max-w-2xl'} w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 space-y-4 sm:space-y-6 transition-all duration-300`}>
         
         {/* ── Connection Bar ─────────────────────────────────── */}
         <div className="bg-white p-4 rounded-2xl border border-[#E5E7EB] shadow-sm space-y-4">
@@ -555,15 +555,15 @@ function UserPageContent() {
           )}
 
           {step === 2 && (
-            <motion.div key="step2" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-semibold tracking-tight text-[#111827]">Settings</h1>
-                <button onClick={() => setStep(1)} className="text-sm font-medium text-[#4F46E5] hover:opacity-70">Edit Files</button>
+            <motion.div key="step2" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }} className="space-y-4 sm:space-y-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-0.5">
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#111827]">Settings</h1>
+                <button type="button" onClick={() => setStep(1)} className="text-sm font-medium text-[#4F46E5] hover:opacity-70 transition-opacity w-fit">Edit Files</button>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8 items-start max-w-[1280px] mx-auto">
                 {/* Left Column: Controls */}
-                <div className="space-y-6">
+                <div className="space-y-5 sm:space-y-6 order-2 xl:order-1 transition-all duration-300">
                   {/* File Selector for Editing */}
                   {files.length > 1 && (
                     <div className="bg-white p-4 rounded-2xl border border-[#E5E7EB] shadow-sm">
@@ -603,8 +603,8 @@ function UserPageContent() {
                 </div>
 
                 {/* Right Column: Preview */}
-                <div className="lg:sticky lg:top-6 space-y-4">
-                  <div className="bg-white p-4 rounded-2xl border border-[#E5E7EB] shadow-sm min-h-[400px] flex flex-col">
+                <div className="xl:sticky xl:top-6 space-y-4 order-1 xl:order-2 min-h-0">
+                  <div className="bg-white p-3 sm:p-4 rounded-2xl border border-[#E5E7EB] shadow-sm min-h-[min(50vh,400px)] sm:min-h-[400px] flex flex-col transition-shadow duration-300 hover:shadow-md">
                     <div className="flex items-center justify-between mb-4">
                       <label className="text-[10px] font-bold text-secondary uppercase tracking-widest block">Real-time Preview</label>
                       {settings.enableCrop && files[selectedFileIndex]?.file.type.startsWith("image/") && (
@@ -617,7 +617,12 @@ function UserPageContent() {
                       )}
                     </div>
 
-                    <div className="flex-1 bg-[#E8E8E8] rounded-xl overflow-hidden relative flex items-center justify-center border border-border" style={{ minHeight: 480 }}>
+                    <motion.div
+                      layout
+                      className="flex-1 bg-[#E8E8E8] rounded-xl overflow-hidden relative flex items-center justify-center border border-border"
+                      style={{ minHeight: "clamp(280px, 45vh, 520px)" }}
+                      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                    >
                       {files[selectedFileIndex]?.preview ? (() => {
                         const currentFile = files[selectedFileIndex];
                         const isImage = currentFile.file.type.startsWith("image/");
@@ -637,6 +642,11 @@ function UserPageContent() {
                               baseColorMode={settings.colorMode}
                               onPageChange={setCurrentPreviewPage}
                               currentPage={currentPreviewPage}
+                              paperSize={settings.paperSize}
+                              margins={settings.margins}
+                              customMarginTopBottom={settings.customMarginTopBottom}
+                              customMarginLeftRight={settings.customMarginLeftRight}
+                              orientation={settings.orientation}
                             />
                           );
                         }
@@ -864,7 +874,7 @@ function UserPageContent() {
                           </div>
                         </div>
                       )}
-                    </div>
+                    </motion.div>
 
                     {/* Margin indicator */}
                     <div className="flex items-center justify-between mt-2 px-1">

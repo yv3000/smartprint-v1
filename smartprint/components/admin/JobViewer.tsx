@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import dynamic from "next/dynamic";
 import CountdownTimer from "./CountdownTimer";
 import type { JobResponse, PrintSettings } from "@/lib/types";
 import mammoth from "mammoth";
 import toast from "react-hot-toast";
+
+const PDFPreview = dynamic(() => import("@/components/user/PDFPreview"), { ssr: false });
 
 interface JobViewerProps {
   job: JobResponse;
@@ -515,8 +518,9 @@ export default function JobViewer({
         <div className="grid grid-cols-2 gap-3 pb-3 border-b border-border">
           <div><div className="text-[10px] text-secondary uppercase tracking-widest mb-0.5">Paper</div><div className="text-sm font-medium">{val('paper', s.paperSize)}</div></div>
           <div><div className="text-[10px] text-secondary uppercase tracking-widest mb-0.5">Mode</div><div className="text-sm font-medium">{val('color', s.colorMode)}</div></div>
+          <div><div className="text-[10px] text-secondary uppercase tracking-widest mb-0.5">Margins</div><div className="text-sm font-medium">{val('margins', s.margins)}</div></div>
           <div><div className="text-[10px] text-secondary uppercase tracking-widest mb-0.5">Copies</div><div className="text-sm font-medium">{s.copies || 1}</div></div>
-          <div><div className="text-[10px] text-secondary uppercase tracking-widest mb-0.5">Layout</div><div className="text-sm font-medium">{s.photosPerPage > 1 ? `${s.photosPerPage} Photos/Pg` : '1/Page'}</div></div>
+          <div className="col-span-2"><div className="text-[10px] text-secondary uppercase tracking-widest mb-0.5">Layout</div><div className="text-sm font-medium">{s.photosPerPage > 1 ? `${s.photosPerPage} Photos/Pg` : '1/Page'}</div></div>
         </div>
       </div>
     );
@@ -525,13 +529,19 @@ export default function JobViewer({
   return (
     <div className="fixed inset-0 z-[100] bg-white">
       <style dangerouslySetInnerHTML={{__html: `
-        .job-detail-layout { display: grid; grid-template-columns: 1fr 280px; gap: 24px; align-items: start; }
-        .files-column { display: flex; flex-direction: column; gap: 16px; min-height: 50vh; }
-        .sidebar { position: sticky; top: 80px; }
+        .job-detail-layout { display: flex; flex-direction: column; gap: 20px; align-items: stretch; }
+        @media (min-width: 1024px) {
+          .job-detail-layout { display: grid; grid-template-columns: 1fr minmax(260px, 280px); gap: 24px; align-items: start; }
+        }
+        .files-column { display: flex; flex-direction: column; gap: 16px; min-height: 40vh; }
+        .sidebar { position: static; }
+        @media (min-width: 1024px) {
+          .sidebar { position: sticky; top: 80px; }
+        }
       `}} />
 
-      <div className="sticky top-0 z-[110] bg-white/90 backdrop-blur border-b border-border">
-        <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="sticky top-0 z-[110] bg-white/90 backdrop-blur border-b border-border">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
           <button onClick={onClose} className="flex items-center gap-2 text-sm text-secondary hover:text-foreground transition-colors font-medium">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
             Back
@@ -562,7 +572,7 @@ export default function JobViewer({
         </div>
       </div>
 
-      <div className="max-w-[1200px] mx-auto px-6 py-6 overflow-y-auto" style={{ height: 'calc(100vh - 64px)' }}>
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-4 sm:py-6 overflow-y-auto" style={{ height: 'calc(100vh - 64px)' }}>
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin w-8 h-8 border-2 border-foreground/20 border-t-foreground rounded-full" />
@@ -644,7 +654,37 @@ export default function JobViewer({
                       <div className="w-full bg-[#FaFaFa]">
                         {isImageFile(name) && previewUrls[index] ? (
                           /* eslint-disable-next-line @next/next/no-img-element */
-                          <img src={previewUrls[index]} alt={name} style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'contain' }} className="bg-surface" onDragStart={(e) => e.preventDefault()} />
+                          <img
+                            src={previewUrls[index]}
+                            alt={name}
+                            style={{
+                              width: "100%",
+                              height: "auto",
+                              display: "block",
+                              objectFit: "contain",
+                              filter: jobData.settings?.colorMode === "Black & White" ? "grayscale(1) contrast(1.05)" : undefined,
+                              transition: "filter 0.25s ease",
+                            }}
+                            className="bg-surface"
+                            onDragStart={(e) => e.preventDefault()}
+                          />
+                        ) : isPdfFile(name) && previewUrls[index] && jobData.settings ? (
+                          <div className="w-full min-h-[min(70vh,720px)] bg-[#323639] rounded-b-lg overflow-hidden">
+                            <PDFPreview
+                              fileUrl={previewUrls[index]}
+                              colorPagesRange=""
+                              bwPagesRange=""
+                              enableColorRange={false}
+                              enableBWRange={false}
+                              enableAdvancedColor={false}
+                              baseColorMode={jobData.settings.colorMode || "Color"}
+                              paperSize={jobData.settings.paperSize || "A4"}
+                              margins={jobData.settings.margins || "Default"}
+                              customMarginTopBottom={jobData.settings.customMarginTopBottom}
+                              customMarginLeftRight={jobData.settings.customMarginLeftRight}
+                              orientation={jobData.settings.orientation || "Portrait"}
+                            />
+                          </div>
                         ) : isPdfFile(name) && previewUrls[index] ? (
                           <iframe src={`${previewUrls[index]}#toolbar=0`} style={{ width: '100%', height: '800px', border: 'none' }} title={name} />
                         ) : isDocxFile(name) && docxHtmlPreviews[index] ? (

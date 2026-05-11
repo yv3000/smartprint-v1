@@ -29,13 +29,13 @@ export default function PrintSettings({
     return (
       <div className="space-y-6 animate-fade-in text-[#111827]">
         {/* SECTION 0: Pages Selection */}
-        <div className="p-4 rounded-xl border border-border bg-white">
+        <div className="p-4 rounded-xl border border-border bg-white transition-all duration-200 ease-out hover:shadow-sm">
           <label className="block text-sm font-semibold mb-3">Pages</label>
           <div className="space-y-3">
             <select
               value={settings.pageSelection}
               onChange={e => update({ pageSelection: e.target.value as any })}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200"
             >
               {["All", "Current", "Odd", "Even", "Custom"].map(opt => (
                 <option key={opt} value={opt}>{opt}</option>
@@ -62,7 +62,7 @@ export default function PrintSettings({
                 <button
                   key={opt}
                   onClick={() => update({ orientation: opt as "Portrait" | "Landscape" })}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${settings.orientation === opt ? "bg-[#111827] text-white" : "bg-surface hover:bg-gray-200"}`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.orientation === opt ? "bg-[#111827] text-white shadow-sm" : "bg-surface hover:bg-gray-200"}`}
                 >
                   {opt}
                 </button>
@@ -76,7 +76,7 @@ export default function PrintSettings({
                 <button
                   key={opt}
                   onClick={() => update({ colorMode: opt as "Color" | "Black & White" })}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${settings.colorMode === opt ? "bg-[#111827] text-white" : "bg-surface hover:bg-gray-200"}`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.colorMode === opt ? "bg-[#111827] text-white shadow-sm" : "bg-surface hover:bg-gray-200"}`}
                 >
                   {opt}
                 </button>
@@ -92,7 +92,7 @@ export default function PrintSettings({
             <select
               value={settings.paperSize}
               onChange={e => update({ paperSize: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200"
             >
               {["A2", "A3", "A4", "A5", "A6", "Letter", "Legal", "Tabloid", "Executive", "B4", "B5", "4×6 in", "5×7 in", "10×15 cm", "13×18 cm", "20×25 cm"].map(size => (
                 <option key={size} value={size}>{size}</option>
@@ -123,7 +123,7 @@ export default function PrintSettings({
                 <button
                   key={num}
                   onClick={() => update({ pagesPerSheet: num })}
-                  className={`w-10 h-10 rounded-lg text-sm font-medium transition-all ${settings.pagesPerSheet === num ? "bg-[#4F46E5] text-white" : "bg-surface hover:bg-gray-200"}`}
+                  className={`w-10 h-10 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.pagesPerSheet === num ? "bg-[#4F46E5] text-white shadow-md scale-[1.02]" : "bg-surface hover:bg-gray-200"}`}
                 >
                   {num}
                 </button>
@@ -171,12 +171,12 @@ export default function PrintSettings({
         </div>
 
         {/* SECTION 6: Margins */}
-        <div className="p-4 rounded-xl border border-border bg-white">
+        <div className="p-4 rounded-xl border border-border bg-white transition-all duration-200 ease-out hover:shadow-sm">
           <label className="block text-sm font-semibold mb-3">Margins</label>
           <select
             value={settings.margins}
             onChange={e => update({ margins: e.target.value as any })}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm mb-3 focus:outline-none"
+            className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200"
           >
             {["Default", "None", "Narrow", "Normal", "Wide", "Custom"].map(m => (
               <option key={m} value={m}>{m}</option>
@@ -332,13 +332,13 @@ export default function PrintSettings({
     return (
       <div className="space-y-6 animate-fade-in text-[#111827]">
         {/* SECTION 0: Pages Selection */}
-        <div className="p-4 rounded-xl border border-border bg-white">
+        <div className="p-4 rounded-xl border border-border bg-white transition-all duration-200 ease-out hover:shadow-sm">
           <label className="block text-sm font-semibold mb-3">Pages</label>
           <div className="space-y-3">
             <select
               value={settings.pageSelection}
               onChange={e => update({ pageSelection: e.target.value as any })}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200"
             >
               {["All", "Current", "Odd", "Even", "Custom"].map(opt => (
                 <option key={opt} value={opt}>{opt}</option>
@@ -365,7 +365,7 @@ export default function PrintSettings({
                 <button
                   key={opt}
                   onClick={() => update({ orientation: opt as "Portrait" | "Landscape" })}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${settings.orientation === opt ? "bg-[#111827] text-white" : "bg-surface hover:bg-gray-200"}`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.orientation === opt ? "bg-[#111827] text-white shadow-sm" : "bg-surface hover:bg-gray-200"}`}
                 >
                   {opt}
                 </button>
@@ -379,7 +379,7 @@ export default function PrintSettings({
                 <button
                   key={opt}
                   onClick={() => update({ colorMode: opt as "Color" | "Black & White" })}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${settings.colorMode === opt ? "bg-[#111827] text-white" : "bg-surface hover:bg-gray-200"}`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.colorMode === opt ? "bg-[#111827] text-white shadow-sm" : "bg-surface hover:bg-gray-200"}`}
                 >
                   {opt}
                 </button>
@@ -456,12 +456,12 @@ export default function PrintSettings({
         </div>
 
         {/* SECTION 6: Margins */}
-        <div className="p-4 rounded-xl border border-border bg-white">
+        <div className="p-4 rounded-xl border border-border bg-white transition-all duration-200 ease-out hover:shadow-sm">
           <label className="block text-sm font-semibold mb-3">Margins</label>
           <select
             value={settings.margins}
             onChange={e => update({ margins: e.target.value as any })}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm mb-3 focus:outline-none"
+            className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200"
           >
             {["Default", "None", "Narrow", "Normal", "Wide", "Custom"].map(m => (
               <option key={m} value={m}>{m}</option>

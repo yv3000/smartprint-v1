@@ -28,17 +28,10 @@ export default function AuthBridgePage() {
         
         setMessage('Sign-in successful! Transferring to SmartPrint Admin...')
         
-        // Try multiple ways to trigger the deep link
+        // Trigger the deep link once to avoid duplicate token consumption races.
         const deepLink = `smartprint://auth?token=${transferToken}`
         
-        // Method 1: window.location
         window.location.href = deepLink
-        
-        // Method 2: hidden iframe
-        const iframe = document.createElement('iframe')
-        iframe.style.display = 'none'
-        iframe.src = deepLink
-        document.body.appendChild(iframe)
         
         setStatus('success')
         setMessage('Authentication sent to app. You can close this tab now.')

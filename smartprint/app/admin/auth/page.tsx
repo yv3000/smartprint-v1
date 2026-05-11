@@ -33,7 +33,7 @@ function AuthForm() {
   // in the system browser. The system browser loads this page and auto-starts OAuth.
   useEffect(() => {
     if (mode === "electron" && status === "unauthenticated") {
-      signIn("google", {
+      void signIn("google", {
         callbackUrl: `${window.location.origin}/admin/auth-bridge`,
       });
     }
@@ -77,17 +77,22 @@ function AuthForm() {
       // but fallback to hardcoded if we are in Electron and need a stable link.
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : APP_URL;
       const authUrl = `${baseUrl}/admin/auth?mode=electron`;
-      
-      // Try multiple ways to open in system browser
-      // 1. window.open (intercepted by Electron)
-      const win = window.open(authUrl, "_blank");
-      
-      // 2. If window.open failed or returned null (sometimes happens in Electron)
-      if (!win) {
-        const a = document.createElement('a');
-        a.href = authUrl;
-        a.target = '_blank';
-        a.click();
+
+      const electronApi = (window as Window & {
+        electron?: { openExternal?: (url: string) => void };
+      }).electron;
+
+      if (electronApi?.openExternal) {
+        electronApi.openExternal(authUrl);
+      } else {
+        // Fallback for older builds where openExternal bridge isn't present.
+        const win = window.open(authUrl, "_blank");
+        if (!win) {
+          const a = document.createElement('a');
+          a.href = authUrl;
+          a.target = '_blank';
+          a.click();
+        }
       }
     } else {
       // Normal browser: standard NextAuth flow

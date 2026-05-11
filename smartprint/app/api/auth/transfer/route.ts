@@ -50,19 +50,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 404 })
     }
 
-    if (transferRecord.used) {
-      return NextResponse.json({ error: 'Token already used' }, { status: 410 })
-    }
-
     if (transferRecord.expiresAt < new Date()) {
       return NextResponse.json({ error: 'Token expired' }, { status: 410 })
     }
-
-    // Mark as used
-    await prisma.electronTransferToken.update({
-      where: { token },
-      data: { used: true }
-    })
 
     // Get the actual NextAuth session token for this user
     const dbSession = await prisma.session.findFirst({
@@ -75,6 +65,15 @@ export async function GET(request: NextRequest) {
 
     if (!dbSession) {
       return NextResponse.json({ error: 'No active session' }, { status: 404 })
+    }
+
+    // Mark as used after successful session resolution. If this token is already
+    // consumed due to a duplicate callback, continue returning success idempotently.
+    if (!transferRecord.used) {
+      await prisma.electronTransferToken.update({
+        where: { token },
+        data: { used: true }
+      })
     }
 
     return NextResponse.json({

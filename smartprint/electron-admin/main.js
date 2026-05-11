@@ -15,9 +15,13 @@ const BRIDGE_URL = `${BASE_URL}/admin/auth-bridge`
 let mainWindow = null
 let lastAuthSuccessAt = 0
 
+// Prevent GPU cache permission warnings/crashes on some Windows environments.
+app.disableHardwareAcceleration()
+
 // Register smartprint:// protocol BEFORE app is ready
 // Register smartprint:// protocol
-const protocolClientSet = app.setAsDefaultProtocolClient('smartprint', process.execPath, [path.resolve(process.argv[1])])
+const protocolArgs = process.defaultApp && process.argv[1] ? [path.resolve(process.argv[1])] : []
+const protocolClientSet = app.setAsDefaultProtocolClient('smartprint', process.execPath, protocolArgs)
 console.log('[Protocol] Registration success:', protocolClientSet)
 
 if (!process.defaultApp) {

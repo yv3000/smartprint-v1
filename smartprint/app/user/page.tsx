@@ -314,7 +314,7 @@ function UserPageContent() {
       // Build the final file list (possibly with split PDFs)
       let finalFiles: File[] = [];
 
-      if (needsProcessing && !isEncrypted) {
+      if (needsProcessing) {
         // Split PDFs into color and B&W files
         for (const f of files) {
           const isPDF = f.file.type === 'application/pdf' || f.file.name.toLowerCase().endsWith('.pdf');

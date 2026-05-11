@@ -5,9 +5,9 @@ import prisma from "@/lib/prisma";
  * Uses a DB counter with an atomic transaction to ensure uniqueness.
  */
 export async function getNextUserId(): Promise<string> {
-  const now = Date.now();
+  const nowSec = Math.floor(Date.now() / 1000);
   const todayKey = Number(new Date().toISOString().slice(0, 10).replace(/-/g, ""));
-  const THIRTY_MIN_MS = 30 * 60 * 1000;
+  const THIRTY_MIN_SEC = 30 * 60;
 
   const assignedValue = await prisma.$transaction(async (tx) => {
     const [valueCounter, lastIssuedAtCounter, dayCounter] = await Promise.all([
@@ -29,8 +29,14 @@ export async function getNextUserId(): Promise<string> {
     ]);
 
     const isDayReset = dayCounter.value !== todayKey;
+    // Keep this value in Unix seconds to stay safely within Prisma Int range.
+    const lastIssuedAtSec =
+      lastIssuedAtCounter.value > 10_000_000_000
+        ? Math.floor(lastIssuedAtCounter.value / 1000) // migrate old ms values if any
+        : lastIssuedAtCounter.value;
+
     const isInactivityReset =
-      lastIssuedAtCounter.value > 0 && now - lastIssuedAtCounter.value >= THIRTY_MIN_MS;
+      lastIssuedAtSec > 0 && nowSec - lastIssuedAtSec >= THIRTY_MIN_SEC;
 
     const currentValue = isDayReset || isInactivityReset ? 0 : valueCounter.value;
     const assigned = currentValue;
@@ -43,7 +49,7 @@ export async function getNextUserId(): Promise<string> {
       }),
       tx.counter.update({
         where: { id: "job_counter_last_issued_at" },
-        data: { value: now },
+        data: { value: nowSec },
       }),
       tx.counter.update({
         where: { id: "job_counter_day_key" },

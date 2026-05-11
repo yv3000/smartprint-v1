@@ -24,5 +24,8 @@ contextBridge.exposeInMainWorld('electron', {
   },
   verifyToken: (token) => {
     ipcRenderer.send('smartprint-verify-token', token)
+  },
+  openExternal: (url) => {
+    ipcRenderer.send('smartprint-open-external', url)
   }
 })

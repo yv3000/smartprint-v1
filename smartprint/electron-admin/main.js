@@ -13,6 +13,7 @@ const DASHBOARD_URL = `${BASE_URL}/admin/dashboard`
 const BRIDGE_URL = `${BASE_URL}/admin/auth-bridge`
 
 let mainWindow = null
+let lastAuthSuccessAt = 0
 
 // Register smartprint:// protocol BEFORE app is ready
 // Register smartprint:// protocol
@@ -144,9 +145,17 @@ function verifyTransferToken(token) {
         
         if (result.success && result.sessionToken) {
           console.log('[Auth] Session verified for:', result.userEmail)
+          lastAuthSuccessAt = Date.now()
           setSessionAndLoadDashboard(result.sessionToken)
         } else {
           console.error('[Auth] Token verification failed:', result.error)
+          // Auth bridge can fire duplicate deep-link callbacks; ignore "already used"
+          // shortly after a successful verification to avoid bouncing back to sign-in.
+          const recentSuccess = Date.now() - lastAuthSuccessAt < 20000
+          if (recentSuccess && result.error === 'Token already used') {
+            console.log('[Auth] Ignoring duplicate used token callback')
+            return
+          }
           if (mainWindow) mainWindow.loadURL(AUTH_URL)
         }
       } catch (e) {
@@ -223,6 +232,12 @@ ipcMain.handle('smartprint-get-printers', async () => {
 ipcMain.on('smartprint-verify-token', (event, token) => {
   console.log('[IPC] Manual token verification requested')
   verifyTransferToken(token)
+})
+
+ipcMain.on('smartprint-open-external', (event, url) => {
+  if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
+    shell.openExternal(url)
+  }
 })
 
 // Handle silent printing from dashboard

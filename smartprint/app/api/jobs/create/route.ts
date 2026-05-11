@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { generateFriendlyId } from "@/lib/usernames";
+import { getNextUserId } from "@/lib/usernames";
+import { isAdminOnline } from "@/lib/adminPresence";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { createId } from "@paralleldrive/cuid2";
@@ -36,9 +37,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid shop" }, { status: 404 });
     }
 
+    if (!isAdminOnline(admin.lastLoginAt)) {
+      return NextResponse.json({ error: "Shop is offline right now" }, { status: 409 });
+    }
+
     // 2. Job Info
     const jobId = createId();
-    const userId = generateFriendlyId();
+    const userId = await getNextUserId();
     const userToken = createId(); // For user-side deletion
     
     let settings: any = {};

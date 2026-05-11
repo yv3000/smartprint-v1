@@ -20,6 +20,7 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [shopName, setShopName] = useState("SmartPrint");
+  const [appSessionStatus, setAppSessionStatus] = useState<"online" | "offline">("offline");
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/admin/auth");
@@ -54,6 +55,52 @@ export default function AdminDashboard() {
       return () => clearInterval(interval);
     }
   }, [fetchJobs, status]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    const electronWindow = window as Window & { electron?: unknown };
+    const isElectronClient =
+      typeof window !== "undefined" &&
+      (navigator.userAgent.includes("Electron") || Boolean(electronWindow.electron));
+
+    if (!isElectronClient) {
+      setAppSessionStatus("offline");
+      return;
+    }
+
+    let mounted = true;
+    const ping = async (state: "online" | "offline" = "online") => {
+      try {
+        const res = await fetch("/api/admin/heartbeat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-smartprint-client": "electron",
+          },
+          body: JSON.stringify({ state }),
+          keepalive: state === "offline",
+        });
+        if (res.ok && mounted) setAppSessionStatus(state);
+      } catch {
+        if (mounted) setAppSessionStatus("offline");
+      }
+    };
+
+    ping("online");
+    const hb = setInterval(() => ping("online"), 10_000);
+    const onUnload = () => {
+      ping("offline");
+    };
+    window.addEventListener("beforeunload", onUnload);
+
+    return () => {
+      mounted = false;
+      clearInterval(hb);
+      window.removeEventListener("beforeunload", onUnload);
+      ping("offline");
+    };
+  }, [status]);
 
   const handleJobUpdate = useCallback(() => {
     setSelectedJob(null);
@@ -102,6 +149,13 @@ export default function AdminDashboard() {
               </div>
               <span className="text-base font-semibold tracking-tight text-[#111827]">{shopName}</span>
               <span className="text-[10px] text-[#6B7280] px-1.5 py-0.5 rounded bg-[#F9FAFB] border border-[#E5E7EB] ml-1 font-medium">Admin</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full border ml-1 font-semibold ${
+                appSessionStatus === "online"
+                  ? "text-[#16A34A] bg-green-50 border-green-200"
+                  : "text-[#DC2626] bg-red-50 border-red-200"
+              }`}>
+                {appSessionStatus === "online" ? "Online" : "Offline"}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span 

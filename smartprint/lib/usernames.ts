@@ -5,28 +5,56 @@ import prisma from "@/lib/prisma";
  * Uses a DB counter with an atomic transaction to ensure uniqueness.
  */
 export async function getNextUserId(): Promise<string> {
-  const result = await prisma.$transaction(async (tx) => {
-    const counter = await tx.counter.upsert({
-      where: { id: "job_counter" },
-      create: { id: "job_counter", value: 1 },
-      update: { value: { increment: 1 } },
-    });
+  const now = Date.now();
+  const todayKey = Number(new Date().toISOString().slice(0, 10).replace(/-/g, ""));
+  const THIRTY_MIN_MS = 30 * 60 * 1000;
 
-    let val = counter.value;
+  const assignedValue = await prisma.$transaction(async (tx) => {
+    const [valueCounter, lastIssuedAtCounter, dayCounter] = await Promise.all([
+      tx.counter.upsert({
+        where: { id: "job_counter_value" },
+        create: { id: "job_counter_value", value: 0 },
+        update: {},
+      }),
+      tx.counter.upsert({
+        where: { id: "job_counter_last_issued_at" },
+        create: { id: "job_counter_last_issued_at", value: 0 },
+        update: {},
+      }),
+      tx.counter.upsert({
+        where: { id: "job_counter_day_key" },
+        create: { id: "job_counter_day_key", value: todayKey },
+        update: {},
+      }),
+    ]);
 
-    // Reset to 1 if exceeded 9999
-    if (val > 9999) {
-      await tx.counter.update({
-        where: { id: "job_counter" },
-        data: { value: 1 },
-      });
-      val = 1;
-    }
+    const isDayReset = dayCounter.value !== todayKey;
+    const isInactivityReset =
+      lastIssuedAtCounter.value > 0 && now - lastIssuedAtCounter.value >= THIRTY_MIN_MS;
 
-    return val.toString().padStart(4, "0");
+    const currentValue = isDayReset || isInactivityReset ? 0 : valueCounter.value;
+    const assigned = currentValue;
+    const nextValue = (assigned + 1) % 10000;
+
+    await Promise.all([
+      tx.counter.update({
+        where: { id: "job_counter_value" },
+        data: { value: nextValue },
+      }),
+      tx.counter.update({
+        where: { id: "job_counter_last_issued_at" },
+        data: { value: now },
+      }),
+      tx.counter.update({
+        where: { id: "job_counter_day_key" },
+        data: { value: todayKey },
+      }),
+    ]);
+
+    return assigned;
   });
 
-  return result;
+  return assignedValue.toString().padStart(4, "0");
 }
 
 // Legacy aliases for backward compatibility
@@ -47,5 +75,5 @@ export function generateFriendlyId(): string {
   return `${adj}${noun}${suffix}`;
 }
 
-export const generateUserId = generateFriendlyId;
-export default generateFriendlyId;
+export const generateUserId = getNextUserId;
+export default getNextUserId;

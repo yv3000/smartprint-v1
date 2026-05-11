@@ -165,6 +165,7 @@ function UserPageContent() {
   const shopToken = searchParams.get("shop");
 
   const [shopName, setShopName] = useState<string | null>(null);
+  const [shopOnline, setShopOnline] = useState<boolean>(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
 
@@ -200,8 +201,9 @@ function UserPageContent() {
       fetch(`/api/shops/${shopToken}`)
         .then(res => res.json())
         .then(data => {
-          if (data.shopName) {
+          if (data.shopName && data.isOnline) {
             setShopName(data.shopName);
+            setShopOnline(true);
             const existing = Cookies.get("sp_recent");
             let recent = existing ? JSON.parse(existing) : [];
             recent = recent.filter((s: any) => s.qrToken !== shopToken);
@@ -210,7 +212,8 @@ function UserPageContent() {
             setRecentShops(recent.slice(0, 3));
           } else {
             setShopName(null);
-            toast.error("Invalid Shop QR Code");
+            setShopOnline(false);
+            toast.error(data?.shopName ? "Shop is offline right now" : "Invalid Shop QR Code");
           }
         })
         .finally(() => setIsVerifying(false));
@@ -239,7 +242,7 @@ function UserPageContent() {
       const data = await res.json();
       
       if (!res.ok || !data.success) {
-        setShopIdError('Shop not found. Check the ID and try again.');
+        setShopIdError(data?.error || 'Shop not found. Check the ID and try again.');
         return;
       }
       
@@ -286,6 +289,10 @@ function UserPageContent() {
     if (!files.length) return;
     if (!shopToken) {
       toast.error("Please connect to a shop first");
+      return;
+    }
+    if (!shopOnline) {
+      toast.error("Shop is offline right now");
       return;
     }
 
@@ -439,7 +446,10 @@ function UserPageContent() {
                 {isVerifying ? (
                   <><Loader2 className="w-3.5 h-3.5 animate-spin text-[#4F46E5]" /><span className="text-sm font-semibold text-[#111827]">Verifying…</span></>
                 ) : shopToken && shopName ? (
-                  <><div className="w-2 h-2 bg-[#22C55E] rounded-full animate-pulse" /><span className="text-sm font-semibold text-[#111827] truncate">{shopName}</span></>
+                  <>
+                    <div className={`w-2 h-2 rounded-full animate-pulse ${shopOnline ? "bg-[#2563EB]" : "bg-[#EF4444]"}`} />
+                    <span className="text-sm font-semibold text-[#111827] truncate">{shopName}</span>
+                  </>
                 ) : (
                   <><div className="w-2 h-2 bg-[#EF4444] rounded-full" /><span className="text-sm font-medium text-[#6B7280]">Not Connected</span></>
                 )}

@@ -10,6 +10,7 @@ interface Shop {
   qrCode: string;
   latitude: number;
   longitude: number;
+  isOnline?: boolean;
   address?: string;
   distance?: string;
   distanceKm?: number;
@@ -104,9 +105,10 @@ export default function NearbyMap({ userLat: initialLat, userLng: initialLng, sh
     // Add/Update markers
     shops.forEach(shop => {
       if (!markersRef.current[shop.qrCode]) {
+        const markerColor = shop.isOnline ? "#22C55E" : "#EF4444";
         const icon = L.divIcon({
           className: 'custom-div-icon',
-          html: `<div style="background-color: #ef4444; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);"></div>`,
+          html: `<div style="background-color: ${markerColor}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 12px ${shop.isOnline ? "rgba(34, 197, 94, 0.6)" : "rgba(239, 68, 68, 0.6)"};"></div>`,
           iconSize: [14, 14],
           iconAnchor: [7, 7]
         });
@@ -206,10 +208,17 @@ export default function NearbyMap({ userLat: initialLat, userLng: initialLng, sh
               >
                 <div className="flex justify-between items-start mb-1">
                   <h4 className="font-bold text-[#111827] truncate pr-2">{shop.shopName}</h4>
-                  <span className="text-[11px] font-black text-[#ef4444] whitespace-nowrap bg-red-50 px-2 py-0.5 rounded-full">
-                    {shop.distance}
+                  <span className={`text-[10px] font-black whitespace-nowrap px-2 py-0.5 rounded-full ${
+                    highlightedShop === shop.qrCode
+                      ? "text-[#2563EB] bg-blue-50"
+                      : shop.isOnline
+                        ? "text-[#16A34A] bg-green-50"
+                        : "text-[#DC2626] bg-red-50"
+                  }`}>
+                    {highlightedShop === shop.qrCode ? "CONNECTED" : shop.isOnline ? "ONLINE" : "OFFLINE"}
                   </span>
                 </div>
+                <p className="text-[11px] text-[#6B7280] mb-1">{shop.distance}</p>
                 <p className="text-[11px] text-gray-500 leading-relaxed mb-4 line-clamp-2">
                   {shop.address || "Available for printing nearby."}
                 </p>

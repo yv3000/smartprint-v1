@@ -3,6 +3,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { isAdminOnline } from "@/lib/adminPresence";
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371; // km
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
 
   const admins = await prisma.admin.findMany({
     where: { latitude: { not: null }, longitude: { not: null } },
-    select: { shopName: true, qrCode: true, latitude: true, longitude: true, address: true },
+    select: { shopName: true, qrCode: true, latitude: true, longitude: true, address: true, lastLoginAt: true },
   });
 
   const nearby = admins
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
         latitude: a.latitude,
         longitude: a.longitude,
         address: a.address || "",
+        isOnline: isAdminOnline(a.lastLoginAt),
         distance: dist < 1 ? `${Math.round(dist * 1000)}m away` : `${dist.toFixed(1)}km away`,
         distanceKm: dist,
       };

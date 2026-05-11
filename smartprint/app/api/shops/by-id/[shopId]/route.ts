@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isAdminOnline } from "@/lib/adminPresence";
 
 export async function GET(
   req: Request,
@@ -13,6 +14,7 @@ export async function GET(
       select: {
         shopName: true,
         qrCode: true,
+        lastLoginAt: true,
       },
     });
 
@@ -20,7 +22,15 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Shop not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, shop });
+    const online = isAdminOnline(shop.lastLoginAt);
+    if (!online) {
+      return NextResponse.json({ success: false, error: "Shop is offline", isOnline: false }, { status: 409 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      shop: { shopName: shop.shopName, qrCode: shop.qrCode, isOnline: true },
+    });
   } catch (error) {
     console.error("Shop lookup error:", error);
     return NextResponse.json({ success: false, error: "Server error" }, { status: 500 });

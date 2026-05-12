@@ -22,6 +22,8 @@ interface PDFPreviewProps {
   customMarginTopBottom?: number;
   customMarginLeftRight?: number;
   orientation?: "Portrait" | "Landscape";
+  pagesPerSheet?: number;
+  pagesPerSheetFill?: "repeat" | "blank";
 }
 
 export default function PDFPreview({
@@ -39,6 +41,8 @@ export default function PDFPreview({
   customMarginTopBottom,
   customMarginLeftRight,
   orientation = "Portrait",
+  pagesPerSheet = 1,
+  pagesPerSheetFill = "blank",
 }: PDFPreviewProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(externalPage || 1);
@@ -97,6 +101,11 @@ export default function PDFPreview({
   };
 
   const splitSummary = getSplitSummary();
+  const cols =
+    pagesPerSheet >= 16 ? 4 :
+    pagesPerSheet >= 9 ? 3 :
+    pagesPerSheet >= 4 ? 2 :
+    pagesPerSheet >= 2 ? 2 : 1;
 
   return (
     <div className="w-full h-full flex flex-col bg-[#323639] overflow-hidden transition-colors duration-300">
@@ -143,16 +152,33 @@ export default function PDFPreview({
                   <p className="text-[10px] font-bold text-black/30 uppercase tracking-[0.2em]">Rendering Engine</p>
                 </div>
               }
-              className="shadow-inner max-w-full"
+              className="shadow-inner max-w-full w-full h-full"
             >
-              <Page
-                key={`${pageNumber}-${pageWidth}-${scale}-${isBw}`}
-                pageNumber={pageNumber}
-                width={Math.max(60, Math.floor(pageWidth * scale))}
-                renderTextLayer={false}
-                renderAnnotationLayer={false}
-                className="rounded-sm overflow-hidden max-w-full"
-              />
+              <div
+                className="w-full h-full grid place-items-center p-1 sm:p-2"
+                style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: pagesPerSheet > 1 ? 4 : 0 }}
+              >
+                {Array.from({ length: Math.max(1, pagesPerSheet) }).map((_, idx) => {
+                  const showPage = pagesPerSheetFill === "repeat" || idx === 0;
+                  const tileWidth = Math.max(48, Math.floor((pageWidth / cols) * scale));
+                  return (
+                    <div key={idx} className="w-full h-full min-h-0 min-w-0 flex items-center justify-center bg-white">
+                      {showPage ? (
+                        <Page
+                          key={`${pageNumber}-${pageWidth}-${scale}-${isBw}-${idx}`}
+                          pageNumber={pageNumber}
+                          width={tileWidth}
+                          renderTextLayer={false}
+                          renderAnnotationLayer={false}
+                          className="rounded-sm overflow-hidden max-w-full"
+                        />
+                      ) : (
+                        <div className="w-[85%] h-[85%] border border-dashed border-gray-200 bg-white/90 rounded-sm" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </Document>
           </div>
         </div>

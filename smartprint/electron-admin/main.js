@@ -15,6 +15,35 @@ const BRIDGE_URL = `${BASE_URL}/admin/auth-bridge`
 let mainWindow = null
 let lastAuthSuccessAt = 0
 
+function getElectronPageSize(pageSize) {
+  const normalized = (pageSize || 'A4').toString().replace(/×/g, 'x').trim().toLowerCase()
+  const preset = {
+    a2: 'A2',
+    a3: 'A3',
+    a4: 'A4',
+    a5: 'A5',
+    a6: 'A6',
+    letter: 'Letter',
+    legal: 'Legal',
+    tabloid: 'Tabloid',
+    executive: 'Executive',
+    b4: 'B4',
+    b5: 'B5',
+  }
+  if (preset[normalized]) return preset[normalized]
+
+  // Electron custom page sizes use microns.
+  const customMicrons = {
+    '4x6 in': { width: 101600, height: 152400 },
+    '5x7 in': { width: 127000, height: 177800 },
+    '10x15 cm': { width: 100000, height: 150000 },
+    '13x18 cm': { width: 130000, height: 180000 },
+    '20x25 cm': { width: 200000, height: 250000 },
+  }
+
+  return customMicrons[normalized] || 'A4'
+}
+
 // Prevent GPU cache permission warnings/crashes on some Windows environments.
 app.disableHardwareAcceleration()
 
@@ -247,6 +276,7 @@ ipcMain.on('smartprint-open-external', (event, url) => {
 // Handle silent printing from dashboard
 ipcMain.on('smartprint-print', async (event, { data, color, landscape, pageSize, copies, printerName }) => {
   console.log('[Print] Received print request:', { color, landscape, pageSize, copies })
+  const electronPageSize = getElectronPageSize(pageSize)
   
   let printWindow = new BrowserWindow({
     show: false,
@@ -289,7 +319,7 @@ ipcMain.on('smartprint-print', async (event, { data, color, landscape, pageSize,
           deviceName: selectedPrinter?.name || '',
           color: !!color,
           landscape: !!landscape,
-          pageSize: pageSize || 'A4',
+          pageSize: electronPageSize,
           copies: parseInt(copies) || 1
         }, (success, failureReason) => {
           console.log('[Print] Result:', success ? 'Success' : 'Failed', failureReason || '')

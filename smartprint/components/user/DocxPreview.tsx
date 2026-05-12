@@ -1,17 +1,38 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import mammoth from "mammoth";
 import { Loader2, FileText, AlertCircle } from "lucide-react";
+import { getPaperAspectForOrientation, getMarginMm } from "@/lib/printLayout";
 
 interface DocxPreviewProps {
   file: File;
+  paperSize?: string;
+  margins?: string;
+  customMarginTopBottom?: number;
+  customMarginLeftRight?: number;
+  orientation?: "Portrait" | "Landscape";
+  baseColorMode?: "Color" | "Black & White";
 }
 
-export default function DocxPreview({ file }: DocxPreviewProps) {
+export default function DocxPreview({
+  file,
+  paperSize = "A4",
+  margins = "Default",
+  customMarginTopBottom,
+  customMarginLeftRight,
+  orientation = "Portrait",
+  baseColorMode = "Color",
+}: DocxPreviewProps) {
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const aspect = getPaperAspectForOrientation(paperSize, orientation);
+  const marginMm = getMarginMm({
+    margins,
+    customMarginTopBottom,
+    customMarginLeftRight,
+  });
 
   useEffect(() => {
     const reader = new FileReader();
@@ -65,19 +86,21 @@ export default function DocxPreview({ file }: DocxPreviewProps) {
       </div>
 
       {/* A4-sized document page */}
-      <div className="flex-1 overflow-auto p-8 flex justify-center custom-docx-scroll">
+      <div className="flex-1 overflow-auto p-4 sm:p-6 flex justify-center custom-docx-scroll">
         <div 
           className="bg-white shadow-[0_10px_50px_rgba(0,0,0,0.5)] docx-preview-page animate-in fade-in zoom-in-95 duration-500"
           style={{
             width: '100%',
-            maxWidth: '210mm', // A4 width
-            minHeight: '297mm', // A4 height
-            padding: '25mm 20mm', // Standard margins
+            maxWidth: 'min(100%, 520px)',
+            aspectRatio: `${aspect.w} / ${aspect.h}`,
+            padding: `${marginMm.top}mm ${marginMm.right}mm ${marginMm.bottom}mm ${marginMm.left}mm`,
             boxSizing: 'border-box',
             fontFamily: 'Calibri, "Segoe UI", Arial, sans-serif',
             fontSize: '11pt',
             lineHeight: 1.5,
             color: '#1a1a1a',
+            filter: baseColorMode === "Black & White" ? "grayscale(1) contrast(1.08)" : undefined,
+            transition: "all 0.25s ease",
           }}
         >
           <div 
@@ -91,7 +114,7 @@ export default function DocxPreview({ file }: DocxPreviewProps) {
       <div className="bg-[#202124] border-t border-white/5 p-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Optimized for A4</span>
+          <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">{paperSize} • {orientation}</span>
         </div>
         <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/10">
           <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">Mammoth HTML Engine</span>

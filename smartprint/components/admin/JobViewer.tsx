@@ -6,6 +6,7 @@ import CountdownTimer from "./CountdownTimer";
 import type { JobResponse, PrintSettings } from "@/lib/types";
 import mammoth from "mammoth";
 import toast from "react-hot-toast";
+import { getMarginMm } from "@/lib/printLayout";
 
 const PDFPreview = dynamic(() => import("@/components/user/PDFPreview"), { ssr: false });
 
@@ -184,15 +185,25 @@ export default function JobViewer({
       'A4': 'A4', 'A3': 'A3', 'A5': 'A5', 'A2': 'A2',
       'A6': 'A6', 'Letter': 'letter', 'Legal': 'legal',
       'Tabloid': 'tabloid', 'B4': 'B4', 'B5': 'B5',
+      '4×6 in': '4in 6in',
+      '5×7 in': '5in 7in',
+      '10×15 cm': '100mm 150mm',
+      '13×18 cm': '130mm 180mm',
+      '20×25 cm': '200mm 250mm',
     };
     const cssSize = paperSizeMap[settings.paperSize] || 'A4';
     const isGrayscale = settings.colorMode === 'Black & White';
+    const marginMm = getMarginMm({
+      margins: settings.margins || "Default",
+      customMarginTopBottom: settings.customMarginTopBottom,
+      customMarginLeftRight: settings.customMarginLeftRight,
+    });
     
     const printCSS = `
       * { margin: 0; padding: 0; box-sizing: border-box; }
       @page { 
         size: ${cssSize} ${orientation}; 
-        margin: 0mm;
+        margin: ${marginMm.top}mm ${marginMm.right}mm ${marginMm.bottom}mm ${marginMm.left}mm;
       }
       html { 
         -webkit-print-color-adjust: exact; 
@@ -205,7 +216,7 @@ export default function JobViewer({
         ${isGrayscale ? 'filter: grayscale(100%);' : ''}
       }
       @media print {
-        @page { margin: 0mm; }
+        @page { margin: ${marginMm.top}mm ${marginMm.right}mm ${marginMm.bottom}mm ${marginMm.left}mm; }
         body { margin: 0; }
       }
     `;
@@ -683,6 +694,8 @@ export default function JobViewer({
                               customMarginTopBottom={jobData.settings.customMarginTopBottom}
                               customMarginLeftRight={jobData.settings.customMarginLeftRight}
                               orientation={jobData.settings.orientation || "Portrait"}
+                              pagesPerSheet={jobData.settings.pagesPerSheet || 1}
+                              pagesPerSheetFill={jobData.settings.pagesPerSheetFill || "blank"}
                             />
                           </div>
                         ) : isPdfFile(name) && previewUrls[index] ? (

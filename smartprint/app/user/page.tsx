@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
@@ -15,6 +15,7 @@ import PrintSettings from "@/components/user/PrintSettings";
 import SuccessScreen from "@/components/user/SuccessScreen";
 import QRScanner from "@/components/user/QRScanner";
 import ImageEditor from "@/components/user/ImageEditor";
+import { getPaperAspectForOrientation, getPaperPortraitMm } from "@/lib/printLayout";
 
 const PDFPreview = dynamic(() => import("@/components/user/PDFPreview"), {
   ssr: false,
@@ -187,6 +188,9 @@ function UserPageContent() {
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
   const [showEditor, setShowEditor] = useState(false);
   const [currentPreviewPage, setCurrentPreviewPage] = useState(1);
+  const [imagePosition, setImagePosition] = useState({ x: 50, y: 50 });
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // Load recent shops
   useEffect(() => {
@@ -283,6 +287,58 @@ function UserPageContent() {
       preview: previewUrl 
     } : f));
     setShowEditor(false);
+  };
+
+  const selectedFile = files[selectedFileIndex];
+  const canRepositionImage =
+    !!selectedFile?.file?.type?.startsWith("image/") &&
+    (settings.aspectRatio !== "Original" || settings.photosPerPage > 1);
+
+  useEffect(() => {
+    setImagePosition({ x: 50, y: 50 });
+  }, [selectedFileIndex, settings.aspectRatio, settings.photosPerPage]);
+
+  useEffect(() => {
+    if (!isDraggingImage) return;
+
+    const move = (clientX: number, clientY: number) => {
+      if (!dragStartRef.current) return;
+      const dx = clientX - dragStartRef.current.x;
+      const dy = clientY - dragStartRef.current.y;
+      dragStartRef.current = { x: clientX, y: clientY };
+      setImagePosition((prev) => ({
+        x: Math.max(0, Math.min(100, prev.x - dx * 0.18)),
+        y: Math.max(0, Math.min(100, prev.y - dy * 0.18)),
+      }));
+    };
+
+    const onMouseMove = (e: MouseEvent) => move(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (touch) move(touch.clientX, touch.clientY);
+    };
+    const stop = () => {
+      setIsDraggingImage(false);
+      dragStartRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", stop);
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", stop);
+
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", stop);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", stop);
+    };
+  }, [isDraggingImage]);
+
+  const beginImageDrag = (clientX: number, clientY: number) => {
+    if (!canRepositionImage) return;
+    dragStartRef.current = { x: clientX, y: clientY };
+    setIsDraggingImage(true);
   };
 
   const handleSubmit = async () => {
@@ -561,7 +617,7 @@ function UserPageContent() {
                 <button type="button" onClick={() => setStep(1)} className="text-sm font-medium text-[#4F46E5] hover:opacity-70 transition-opacity w-fit">Edit Files</button>
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8 items-start max-w-[1280px] mx-auto">
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] gap-4 lg:gap-6 items-start max-w-[1400px] mx-auto">
                 {/* Left Column: Controls */}
                 <div className="space-y-5 sm:space-y-6 order-2 xl:order-1 transition-all duration-300">
                   {/* File Selector for Editing */}
@@ -603,8 +659,8 @@ function UserPageContent() {
                 </div>
 
                 {/* Right Column: Preview */}
-                <div className="xl:sticky xl:top-6 space-y-4 order-1 xl:order-2 min-h-0">
-                  <div className="bg-white p-3 sm:p-4 rounded-2xl border border-[#E5E7EB] shadow-sm min-h-[min(50vh,400px)] sm:min-h-[400px] flex flex-col transition-shadow duration-300 hover:shadow-md">
+                <div className="xl:sticky xl:top-4 space-y-3 order-1 xl:order-2 min-h-0">
+                  <div className="bg-white p-3 sm:p-4 rounded-2xl border border-[#E5E7EB] shadow-sm min-h-[min(48vh,360px)] sm:min-h-[360px] flex flex-col transition-shadow duration-300 hover:shadow-md">
                     <div className="flex items-center justify-between mb-4">
                       <label className="text-[10px] font-bold text-secondary uppercase tracking-widest block">Real-time Preview</label>
                       {settings.enableCrop && files[selectedFileIndex]?.file.type.startsWith("image/") && (
@@ -647,28 +703,60 @@ function UserPageContent() {
                               customMarginTopBottom={settings.customMarginTopBottom}
                               customMarginLeftRight={settings.customMarginLeftRight}
                               orientation={settings.orientation}
+                              pagesPerSheet={settings.pagesPerSheet}
+                              pagesPerSheetFill={settings.pagesPerSheetFill}
                             />
                           );
                         }
 
                         if (isDocx) {
                           return (
-                            <DocxPreview file={currentFile.file} />
+                            <DocxPreview
+                              file={currentFile.file}
+                              paperSize={settings.paperSize}
+                              margins={settings.margins}
+                              customMarginTopBottom={settings.customMarginTopBottom}
+                              customMarginLeftRight={settings.customMarginLeftRight}
+                              orientation={settings.orientation}
+                              baseColorMode={settings.colorMode}
+                            />
                           );
                         }
 
                         if (isPptx) {
+                          const pptAspect = getPaperAspectForOrientation(settings.paperSize, settings.orientation);
+                          const pptCols =
+                            settings.pagesPerSheet >= 16 ? 4 :
+                            settings.pagesPerSheet >= 9 ? 3 :
+                            settings.pagesPerSheet >= 4 ? 2 :
+                            settings.pagesPerSheet >= 2 ? 2 : 1;
                           return (
-                            <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-orange-100 max-w-[280px] animate-in fade-in zoom-in-95 duration-500">
-                              <div className="w-16 h-16 bg-orange-50 rounded-2xl flex items-center justify-center mb-4 rotate-3">
-                                <FileText className="w-8 h-8 text-orange-400" />
+                            <div className="w-full h-full flex items-center justify-center p-4">
+                              <div
+                                className="w-full max-w-[min(100%,520px)] bg-white rounded-lg shadow-[0_10px_40px_rgba(0,0,0,0.25)] p-3"
+                                style={{ aspectRatio: `${pptAspect.w} / ${pptAspect.h}` }}
+                              >
+                                <div
+                                  className="w-full h-full grid gap-1.5"
+                                  style={{ gridTemplateColumns: `repeat(${pptCols}, minmax(0, 1fr))` }}
+                                >
+                                  {Array.from({ length: Math.max(1, settings.pagesPerSheet) }).map((_, idx) => {
+                                    const showSlide = settings.pagesPerSheetFill === "repeat" || idx === 0;
+                                    return (
+                                      <div key={idx} className="rounded border border-gray-200 bg-gray-50 flex items-center justify-center min-h-0">
+                                        {showSlide ? (
+                                          <FileText className="w-4 h-4 text-orange-400" />
+                                        ) : (
+                                          <div className="w-[70%] h-[70%] border border-dashed border-gray-200 rounded-sm" />
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                              <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight mb-1">{currentFile.file.name}</h3>
-                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4">{(currentFile.file.size / 1024).toFixed(1)} KB</p>
-                              <div className="px-3 py-1.5 bg-orange-100 rounded-full">
-                                <span className="text-[9px] font-black text-orange-600 uppercase">Interactive PPT Preview Coming Soon</span>
-                              </div>
-                              <p className="text-[10px] text-gray-400 mt-4 leading-relaxed">We are currently integrating a high-fidelity PowerPoint viewer. For now, you can still proceed to print.</p>
+                              <p className="text-[10px] text-center text-gray-500 font-semibold mt-3">
+                                PPT preview uses layout simulation for paper size and pages-per-sheet.
+                              </p>
                             </div>
                           );
                         }
@@ -745,8 +833,13 @@ function UserPageContent() {
                           return { width: cellHeight * ratioValue, height: cellHeight };
                         };
 
+                        const paper = getPaperAspectForOrientation(settings.paperSize, settings.orientation);
+                        const paperMm = getPaperPortraitMm(settings.paperSize);
+                        const areaScale = Math.max(0.55, Math.min(1.45, Math.sqrt((paperMm.w * paperMm.h) / (210 * 297))));
+
                         const previewRenderKey = [
                           settings.orientation,
+                          settings.paperSize,
                           settings.aspectRatio,
                           settings.photosPerPage,
                           settings.margins,
@@ -763,8 +856,9 @@ function UserPageContent() {
                             key={previewRenderKey}
                             className="bg-white shadow-lg transition-all duration-500 overflow-hidden"
                             style={{
-                              width: settings.orientation === 'Landscape' ? 440 : 320,
-                              height: settings.orientation === 'Landscape' ? 320 : 440,
+                              width: `${Math.round((settings.orientation === 'Landscape' ? 460 : 330) * areaScale)}px`,
+                              maxWidth: "100%",
+                              aspectRatio: `${paper.w} / ${paper.h}`,
                               padding: `${marginY}px ${marginX}px`,
                               display: 'flex',
                               flexDirection: 'column',
@@ -816,7 +910,13 @@ function UserPageContent() {
                                       height: ratioValue ? `${Math.round(frame.height)}px` : '100%',
                                       backgroundColor: '#f3f4f6',
                                       boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                                      border: ratioValue ? '1px solid rgba(79, 70, 229, 0.35)' : 'none'
+                                      border: ratioValue ? '1px solid rgba(79, 70, 229, 0.35)' : 'none',
+                                      cursor: showImage && canRepositionImage ? (isDraggingImage ? 'grabbing' : 'grab') : 'default'
+                                    }}
+                                    onMouseDown={(e) => showImage && beginImageDrag(e.clientX, e.clientY)}
+                                    onTouchStart={(e) => {
+                                      const touch = e.touches[0];
+                                      if (showImage && touch) beginImageDrag(touch.clientX, touch.clientY);
                                     }}
                                   >
                                       {showImage ? (
@@ -828,15 +928,12 @@ function UserPageContent() {
                                             width: '100%',
                                             height: '100%',
                                             objectFit: (ratioValue || settings.photosPerPage > 1) ? 'cover' : 'contain',
+                                            objectPosition: `${imagePosition.x}% ${imagePosition.y}%`,
                                             filter: imgFilter,
                                           }}
                                         />
                                       ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-gray-50/50">
-                                          <div className="w-1/2 h-1/2 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center">
-                                            <span className="text-[8px] font-black text-gray-200 uppercase tracking-widest">Blank</span>
-                                          </div>
-                                        </div>
+                                        <div className="w-full h-full bg-white/80 border border-dashed border-gray-200 rounded-[4px]" />
                                       )}
                                       {showImage && settings.enableCrop && (
                                         <div className="absolute inset-0 pointer-events-none border-2 border-dashed border-[#4F46E5]/40 flex items-center justify-center">
@@ -884,6 +981,11 @@ function UserPageContent() {
                         {settings.aspectRatio === 'Custom' ? ` (${settings.customWidthDimensions}×${settings.customHeightDimensions})` : ''}
                       </span>
                     </div>
+                    {canRepositionImage && (
+                      <p className="text-[10px] text-[#4F46E5] font-semibold mt-2 px-1">
+                        Drag on photo preview to choose which part should stay inside selected ratio.
+                      </p>
+                    )}
                     {/* Adjustments (Photos Only) */}
                     {files[selectedFileIndex]?.file.type.startsWith("image/") && (
                       <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">

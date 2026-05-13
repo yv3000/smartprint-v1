@@ -12,6 +12,7 @@ interface PrintSettingsProps {
   isEncrypted: boolean;
   onEncryptedChange: (encrypted: boolean) => void;
   hasImageFiles: boolean;
+  hasDocxFiles?: boolean;
 }
 
 export default function PrintSettings({
@@ -20,6 +21,7 @@ export default function PrintSettings({
   isEncrypted,
   onEncryptedChange,
   hasImageFiles,
+  hasDocxFiles = false,
 }: PrintSettingsProps) {
   const update = (partial: Partial<PrintSettingsType>) => {
     onSettingsChange({ ...settings, ...partial });
@@ -328,6 +330,186 @@ export default function PrintSettings({
     );
   };
 
+  const renderModeDocx = () => {
+    return (
+      <div className="space-y-6 animate-fade-in text-[#111827] dark:text-white">
+        {/* DOCX badge */}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-100 dark:bg-indigo-500/10 dark:border-indigo-500/20">
+          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-300">Word Document</span>
+          <span className="text-[10px] text-indigo-500/70 dark:text-indigo-200/60 font-medium">Page-level color split not available for .docx</span>
+        </div>
+
+        {/* Pages Selection */}
+        <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800 transition-all duration-200 ease-out hover:shadow-sm">
+          <label className="block text-sm font-semibold mb-3">Pages</label>
+          <div className="space-y-3">
+            <select
+              value={settings.pageSelection}
+              onChange={e => update({ pageSelection: e.target.value as any })}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200 dark:bg-neutral-900 dark:border-neutral-800 dark:text-white"
+            >
+              {["All", "Current", "Odd", "Even", "Custom"].map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+            {settings.pageSelection === "Custom" && (
+              <input
+                type="text"
+                placeholder="e.g. 1, 3, 5-10"
+                value={settings.customPageRange || ""}
+                onChange={(e) => update({ customPageRange: e.target.value.replace(/[^0-9,\-\s]/g, '') })}
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none dark:bg-neutral-900 dark:border-neutral-800 dark:text-white"
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Orientation & Color */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800">
+            <label className="block text-sm font-semibold mb-3">Orientation</label>
+            <div className="flex gap-2">
+              {["Portrait", "Landscape"].map(opt => (
+                <button
+                  key={opt}
+                  onClick={() => update({ orientation: opt as "Portrait" | "Landscape" })}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.orientation === opt ? "bg-[#111827] text-white shadow-sm dark:bg-white dark:text-black" : "bg-surface hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-white"}`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800">
+            <label className="block text-sm font-semibold mb-3">Color Mode</label>
+            <div className="flex gap-2">
+              {["Color", "Black & White"].map(opt => (
+                <button
+                  key={opt}
+                  onClick={() => update({ colorMode: opt as "Color" | "Black & White" })}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.colorMode === opt ? "bg-[#111827] text-white shadow-sm dark:bg-white dark:text-black" : "bg-surface hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-white"}`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Paper Size & Pages per sheet */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800">
+            <label className="block text-sm font-semibold mb-3">Paper Size</label>
+            <select
+              value={settings.paperSize}
+              onChange={e => update({ paperSize: e.target.value })}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200 dark:bg-neutral-900 dark:border-neutral-800 dark:text-white"
+            >
+              {["A2", "A3", "A4", "A5", "A6", "Letter", "Legal", "Tabloid", "Executive", "B4", "B5"].map(size => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800">
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-semibold">Pages per Sheet</label>
+              <div className="flex gap-1 p-0.5 bg-gray-100 dark:bg-neutral-800 rounded-lg">
+                <button
+                  onClick={() => update({ pagesPerSheetFill: 'blank' })}
+                  className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${settings.pagesPerSheetFill === 'blank' ? 'bg-white dark:bg-neutral-700 dark:text-indigo-300 shadow-sm text-indigo-600' : 'text-gray-400 dark:text-neutral-500'}`}
+                >
+                  Blank
+                </button>
+                <button
+                  onClick={() => update({ pagesPerSheetFill: 'repeat' })}
+                  className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${settings.pagesPerSheetFill === 'repeat' ? 'bg-white dark:bg-neutral-700 dark:text-indigo-300 shadow-sm text-indigo-600' : 'text-gray-400 dark:text-neutral-500'}`}
+                >
+                  Repeat
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[1, 2, 4, 6, 9, 16].map(num => (
+                <button
+                  key={num}
+                  onClick={() => update({ pagesPerSheet: num })}
+                  className={`w-10 h-10 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.pagesPerSheet === num ? "bg-[#4F46E5] text-white shadow-md scale-[1.02]" : "bg-surface hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-white"}`}
+                >
+                  {num}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Scale */}
+        <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800">
+          <label className="block text-sm font-semibold mb-3">Scale</label>
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="scale-docx"
+                checked={settings.scaleMode === "Fit to Page Width"}
+                onChange={() => update({ scaleMode: "Fit to Page Width" })}
+                className="w-4 h-4 text-[#4F46E5]"
+              />
+              <span className="text-sm">Fit to Page Width</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="scale-docx"
+                checked={settings.scaleMode === "Custom Scale"}
+                onChange={() => update({ scaleMode: "Custom Scale" })}
+                className="w-4 h-4 text-[#4F46E5]"
+              />
+              <span className="text-sm">Custom Scale</span>
+            </label>
+            {settings.scaleMode === "Custom Scale" && (
+              <div className="pl-7 flex items-center gap-2">
+                <input
+                  type="number"
+                  value={settings.customScalePercentage || 100}
+                  onChange={e => update({ customScalePercentage: parseInt(e.target.value) || 100 })}
+                  className="w-20 px-2 py-1 border border-border rounded text-sm dark:bg-neutral-900 dark:border-neutral-800 dark:text-white"
+                />
+                <span className="text-sm text-secondary">%</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Margins */}
+        <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800 transition-all duration-200 ease-out hover:shadow-sm">
+          <label className="block text-sm font-semibold mb-3">Margins</label>
+          <select
+            value={settings.margins}
+            onChange={e => update({ margins: e.target.value as any })}
+            className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200 dark:bg-neutral-900 dark:border-neutral-800 dark:text-white"
+          >
+            {["Default", "None", "Narrow", "Normal", "Wide", "Custom"].map(m => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+          {settings.margins === "Custom" && (
+            <div className="flex gap-4">
+              <div>
+                <label className="text-xs text-secondary mb-1 block">Top/Bottom (in)</label>
+                <input type="number" step="0.1" value={settings.customMarginTopBottom ?? 1} onChange={e => update({ customMarginTopBottom: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm dark:bg-neutral-900 dark:border-neutral-800 dark:text-white" />
+              </div>
+              <div>
+                <label className="text-xs text-secondary mb-1 block">Left/Right (in)</label>
+                <input type="number" step="0.1" value={settings.customMarginLeftRight ?? 1} onChange={e => update({ customMarginLeftRight: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm dark:bg-neutral-900 dark:border-neutral-800 dark:text-white" />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderModeB = () => {
     return (
       <div className="space-y-6 animate-fade-in text-[#111827]">
@@ -540,26 +722,28 @@ export default function PrintSettings({
     );
   };
 
+  const documentModeLabel = hasDocxFiles ? "Document Mode · DOCX" : "Document Mode · PDF";
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3 p-1 bg-surface border border-border rounded-xl">
-        <div className={`flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all ${!hasImageFiles ? "bg-white shadow-sm text-[#111827]" : "text-secondary cursor-not-allowed opacity-50"}`}>
-          Document Mode
+      <div className="flex items-center gap-3 p-1 bg-surface border border-border rounded-xl dark:bg-neutral-900 dark:border-neutral-800">
+        <div className={`flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all ${!hasImageFiles ? "bg-white shadow-sm text-[#111827] dark:bg-neutral-800 dark:text-white" : "text-secondary cursor-not-allowed opacity-50"}`}>
+          {documentModeLabel}
         </div>
-        <div className={`flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all ${hasImageFiles ? "bg-white shadow-sm text-[#111827]" : "text-secondary cursor-not-allowed opacity-50"}`}>
+        <div className={`flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all ${hasImageFiles ? "bg-white shadow-sm text-[#111827] dark:bg-neutral-800 dark:text-white" : "text-secondary cursor-not-allowed opacity-50"}`}>
           Photo Mode
         </div>
       </div>
 
-      {!hasImageFiles ? renderModeA() : renderModeB()}
+      {hasImageFiles ? renderModeB() : hasDocxFiles ? renderModeDocx() : renderModeA()}
 
       {/* ── Copies ─────────────────────────────────── */}
-      <div className="p-4 rounded-xl border border-border bg-white flex items-center justify-between">
-        <label className="text-sm font-semibold">Total Copies</label>
-        <div className="flex items-center gap-0 border border-border rounded-xl overflow-hidden">
+      <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800 flex items-center justify-between">
+        <label className="text-sm font-semibold dark:text-white">Total Copies</label>
+        <div className="flex items-center gap-0 border border-border rounded-xl overflow-hidden dark:border-neutral-700">
           <button
             onClick={() => update({ copies: Math.max(1, settings.copies - 1) })}
-            className="w-10 h-10 hover:bg-surface transition-colors text-lg font-light border-r border-border flex items-center justify-center bg-white"
+            className="w-10 h-10 hover:bg-surface transition-colors text-lg font-light border-r border-border flex items-center justify-center bg-white dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:border-neutral-700 dark:text-white"
           >
             −
           </button>
@@ -567,11 +751,11 @@ export default function PrintSettings({
             type="number"
             value={settings.copies}
             onChange={(e) => update({ copies: Math.max(1, parseInt(e.target.value) || 1) })}
-            className="w-12 h-10 text-center text-sm font-medium focus:outline-none border-none"
+            className="w-12 h-10 text-center text-sm font-medium focus:outline-none border-none dark:bg-neutral-900 dark:text-white"
           />
           <button
             onClick={() => update({ copies: Math.min(99, settings.copies + 1) })}
-            className="w-10 h-10 hover:bg-surface transition-colors text-lg font-light border-l border-border flex items-center justify-center bg-white"
+            className="w-10 h-10 hover:bg-surface transition-colors text-lg font-light border-l border-border flex items-center justify-center bg-white dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:border-neutral-700 dark:text-white"
           >
             +
           </button>
@@ -581,20 +765,20 @@ export default function PrintSettings({
       {/* Security Toggle */}
       <div
         className={`p-5 rounded-2xl border transition-all cursor-pointer ${isEncrypted
-            ? "border-accent bg-[#4F46E5]/5"
-            : "border-border bg-white"
+            ? "border-accent bg-[#4F46E5]/5 dark:bg-indigo-500/10"
+            : "border-border bg-white dark:bg-neutral-900 dark:border-neutral-800"
           }`}
         onClick={() => onEncryptedChange(!isEncrypted)}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${isEncrypted ? "bg-[#4F46E5] text-white" : "bg-surface border border-border"
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${isEncrypted ? "bg-[#4F46E5] text-white" : "bg-surface border border-border dark:bg-neutral-800 dark:border-neutral-700 dark:text-white"
               }`}>
               <Shield className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-[15px] font-medium">Secure Delivery</div>
-              <div className="text-xs text-secondary mt-0.5">
+              <div className="text-[15px] font-medium dark:text-white">Secure Delivery</div>
+              <div className="text-xs text-secondary mt-0.5 dark:text-neutral-400">
                 {isEncrypted ? "Files encrypted locally" : "Standard security"}
               </div>
             </div>

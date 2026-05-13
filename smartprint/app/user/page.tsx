@@ -15,6 +15,7 @@ import PrintSettings from "@/components/user/PrintSettings";
 import SuccessScreen from "@/components/user/SuccessScreen";
 import QRScanner from "@/components/user/QRScanner";
 import ImageEditor from "@/components/user/ImageEditor";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 import { getPaperAspectForOrientation, getPaperPortraitMm } from "@/lib/printLayout";
 
 const PDFPreview = dynamic(() => import("@/components/user/PDFPreview"), {
@@ -490,28 +491,32 @@ function UserPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F7F4]">
+    <div className="min-h-screen bg-[#F8F7F4] dark:bg-[#0B0B0F] transition-colors duration-300">
       <div className={`${step === 2 ? 'max-w-6xl' : 'max-w-2xl'} w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 space-y-4 sm:space-y-6 transition-all duration-300`}>
         
+        <div className="flex items-center justify-end">
+          <ThemeToggle />
+        </div>
+
         {/* ── Connection Bar ─────────────────────────────────── */}
-        <div className="bg-white p-4 rounded-2xl border border-[#E5E7EB] shadow-sm space-y-4">
+        <div className="bg-white dark:bg-neutral-900 p-4 rounded-2xl border border-[#E5E7EB] dark:border-neutral-800 shadow-sm space-y-4 transition-colors">
           <div className="flex items-center justify-between">
             <div className="flex flex-col min-w-0">
-              <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider">Current Shop</span>
+              <span className="text-[10px] font-semibold text-[#6B7280] dark:text-neutral-400 uppercase tracking-wider">Current Shop</span>
               <div className="flex items-center gap-2 mt-0.5">
                 {isVerifying ? (
-                  <><Loader2 className="w-3.5 h-3.5 animate-spin text-[#4F46E5]" /><span className="text-sm font-semibold text-[#111827]">Verifying…</span></>
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin text-[#4F46E5]" /><span className="text-sm font-semibold text-[#111827] dark:text-white">Verifying…</span></>
                 ) : shopToken && shopName ? (
                   <>
                     <div className={`w-2 h-2 rounded-full animate-pulse ${shopOnline ? "bg-[#2563EB]" : "bg-[#EF4444]"}`} />
-                    <span className="text-sm font-semibold text-[#111827] truncate">{shopName}</span>
+                    <span className="text-sm font-semibold text-[#111827] dark:text-white truncate">{shopName}</span>
                   </>
                 ) : (
-                  <><div className="w-2 h-2 bg-[#EF4444] rounded-full" /><span className="text-sm font-medium text-[#6B7280]">Not Connected</span></>
+                  <><div className="w-2 h-2 bg-[#EF4444] rounded-full" /><span className="text-sm font-medium text-[#6B7280] dark:text-neutral-400">Not Connected</span></>
                 )}
               </div>
             </div>
-            <button onClick={() => setShowQRModal(true)} className="flex items-center gap-2 bg-[#111827] text-white px-4 py-2.5 rounded-xl font-medium text-sm hover:bg-black active:scale-[0.98] transition-all shrink-0">
+            <button onClick={() => setShowQRModal(true)} className="flex items-center gap-2 bg-[#111827] text-white px-4 py-2.5 rounded-xl font-medium text-sm hover:bg-black dark:bg-white dark:text-[#111827] dark:hover:bg-neutral-200 active:scale-[0.98] transition-all shrink-0">
               <QrCode className="w-4 h-4" /> Scan QR
             </button>
           </div>
@@ -528,14 +533,14 @@ function UserPageContent() {
                   placeholder="e.g. k7m2x9"
                   value={shopIdInput}
                   onChange={handleShopIdChange}
-                  className="w-full pl-4 pr-4 py-3 bg-white border-2 border-[#E5E7EB] rounded-xl text-sm font-bold focus:outline-none focus:border-[#4F46E5] transition-all uppercase placeholder:normal-case shadow-sm text-[#111827]"
+                  className="w-full pl-4 pr-4 py-3 bg-white dark:bg-neutral-900 border-2 border-[#E5E7EB] dark:border-neutral-800 rounded-xl text-sm font-bold focus:outline-none focus:border-[#4F46E5] transition-all uppercase placeholder:normal-case shadow-sm text-[#111827] dark:text-white"
                 />
                 {shopIdError && <p className="absolute -bottom-5 left-1 text-[11px] text-red-500 font-bold">{shopIdError}</p>}
               </div>
               <button 
                 onClick={connectByShopId} 
                 disabled={shopIdInput.length !== 6}
-                className="px-8 py-3 bg-[#111827] text-white rounded-xl text-sm font-black hover:bg-black disabled:bg-gray-100 disabled:text-gray-300 disabled:border-gray-100 transition-all shadow-lg active:scale-95 border border-[#111827]"
+                className="px-8 py-3 bg-[#111827] dark:bg-white dark:text-[#111827] text-white rounded-xl text-sm font-black hover:bg-black dark:hover:bg-neutral-200 disabled:bg-gray-100 dark:disabled:bg-neutral-800 disabled:text-gray-300 dark:disabled:text-neutral-600 disabled:border-gray-100 transition-all shadow-lg active:scale-95 border border-[#111827] dark:border-white"
               >
                 CONNECT
               </button>
@@ -549,7 +554,7 @@ function UserPageContent() {
             <button
               onClick={() => setActiveTab(activeTab === "recent" ? "none" : "recent")}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                activeTab === "recent" ? "bg-[#111827] text-white" : "bg-white border border-[#E5E7EB] text-[#111827] hover:border-[#6B7280]"
+                activeTab === "recent" ? "bg-[#111827] text-white dark:bg-white dark:text-[#111827]" : "bg-white dark:bg-neutral-900 border border-[#E5E7EB] dark:border-neutral-800 text-[#111827] dark:text-white hover:border-[#6B7280] dark:hover:border-neutral-600"
               }`}
             >
               <Clock className="w-3.5 h-3.5" /> Recent
@@ -563,16 +568,16 @@ function UserPageContent() {
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
               <div className="space-y-2">
                 {recentShops.length === 0 ? (
-                  <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 text-center">
-                    <p className="text-sm text-[#6B7280]">No recent shops. Scan a QR code to connect.</p>
+                  <div className="bg-white dark:bg-neutral-900 border border-[#E5E7EB] dark:border-neutral-800 rounded-xl p-6 text-center">
+                    <p className="text-sm text-[#6B7280] dark:text-neutral-400">No recent shops. Scan a QR code to connect.</p>
                   </div>
                 ) : recentShops.map((s: any, i: number) => (
-                  <button key={i} onClick={() => router.push(`/user?shop=${s.qrToken}`)} className="w-full flex items-center justify-between bg-white border border-[#E5E7EB] rounded-xl p-4 hover:border-[#4F46E5] transition-all group">
+                  <button key={i} onClick={() => router.push(`/user?shop=${s.qrToken}`)} className="w-full flex items-center justify-between bg-white dark:bg-neutral-900 border border-[#E5E7EB] dark:border-neutral-800 rounded-xl p-4 hover:border-[#4F46E5] transition-all group">
                     <div className="text-left min-w-0">
-                      <p className="text-sm font-semibold text-[#111827]">{s.shopName}</p>
-                      <p className="text-xs text-[#6B7280] mt-0.5">{timeAgo(s.lastVisited)}</p>
+                      <p className="text-sm font-semibold text-[#111827] dark:text-white">{s.shopName}</p>
+                      <p className="text-xs text-[#6B7280] dark:text-neutral-400 mt-0.5">{timeAgo(s.lastVisited)}</p>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-[#6B7280] group-hover:text-[#4F46E5] transition-colors shrink-0" />
+                    <ChevronRight className="w-4 h-4 text-[#6B7280] dark:text-neutral-400 group-hover:text-[#4F46E5] transition-colors shrink-0" />
                   </button>
                 ))}
               </div>
@@ -603,7 +608,7 @@ function UserPageContent() {
               />
 
               {files.length > 0 && (
-                <button onClick={() => setStep(2)} className="w-full bg-[#111827] text-white py-4 rounded-xl font-medium text-base hover:bg-black active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-sm">
+                <button onClick={() => setStep(2)} className="w-full bg-[#111827] text-white py-4 rounded-xl font-medium text-base hover:bg-black dark:bg-white dark:text-black dark:hover:bg-neutral-200 active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-sm">
                   Configure Print <Printer className="w-4 h-4" />
                 </button>
               )}
@@ -613,8 +618,8 @@ function UserPageContent() {
           {step === 2 && (
             <motion.div key="step2" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }} className="space-y-4 sm:space-y-6">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-0.5">
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#111827]">Settings</h1>
-                <button type="button" onClick={() => setStep(1)} className="text-sm font-medium text-[#4F46E5] hover:opacity-70 transition-opacity w-fit">Edit Files</button>
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#111827] dark:text-white">Settings</h1>
+                <button type="button" onClick={() => setStep(1)} className="text-sm font-medium text-[#4F46E5] dark:text-indigo-300 hover:opacity-70 transition-opacity w-fit">Edit Files</button>
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] gap-4 lg:gap-6 items-start max-w-[1400px] mx-auto">
@@ -622,8 +627,8 @@ function UserPageContent() {
                 <div className="space-y-5 sm:space-y-6 order-2 xl:order-1 transition-all duration-300">
                   {/* File Selector for Editing */}
                   {files.length > 1 && (
-                    <div className="bg-white p-4 rounded-2xl border border-[#E5E7EB] shadow-sm">
-                      <label className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-3 block">Select File to Edit</label>
+                    <div className="bg-white dark:bg-neutral-900 p-4 rounded-2xl border border-[#E5E7EB] dark:border-neutral-800 shadow-sm">
+                      <label className="text-[10px] font-bold text-secondary dark:text-neutral-400 uppercase tracking-widest mb-3 block">Select File to Edit</label>
                       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                         {files.map((f, i) => (
                           <button 
@@ -649,9 +654,10 @@ function UserPageContent() {
                     settings={settings} onSettingsChange={handleSettingsChange}
                     isEncrypted={isEncrypted} onEncryptedChange={setIsEncrypted}
                     hasImageFiles={files.some(f => f.file.type.startsWith("image/"))}
+                    hasDocxFiles={files.some(f => f.file.name.toLowerCase().endsWith(".docx") || f.file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
                   />
 
-                  <div className="pt-6 border-t border-[#E5E7EB] space-y-4">
+                  <div className="pt-6 border-t border-[#E5E7EB] dark:border-neutral-800 space-y-4">
                     <button disabled={isSubmitting} onClick={handleSubmit} className="w-full bg-[#4F46E5] text-white py-4 rounded-xl font-bold text-base hover:bg-[#4338CA] active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-indigo-100">
                       {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : shopToken ? "Send to Print Shop" : "Connect Shop to Send"}
                     </button>
@@ -660,9 +666,9 @@ function UserPageContent() {
 
                 {/* Right Column: Preview */}
                 <div className="xl:sticky xl:top-4 space-y-3 order-1 xl:order-2 min-h-0">
-                  <div className="bg-white p-3 sm:p-4 rounded-2xl border border-[#E5E7EB] shadow-sm min-h-[min(48vh,360px)] sm:min-h-[360px] flex flex-col transition-shadow duration-300 hover:shadow-md">
+                  <div className="bg-white dark:bg-neutral-900 p-3 sm:p-4 rounded-2xl border border-[#E5E7EB] dark:border-neutral-800 shadow-sm min-h-[min(48vh,360px)] sm:min-h-[360px] flex flex-col transition-shadow duration-300 hover:shadow-md">
                     <div className="flex items-center justify-between mb-4">
-                      <label className="text-[10px] font-bold text-secondary uppercase tracking-widest block">Real-time Preview</label>
+                      <label className="text-[10px] font-bold text-secondary dark:text-neutral-400 uppercase tracking-widest block">Real-time Preview</label>
                       {settings.enableCrop && files[selectedFileIndex]?.file.type.startsWith("image/") && (
                         <button 
                           onClick={() => setShowEditor(true)}
@@ -675,7 +681,7 @@ function UserPageContent() {
 
                     <motion.div
                       layout
-                      className="flex-1 bg-[#E8E8E8] rounded-xl overflow-hidden relative flex items-center justify-center border border-border"
+                      className="flex-1 bg-[#E8E8E8] dark:bg-neutral-800 rounded-xl overflow-hidden relative flex items-center justify-center border border-border dark:border-neutral-700"
                       style={{ minHeight: "clamp(280px, 45vh, 520px)" }}
                       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                     >
@@ -1061,7 +1067,7 @@ function UserPageContent() {
 
 export default function UserPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#F8F7F4]"><Loader2 className="w-8 h-8 animate-spin text-[#4F46E5]" /></div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#F8F7F4] dark:bg-[#0B0B0F]"><Loader2 className="w-8 h-8 animate-spin text-[#4F46E5]" /></div>}>
       <UserPageContent />
     </Suspense>
   );

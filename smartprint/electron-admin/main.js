@@ -57,6 +57,27 @@ if (!process.defaultApp) {
   app.setAsDefaultProtocolClient('smartprint')
 }
 
+const SESSION_COOKIE_NAMES = [
+  '__Secure-authjs.session-token',
+  'authjs.session-token',
+  '__Secure-next-auth.session-token',
+  'next-auth.session-token',
+]
+
+async function findExistingSessionCookie(session) {
+  for (const name of SESSION_COOKIE_NAMES) {
+    try {
+      const cookies = await session.cookies.get({ url: BASE_URL, name })
+      if (cookies && cookies.length > 0 && cookies[0].value) {
+        return cookies[0]
+      }
+    } catch (e) {
+      // ignore and continue
+    }
+  }
+  return null
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -80,7 +101,24 @@ function createWindow() {
     mainWindow.focus()
   })
 
-  mainWindow.loadURL(AUTH_URL)
+  // If a valid session cookie already exists in the persistent store,
+  // skip the sign-in screen and go straight to the dashboard. The server
+  // enforces the 3-day inactivity policy and will bounce us back to
+  // /admin/auth?reason=session_expired if the session is no longer valid.
+  findExistingSessionCookie(mainWindow.webContents.session)
+    .then((cookie) => {
+      const targetUrl = cookie ? DASHBOARD_URL : AUTH_URL
+      if (cookie) {
+        console.log('[Auth] Persistent session found, loading dashboard directly')
+      } else {
+        console.log('[Auth] No session cookie, loading auth page')
+      }
+      mainWindow.loadURL(targetUrl)
+    })
+    .catch((err) => {
+      console.error('[Auth] Cookie lookup failed, falling back to auth page:', err)
+      mainWindow.loadURL(AUTH_URL)
+    })
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
     console.log('[will-navigate]', url.substring(0, 100))
@@ -205,12 +243,7 @@ function verifyTransferToken(token) {
 function setSessionAndLoadDashboard(sessionToken) {
   if (!mainWindow) return
   
-  const cookieNames = [
-    '__Secure-authjs.session-token',
-    'authjs.session-token',
-    '__Secure-next-auth.session-token',
-    'next-auth.session-token'
-  ]
+  const cookieNames = SESSION_COOKIE_NAMES
 
   const setCookie = (name) => {
     return mainWindow.webContents.session.cookies.set({

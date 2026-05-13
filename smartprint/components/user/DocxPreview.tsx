@@ -200,10 +200,21 @@ export default function DocxPreview({
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#323639] overflow-hidden">
-      <div className="flex items-center gap-2 p-3 bg-[#202124] border-b border-white/5 shrink-0">
-        <FileText className="w-4 h-4 text-indigo-400" />
-        <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em]">Live Document Pages</span>
+    <div className="w-full h-full flex flex-col bg-[#323639] dark:bg-black overflow-hidden">
+      <div className="flex items-center justify-between gap-2 p-3 bg-[#202124] dark:bg-neutral-950 border-b border-white/5 shrink-0">
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-indigo-400" />
+          <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em]">Live Document Pages</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-white/60">
+          <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10">{paperSize}</span>
+          <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10">{orientation}</span>
+          {pagesPerSheet > 1 && (
+            <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-200">
+              {pagesPerSheet}/sheet
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto p-3 sm:p-6 custom-docx-scroll">
@@ -240,10 +251,10 @@ export default function DocxPreview({
         </div>
       </div>
 
-      <div className="bg-[#202124] border-t border-white/5 p-3 sm:p-4 flex items-center justify-between gap-3">
+      <div className="bg-[#202124] dark:bg-neutral-950 border-t border-white/5 p-3 sm:p-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">{paperSize} • {orientation}</span>
+          <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Preview Live</span>
         </div>
         <div className="flex items-center gap-3 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
           <button type="button" disabled={visibleIndex <= 0} onClick={() => changePage(-1)} className="p-1 disabled:opacity-25 text-white hover:text-indigo-400 transition-colors">

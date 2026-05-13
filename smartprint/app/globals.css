@@ -18,6 +18,27 @@
   --radius: 24px;
   --radius-sm: 12px;
   --radius-lg: 32px;
+  --page-bg: #F8F7F4;
+  color-scheme: light;
+}
+
+/* ── Dark mode palette (class-based, Apple-ish) ───────────────── */
+.dark {
+  --background: #0B0B0F;
+  --foreground: #F5F5F7;
+  --secondary: #A1A1AA;
+  --accent: #7C77F7;
+  --accent-hover: #6366F1;
+  --border: #1F1F23;
+  --border-light: #141418;
+  --surface: rgba(20, 20, 24, 0.8);
+  --page-bg: #0B0B0F;
+  color-scheme: dark;
+}
+
+.dark body {
+  background: var(--page-bg);
+  color: var(--foreground);
 }
 
 /* Base Styles */
@@ -252,4 +273,54 @@ h1, h2, h3, h4, h5, h6 {
 .drop-zone-active {
   border-color: var(--accent) !important;
   background: rgba(0, 113, 227, 0.02) !important;
+}
+
+/* ── Apple-inspired polish ─────────────────────────────────────── */
+html, body {
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+/* Soften button + card transitions globally */
+button, .card-hover, [data-surface] {
+  transition:
+    background-color 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Dark mode overrides ───────────────────────────────────────── */
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.dark .glass-card {
+  background: rgba(22, 22, 26, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45), 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Preserve document preview paper as bright/white even in dark mode so
+   text stays readable. Only the surrounding chrome goes dark. */
+.docx-page-content {
+  color: #111 !important;
+  background: #fff;
+}
+
+/* Dashboard + user page page-bg token */
+.bg-page {
+  background: var(--page-bg);
+}
+
+
+/* Dark toast override — react-hot-toast */
+.dark .sp-toast {
+  background: rgba(22, 22, 26, 0.9) !important;
+  color: #F5F5F7 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55) !important;
 }

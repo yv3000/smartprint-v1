@@ -105,7 +105,7 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#F8F7F4]">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#F8F7F4] dark:bg-[#0B0B0F]">
       <div className="w-full max-w-xl">
         {/* Progress Bar */}
         <div className="flex justify-between mb-12 px-2">
@@ -135,7 +135,7 @@ export default function Onboarding() {
             animate="center"
             exit="exit"
             transition={{ duration: 0.4, ease: "easeInOut" }}
-            className="bg-white/70 backdrop-blur-xl border border-white/50 rounded-[40px] p-12 shadow-[0_8px_32px_rgba(0,0,0,0.03)]"
+            className="bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/50 dark:border-white/10 rounded-[40px] p-12 shadow-[0_8px_32px_rgba(0,0,0,0.03)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
           >
             {step === 1 && (
               <div className="space-y-8">

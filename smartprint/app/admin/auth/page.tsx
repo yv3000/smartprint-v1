@@ -5,6 +5,7 @@ import { signIn, useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Shield, Sparkles, AlertCircle, ExternalLink, Loader2, RefreshCw, CheckCircle2 } from "lucide-react";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 
 const APP_URL = "https://smartprint-tau.vercel.app";
 
@@ -144,8 +145,8 @@ function AuthForm() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F7F4]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#1A1A1A]/30" />
+      <div className="min-h-screen flex items-center justify-center bg-[#F8F7F4] dark:bg-[#0B0B0F]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1A1A1A]/30 dark:text-white/30" />
       </div>
     );
   }
@@ -153,13 +154,13 @@ function AuthForm() {
   // If opened in system browser with mode=electron, show a minimal "redirecting" screen
   if (mode === "electron" && !isElectron) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-[#F8F7F4]">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[#F8F7F4] dark:bg-[#0B0B0F]">
         <div className="text-center space-y-4">
           <Loader2 className="w-8 h-8 animate-spin text-[#4F46E5] mx-auto" />
-          <p className="text-lg font-semibold text-[#1A1A1A]">
+          <p className="text-lg font-semibold text-[#1A1A1A] dark:text-white">
             Redirecting to Google Sign-In...
           </p>
-          <p className="text-sm text-[#1A1A1A]/40">
+          <p className="text-sm text-[#1A1A1A]/40 dark:text-white/40">
             Please wait while we connect to Google.
           </p>
         </div>
@@ -168,28 +169,31 @@ function AuthForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-[#F8F7F4]">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-[#F8F7F4] dark:bg-[#0B0B0F]">
+      <div className="fixed top-4 right-4 z-10">
+        <ThemeToggle size="sm" />
+      </div>
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-3">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="w-16 h-16 bg-[#1A1A1A] rounded-[22px] flex items-center justify-center mx-auto shadow-xl"
+            className="w-16 h-16 bg-[#1A1A1A] dark:bg-white rounded-[22px] flex items-center justify-center mx-auto shadow-xl"
           >
-            <Shield className="text-white w-8 h-8" />
+            <Shield className="text-white dark:text-[#1A1A1A] w-8 h-8" />
           </motion.div>
-          <motion.h1 
+          <motion.h1
             initial={{ y: 10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="text-4xl font-bold tracking-tight text-[#1A1A1A] font-syne"
+            className="text-4xl font-bold tracking-tight text-[#1A1A1A] dark:text-white font-syne"
           >
             SmartPrint Admin
           </motion.h1>
-          <motion.p 
+          <motion.p
             initial={{ y: 10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.1 }}
-            className="text-[#1A1A1A]/40 font-medium"
+            className="text-[#1A1A1A]/40 dark:text-white/50 font-medium"
           >
             Secure access for print shop owners
           </motion.p>
@@ -217,11 +221,11 @@ function AuthForm() {
           </motion.div>
         )}
 
-        <motion.div 
+        <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="bg-white/70 backdrop-blur-xl border border-white/50 rounded-[32px] p-8 shadow-[0_8px_32px_rgba(0,0,0,0.03)]"
+          className="bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/50 dark:border-white/10 rounded-[32px] p-8 shadow-[0_8px_32px_rgba(0,0,0,0.03)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
         >
           <AnimatePresence mode="wait">
             {!waitingForBrowser ? (
@@ -229,7 +233,7 @@ function AuthForm() {
                 <button
                   onClick={handleSignIn}
                   id="google-signin-button"
-                  className="group w-full flex items-center justify-center gap-3 bg-[#1A1A1A] text-white py-4 px-6 rounded-2xl font-semibold text-[17px] hover:bg-black active:scale-[0.98] transition-all shadow-lg shadow-black/5"
+                  className="group w-full flex items-center justify-center gap-3 bg-[#1A1A1A] dark:bg-white dark:text-[#1A1A1A] text-white py-4 px-6 rounded-2xl font-semibold text-[17px] hover:bg-black dark:hover:bg-neutral-200 active:scale-[0.98] transition-all shadow-lg shadow-black/5"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getOfflineTimestamp } from "@/lib/adminPresence";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -24,12 +23,19 @@ export async function POST(req: NextRequest) {
     body = {};
   }
 
-  const nextSeenAt = body.state === "offline" ? getOfflineTimestamp() : new Date();
+  // IMPORTANT: only advance lastLoginAt on "online" pings.
+  // A previous bug here wrote `new Date(0)` on "offline" pings which instantly
+  // tripped the 3-day inactivity check in the dashboard layout and forced the
+  // admin to sign in on every restart. Offline state is now tracked purely in
+  // the UI; the DB only remembers the most recent time the admin was active.
+  if (body.state === "offline") {
+    return NextResponse.json({ success: true, state: "offline" });
+  }
 
   await prisma.admin.update({
     where: { userId: session.user.id },
-    data: { lastLoginAt: nextSeenAt },
+    data: { lastLoginAt: new Date() },
   });
 
-  return NextResponse.json({ success: true, state: body.state === "offline" ? "offline" : "online" });
+  return NextResponse.json({ success: true, state: "online" });
 }

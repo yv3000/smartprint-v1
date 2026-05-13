@@ -24,6 +24,8 @@ interface PDFPreviewProps {
   orientation?: "Portrait" | "Landscape";
   pagesPerSheet?: number;
   pagesPerSheetFill?: "repeat" | "blank";
+  pageSelection?: "All" | "Current" | "Odd" | "Even" | "Custom";
+  customPageRange?: string;
 }
 
 export default function PDFPreview({
@@ -43,9 +45,11 @@ export default function PDFPreview({
   orientation = "Portrait",
   pagesPerSheet = 1,
   pagesPerSheetFill = "blank",
+  pageSelection = "All",
+  customPageRange = "",
 }: PDFPreviewProps) {
   const [numPages, setNumPages] = useState<number>(0);
-  const [pageNumber, setPageNumber] = useState<number>(externalPage || 1);
+  const [visibleIndex, setVisibleIndex] = useState<number>(0);
   const [scale, setScale] = useState<number>(0.8);
   const [pageWidth, setPageWidth] = useState<number>(320);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -75,11 +79,61 @@ export default function PDFPreview({
     return () => ro.disconnect();
   }, [measureWidth]);
 
-  useEffect(() => {
-    if (externalPage != null) {
-      setPageNumber(externalPage);
+  const parseCustomRange = (rangeStr: string): number[] => {
+    if (!rangeStr) return [];
+    const pages = new Set<number>();
+    rangeStr.split(",").forEach((part) => {
+      const trimmed = part.trim();
+      if (!trimmed) return;
+      if (trimmed.includes("-")) {
+        const [startStr, endStr] = trimmed.split("-");
+        const start = parseInt(startStr?.trim(), 10);
+        const end = parseInt(endStr?.trim(), 10);
+        if (!Number.isNaN(start) && !Number.isNaN(end)) {
+          const from = Math.min(start, end);
+          const to = Math.max(start, end);
+          for (let i = from; i <= to; i += 1) pages.add(i);
+        }
+      } else {
+        const n = parseInt(trimmed, 10);
+        if (!Number.isNaN(n)) pages.add(n);
+      }
+    });
+    return Array.from(pages).sort((a, b) => a - b);
+  };
+
+  const getVisiblePages = useCallback(() => {
+    const allPages = Array.from({ length: numPages }, (_, i) => i + 1);
+    if (pageSelection === "Current") {
+      const p = externalPage && externalPage >= 1 ? externalPage : 1;
+      return [Math.min(p, numPages || 1)];
     }
-  }, [externalPage]);
+    if (pageSelection === "Odd") return allPages.filter((p) => p % 2 !== 0);
+    if (pageSelection === "Even") return allPages.filter((p) => p % 2 === 0);
+    if (pageSelection === "Custom") {
+      const allowed = new Set(parseCustomRange(customPageRange).filter((p) => p >= 1 && p <= numPages));
+      return allPages.filter((p) => allowed.has(p));
+    }
+    return allPages;
+  }, [numPages, pageSelection, customPageRange, externalPage]);
+
+  const visiblePages = getVisiblePages();
+  const currentPageNumber = visiblePages[Math.min(visibleIndex, Math.max(0, visiblePages.length - 1))] || 1;
+
+  useEffect(() => {
+    if (visiblePages.length === 0) {
+      setVisibleIndex(0);
+      return;
+    }
+    if (externalPage != null) {
+      const idx = visiblePages.indexOf(externalPage);
+      if (idx >= 0) {
+        setVisibleIndex(idx);
+        return;
+      }
+    }
+    setVisibleIndex((prev) => Math.min(prev, visiblePages.length - 1));
+  }, [externalPage, visiblePages]);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
@@ -87,9 +141,10 @@ export default function PDFPreview({
   };
 
   const changePage = (offset: number) => {
-    const newPage = Math.min(Math.max(1, pageNumber + offset), numPages);
-    setPageNumber(newPage);
-    onPageChange?.(newPage);
+    if (!visiblePages.length) return;
+    const nextIndex = Math.min(Math.max(0, visibleIndex + offset), visiblePages.length - 1);
+    setVisibleIndex(nextIndex);
+    onPageChange?.(visiblePages[nextIndex]);
   };
 
   const getSplitSummary = () => {
@@ -159,14 +214,15 @@ export default function PDFPreview({
                 style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: pagesPerSheet > 1 ? 4 : 0 }}
               >
                 {Array.from({ length: Math.max(1, pagesPerSheet) }).map((_, idx) => {
-                  const showPage = pagesPerSheetFill === "repeat" || idx === 0;
+                  const pageAtTile = visiblePages[visibleIndex + idx];
+                  const showPage = pagesPerSheetFill === "repeat" ? !!(pageAtTile || currentPageNumber) : !!pageAtTile;
                   const tileWidth = Math.max(48, Math.floor((pageWidth / cols) * scale));
                   return (
                     <div key={idx} className="w-full h-full min-h-0 min-w-0 flex items-center justify-center bg-white">
                       {showPage ? (
                         <Page
-                          key={`${pageNumber}-${pageWidth}-${scale}-${isBw}-${idx}`}
-                          pageNumber={pageNumber}
+                          key={`${currentPageNumber}-${pageWidth}-${scale}-${isBw}-${idx}-${visibleIndex}`}
+                          pageNumber={pageAtTile || currentPageNumber}
                           width={tileWidth}
                           renderTextLayer={false}
                           renderAnnotationLayer={false}
@@ -208,20 +264,20 @@ export default function PDFPreview({
         <div className="flex items-center gap-4 bg-white/5 px-3 sm:px-4 py-2 rounded-2xl border border-white/5">
           <button
             type="button"
-            disabled={pageNumber <= 1}
+            disabled={visibleIndex <= 0}
             onClick={() => changePage(-1)}
             className="p-1 disabled:opacity-20 text-white hover:text-indigo-400 transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-1.5 min-w-[60px] justify-center">
-            <span className="text-sm font-black text-white">{pageNumber}</span>
+            <span className="text-sm font-black text-white">{currentPageNumber}</span>
             <span className="text-[10px] font-bold text-white/20 uppercase">of</span>
-            <span className="text-sm font-black text-white/40">{numPages || "…"}</span>
+            <span className="text-sm font-black text-white/40">{visiblePages.length || "…"}</span>
           </div>
           <button
             type="button"
-            disabled={pageNumber >= numPages}
+            disabled={!visiblePages.length || visibleIndex >= visiblePages.length - 1}
             onClick={() => changePage(1)}
             className="p-1 disabled:opacity-20 text-white hover:text-indigo-400 transition-colors"
           >

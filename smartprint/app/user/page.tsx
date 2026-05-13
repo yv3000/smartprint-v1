@@ -705,6 +705,8 @@ function UserPageContent() {
                               orientation={settings.orientation}
                               pagesPerSheet={settings.pagesPerSheet}
                               pagesPerSheetFill={settings.pagesPerSheetFill}
+                              pageSelection={settings.pageSelection}
+                              customPageRange={settings.customPageRange || ""}
                             />
                           );
                         }
@@ -719,6 +721,14 @@ function UserPageContent() {
                               customMarginLeftRight={settings.customMarginLeftRight}
                               orientation={settings.orientation}
                               baseColorMode={settings.colorMode}
+                              pagesPerSheet={settings.pagesPerSheet}
+                              pagesPerSheetFill={settings.pagesPerSheetFill}
+                              pageSelection={settings.pageSelection}
+                              customPageRange={settings.customPageRange || ""}
+                              currentPage={currentPreviewPage}
+                              onPageChange={setCurrentPreviewPage}
+                              scaleMode={settings.scaleMode}
+                              customScalePercentage={settings.customScalePercentage}
                             />
                           );
                         }

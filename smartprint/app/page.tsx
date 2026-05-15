@@ -15,6 +15,7 @@ import {
   Settings2,
   Printer,
 } from "lucide-react";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 
 const NearbyMap = dynamic(() => import("@/components/user/NearbyMap"), {
   ssr: false,
@@ -77,22 +78,25 @@ export default function HomePage() {
           <div className="flex items-center gap-2">
             <div
               className="w-7 h-7 rounded-[8px] flex items-center justify-center"
-              style={{ background: "var(--up-text)" }}
+              style={{ background: "var(--up-text)", color: "var(--up-bg)" }}
             >
-              <Printer size={14} color="#fff" strokeWidth={2} />
+              <Printer size={14} strokeWidth={2} />
             </div>
             <span style={{ fontSize: "1.17em", fontWeight: 600, letterSpacing: "-0.01em" }}>
               SmartPrint
             </span>
           </div>
-          <button
-            onClick={() => router.push("/user")}
-            className="up-btn-text"
-            style={{ fontSize: "1em", fontWeight: 500 }}
-          >
-            Start Printing
-            <ChevronRight size={14} strokeWidth={1.8} />
-          </button>
+          <div className="flex items-center gap-3">
+            <ThemeToggle size="sm" />
+            <button
+              onClick={() => router.push("/user")}
+              className="up-btn-text"
+              style={{ fontSize: "1em", fontWeight: 500 }}
+            >
+              Start Printing
+              <ChevronRight size={14} strokeWidth={1.8} />
+            </button>
+          </div>
         </div>
       </nav>
 

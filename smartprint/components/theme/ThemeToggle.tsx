@@ -9,8 +9,9 @@ interface ThemeToggleProps {
 }
 
 /**
- * Minimal, Apple-style theme toggle. Light = sun, Dark = moon.
- * Uses a single accessible button with a short crossfade.
+ * Apple-style theme toggle. Circular surface button with sun/moon
+ * crossfade. Reads CSS tokens so it adapts inside both `.user-portal`
+ * (light/dark) and the admin portal automatically.
  */
 export default function ThemeToggle({
   className = "",
@@ -18,7 +19,7 @@ export default function ThemeToggle({
 }: ThemeToggleProps) {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
-  const dim = size === "sm" ? "w-8 h-8" : "w-9 h-9";
+  const dim = size === "sm" ? 32 : 36;
 
   return (
     <button
@@ -26,17 +27,40 @@ export default function ThemeToggle({
       onClick={toggleTheme}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Light mode" : "Dark mode"}
-      className={`${dim} relative inline-flex items-center justify-center rounded-xl border border-[#E5E7EB] bg-white/70 backdrop-blur text-[#1A1A1A] hover:bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 ${className}`}
+      className={`relative inline-flex items-center justify-center rounded-full transition-all duration-200 ease-out hover:scale-[1.04] active:scale-[0.96] ${className}`}
+      style={{
+        width: dim,
+        height: dim,
+        background: "var(--up-surface, rgba(255,255,255,0.7))",
+        border: "0.5px solid var(--up-border-strong, rgba(0,0,0,0.15))",
+        color: "var(--up-text, #1D1D1F)",
+        boxShadow:
+          "var(--up-shadow-rest, 0 2px 8px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06))",
+        backdropFilter: "saturate(180%) blur(20px)",
+        WebkitBackdropFilter: "saturate(180%) blur(20px)",
+      }}
     >
       <Sun
-        className={`w-4 h-4 transition-all duration-300 ${
-          isDark ? "opacity-0 -rotate-90 scale-75" : "opacity-100 rotate-0 scale-100"
-        } absolute`}
+        size={size === "sm" ? 14 : 16}
+        strokeWidth={1.8}
+        className="absolute transition-all duration-300 ease-out"
+        style={{
+          opacity: isDark ? 0 : 1,
+          transform: isDark
+            ? "rotate(-90deg) scale(0.6)"
+            : "rotate(0deg) scale(1)",
+        }}
       />
       <Moon
-        className={`w-4 h-4 transition-all duration-300 ${
-          isDark ? "opacity-100 rotate-0 scale-100" : "opacity-0 rotate-90 scale-75"
-        } absolute`}
+        size={size === "sm" ? 14 : 16}
+        strokeWidth={1.8}
+        className="absolute transition-all duration-300 ease-out"
+        style={{
+          opacity: isDark ? 1 : 0,
+          transform: isDark
+            ? "rotate(0deg) scale(1)"
+            : "rotate(90deg) scale(0.6)",
+        }}
       />
     </button>
   );

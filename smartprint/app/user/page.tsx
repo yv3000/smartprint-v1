@@ -27,6 +27,7 @@ import PrintSettings from "@/components/user/PrintSettings";
 import SuccessScreen from "@/components/user/SuccessScreen";
 import QRScanner from "@/components/user/QRScanner";
 import ImageEditor from "@/components/user/ImageEditor";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 import { getPaperAspectForOrientation, getPaperPortraitMm } from "@/lib/printLayout";
 
 const PDFPreview = dynamic(() => import("@/components/user/PDFPreview"), {
@@ -534,7 +535,7 @@ function UserPageContent() {
       <header className="up-topbar">
         <div
           className="mx-auto h-full flex items-center justify-between px-4 sm:px-6"
-          style={{ maxWidth: 1080 }}
+          style={{ maxWidth: 1280 }}
         >
           {/* Logo */}
           <button
@@ -544,51 +545,54 @@ function UserPageContent() {
           >
             <div
               className="w-7 h-7 rounded-[8px] flex items-center justify-center"
-              style={{ background: "var(--up-text)" }}
+              style={{ background: "var(--up-text)", color: "var(--up-bg)" }}
             >
-              <Printer size={14} color="#fff" strokeWidth={2} />
+              <Printer size={14} strokeWidth={2} />
             </div>
             <span style={{ fontSize: "1.17em" }}>SmartPrint</span>
           </button>
 
-          {/* Connection status pill */}
-          <button
-            onClick={() => setShowConnectPanel((v) => !v)}
-            className={`up-chip ${
-              isConnected ? "up-chip-success" : ""
-            }`}
-            style={{
-              background: isConnected ? "rgba(52,199,89,0.10)" : "rgba(0,0,0,0.04)",
-              color: isConnected ? "#1A8038" : "var(--up-text-2)",
-              fontSize: "1em",
-              fontWeight: 500,
-              cursor: "pointer",
-            }}
-          >
-            {isVerifying ? (
-              <>
-                <Loader2 size={10} className="animate-spin" />
-                <span>Verifying…</span>
-              </>
-            ) : isConnected ? (
-              <>
-                <span className="up-dot up-dot-online" />
-                <span style={{ maxWidth: 140 }} className="truncate">
-                  {shopName}
-                </span>
-                <ChevronRight
-                  size={12}
-                  strokeWidth={1.8}
-                  style={{ opacity: 0.6 }}
-                />
-              </>
-            ) : (
-              <>
-                <span className="up-dot up-dot-offline" />
-                <span>Not Connected</span>
-              </>
-            )}
-          </button>
+          {/* Right cluster: theme toggle + connection status */}
+          <div className="flex items-center gap-3">
+            <ThemeToggle size="sm" />
+            <button
+              onClick={() => setShowConnectPanel((v) => !v)}
+              className={`up-chip ${
+                isConnected ? "up-chip-success" : ""
+              }`}
+              style={{
+                background: isConnected ? "rgba(52,199,89,0.10)" : "rgba(0,0,0,0.04)",
+                color: isConnected ? "#1A8038" : "var(--up-text-2)",
+                fontSize: "1em",
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              {isVerifying ? (
+                <>
+                  <Loader2 size={10} className="animate-spin" />
+                  <span>Verifying…</span>
+                </>
+              ) : isConnected ? (
+                <>
+                  <span className="up-dot up-dot-online" />
+                  <span style={{ maxWidth: 140 }} className="truncate">
+                    {shopName}
+                  </span>
+                  <ChevronRight
+                    size={12}
+                    strokeWidth={1.8}
+                    style={{ opacity: 0.6 }}
+                  />
+                </>
+              ) : (
+                <>
+                  <span className="up-dot up-dot-offline" />
+                  <span>Not Connected</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -596,7 +600,7 @@ function UserPageContent() {
       <div
         className="flex-1 mx-auto w-full px-4 sm:px-6"
         style={{
-          maxWidth: step === 2 ? 1080 : 680,
+          maxWidth: step === 2 ? 1280 : 680,
           paddingTop: 24,
           paddingBottom: 96,
         }}
@@ -958,9 +962,9 @@ function UserPageContent() {
                 <div style={{ width: 60 }} />
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6 items-start">
-                {/* ── Left: controls ─────────────────────── */}
-                <div className="space-y-6 order-2 xl:order-1">
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
+                {/* ── Right: settings sidebar (sticky on xl) ─ */}
+                <div className="space-y-6 order-2 xl:order-2 xl:sticky xl:top-[68px]">
                   {/* File selector for editing */}
                   {files.length > 1 && (
                     <div className="up-card" style={{ padding: 16 }}>
@@ -1051,8 +1055,8 @@ function UserPageContent() {
                   </button>
                 </div>
 
-                {/* ── Right: preview ─────────────────────── */}
-                <div className="xl:sticky xl:top-[68px] order-1 xl:order-2 space-y-3">
+                {/* ── Left: preview (big, scroll-natural) ── */}
+                <div className="order-1 xl:order-1 space-y-3">
                   <div className="up-card" style={{ padding: 16 }}>
                     <div
                       className="flex items-center justify-between"
@@ -1081,7 +1085,7 @@ function UserPageContent() {
                       style={{
                         background: "rgba(0,0,0,0.04)",
                         borderRadius: 12,
-                        minHeight: "clamp(280px, 45vh, 520px)",
+                        minHeight: "clamp(380px, 70vh, 760px)",
                         overflow: "hidden",
                       }}
                       transition={{
@@ -1366,7 +1370,7 @@ function UserPageContent() {
                               <div
                                 style={{
                                   width: `${Math.round(
-                                    (settings.orientation === "Landscape" ? 460 : 330) *
+                                    (settings.orientation === "Landscape" ? 620 : 440) *
                                       areaScale
                                   )}px`,
                                   maxWidth: "100%",

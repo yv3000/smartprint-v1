@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import mammoth from "mammoth";
 import { Loader2, FileText, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { getPaperAspectForOrientation, getMarginMm } from "@/lib/printLayout";
@@ -48,13 +48,22 @@ const parseCustomRange = (rangeStr: string): number[] => {
   return Array.from(pages).sort((a, b) => a - b);
 };
 
-function paginateHtml(html: string, pageBodyHeightPx: number): string[] {
+/**
+ * Paginate HTML by simulating real on-screen pixel geometry. Temp div uses
+ * the same body width and height as the rendered page, so line-wrap and split
+ * positions match the visible tile exactly.
+ */
+function paginateHtml(
+  html: string,
+  bodyWidthPx: number,
+  bodyHeightPx: number
+): string[] {
   if (typeof window === "undefined") return [html];
   const tempRoot = document.createElement("div");
   tempRoot.style.position = "fixed";
   tempRoot.style.left = "-99999px";
   tempRoot.style.top = "0";
-  tempRoot.style.width = "760px";
+  tempRoot.style.width = `${bodyWidthPx}px`;
   tempRoot.style.visibility = "hidden";
   tempRoot.style.pointerEvents = "none";
   document.body.appendChild(tempRoot);
@@ -65,6 +74,7 @@ function paginateHtml(html: string, pageBodyHeightPx: number): string[] {
 
   const current = document.createElement("div");
   current.className = "docx-page-content";
+  current.style.width = `${bodyWidthPx}px`;
   tempRoot.appendChild(current);
 
   const pages: string[] = [];
@@ -72,7 +82,7 @@ function paginateHtml(html: string, pageBodyHeightPx: number): string[] {
   nodes.forEach((node) => {
     const cloned = node.cloneNode(true);
     current.appendChild(cloned);
-    if (current.scrollHeight > pageBodyHeightPx && current.childNodes.length > 1) {
+    if (current.scrollHeight > bodyHeightPx && current.childNodes.length > 1) {
       current.removeChild(cloned);
       pages.push(current.innerHTML);
       current.innerHTML = "";
@@ -112,31 +122,42 @@ export default function DocxPreview({
     customMarginLeftRight,
   });
 
+  // Fixed paper geometry in CSS pixels (real A4 / Letter size, etc.)
+  const paperWidthPx = aspect.w * MM_TO_PX;
+  const paperHeightPx = aspect.h * MM_TO_PX;
+  const bodyWidthPx = (aspect.w - marginMm.left - marginMm.right) * MM_TO_PX;
+  const bodyHeightPx = (aspect.h - marginMm.top - marginMm.bottom) * MM_TO_PX;
+
+  // Re-paginate whenever the file or the page geometry changes
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
     const reader = new FileReader();
     reader.onload = async (e) => {
       const arrayBuffer = e.target?.result as ArrayBuffer;
       try {
         const result = await mammoth.convertToHtml({ arrayBuffer });
-        const pageBodyHeightMm = Math.max(
-          40,
-          (orientation === "Portrait" ? aspect.h : aspect.h) - marginMm.top - marginMm.bottom
-        );
-        const pageBodyHeightPx = pageBodyHeightMm * MM_TO_PX;
-        const pages = paginateHtml(result.value, pageBodyHeightPx);
+        if (cancelled) return;
+        const pages = paginateHtml(result.value, bodyWidthPx, bodyHeightPx);
+        if (cancelled) return;
         setPagesHtml(pages);
       } catch {
-        setError("Failed to convert DOCX to preview.");
+        if (!cancelled) setError("Failed to convert DOCX to preview.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     reader.onerror = () => {
-      setError("Failed to read file.");
-      setLoading(false);
+      if (!cancelled) {
+        setError("Failed to read file.");
+        setLoading(false);
+      }
     };
     reader.readAsArrayBuffer(file);
-  }, [file, orientation, aspect.h, marginMm.top, marginMm.bottom]);
+    return () => {
+      cancelled = true;
+    };
+  }, [file, bodyWidthPx, bodyHeightPx]);
 
   const allPages = useMemo(() => pagesHtml.map((_, i) => i + 1), [pagesHtml]);
   const visiblePages = useMemo(() => {
@@ -162,12 +183,30 @@ export default function DocxPreview({
   }, [currentPage, visiblePages, allPages.length]);
 
   const currentVisiblePage = visiblePages[Math.min(visibleIndex, Math.max(0, visiblePages.length - 1))] || 1;
-  const previewScale = scaleMode === "Custom Scale" ? Math.max(0.4, Math.min(2, customScalePercentage / 100)) : 1;
+  const userScale = scaleMode === "Custom Scale" ? Math.max(0.4, Math.min(2, customScalePercentage / 100)) : 1;
   const cols =
     pagesPerSheet >= 16 ? 4 :
     pagesPerSheet >= 9 ? 3 :
     pagesPerSheet >= 4 ? 2 :
     pagesPerSheet >= 2 ? 2 : 1;
+
+  // Track tile width to scale the fixed-pixel page down to fit the column
+  const tileRef = useRef<HTMLDivElement | null>(null);
+  const [tileWidth, setTileWidth] = useState<number>(paperWidthPx);
+  useLayoutEffect(() => {
+    if (!tileRef.current) return;
+    const el = tileRef.current;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? el.clientWidth;
+      if (w > 0) setTileWidth(w);
+    });
+    ro.observe(el);
+    setTileWidth(el.clientWidth || paperWidthPx);
+    return () => ro.disconnect();
+  }, [paperWidthPx]);
+
+  const fitScale = tileWidth > 0 ? tileWidth / paperWidthPx : 1;
+  const pageScale = fitScale * userScale;
 
   const changePage = (offset: number) => {
     if (!visiblePages.length) return;
@@ -200,8 +239,8 @@ export default function DocxPreview({
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#323639] dark:bg-black overflow-hidden">
-      <div className="flex items-center justify-between gap-2 p-3 bg-[#202124] dark:bg-neutral-950 border-b border-white/5 shrink-0">
+    <div className="w-full h-full flex flex-col bg-[#323639] overflow-hidden">
+      <div className="flex items-center justify-between gap-2 p-3 bg-[#202124] border-b border-white/5 shrink-0">
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-indigo-400" />
           <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em]">Live Document Pages</span>
@@ -219,11 +258,9 @@ export default function DocxPreview({
 
       <div className="flex-1 overflow-auto p-3 sm:p-6 custom-docx-scroll">
         <div
-          className="w-full max-w-[min(100%,520px)] mx-auto grid gap-1.5"
+          className="w-full max-w-[min(100%,820px)] mx-auto grid gap-3"
           style={{
             gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-            transform: `scale(${previewScale})`,
-            transformOrigin: "top center",
             filter: baseColorMode === "Black & White" ? "grayscale(1) contrast(1.08)" : undefined,
           }}
         >
@@ -234,16 +271,43 @@ export default function DocxPreview({
             return (
               <div
                 key={idx}
-                className="bg-white shadow-[0_8px_30px_rgba(0,0,0,0.35)] rounded-sm overflow-hidden"
+                ref={idx === 0 ? tileRef : undefined}
+                className="bg-white shadow-[0_8px_30px_rgba(0,0,0,0.35)] rounded-sm overflow-hidden relative"
                 style={{
-                  aspectRatio: `${aspect.w} / ${aspect.h}`,
-                  padding: `${marginMm.top}mm ${marginMm.right}mm ${marginMm.bottom}mm ${marginMm.left}mm`,
+                  // The tile reserves the SCALED paper height so neighboring
+                  // grid rows don't overlap.
+                  width: "100%",
+                  height: paperHeightPx * pageScale,
                 }}
               >
                 {shouldShow ? (
-                  <div dangerouslySetInnerHTML={{ __html: html || "" }} className="docx-page-content h-full overflow-hidden" />
+                  <div
+                    className="docx-page-frame"
+                    style={{
+                      width: paperWidthPx,
+                      height: paperHeightPx,
+                      transform: `scale(${pageScale})`,
+                      transformOrigin: "top left",
+                      padding: `${marginMm.top}mm ${marginMm.right}mm ${marginMm.bottom}mm ${marginMm.left}mm`,
+                      background: "#ffffff",
+                      boxSizing: "border-box",
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                    }}
+                  >
+                    <div
+                      dangerouslySetInnerHTML={{ __html: html || "" }}
+                      className="docx-page-content"
+                      style={{
+                        width: bodyWidthPx,
+                        height: bodyHeightPx,
+                        overflow: "hidden",
+                      }}
+                    />
+                  </div>
                 ) : (
-                  <div className="w-full h-full border border-dashed border-gray-200 rounded-sm bg-white/90" />
+                  <div className="absolute inset-0 border border-dashed border-gray-200 rounded-sm bg-white/90" />
                 )}
               </div>
             );
@@ -251,7 +315,7 @@ export default function DocxPreview({
         </div>
       </div>
 
-      <div className="bg-[#202124] dark:bg-neutral-950 border-t border-white/5 p-3 sm:p-4 flex items-center justify-between gap-3">
+      <div className="bg-[#202124] border-t border-white/5 p-3 sm:p-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
           <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Preview Live</span>
@@ -280,6 +344,13 @@ export default function DocxPreview({
           background: rgba(255, 255, 255, 0.1);
           border-radius: 10px;
         }
+
+        /* Theme-stable rendering: docx preview always uses light paper colors,
+           regardless of dark-mode body color. */
+        .docx-page-frame,
+        .docx-page-frame * {
+          color-scheme: light !important;
+        }
         .docx-page-content {
           word-wrap: break-word;
           overflow-wrap: break-word;
@@ -287,6 +358,13 @@ export default function DocxPreview({
           font-size: 11pt;
           line-height: 1.5;
           color: #1a1a1a;
+          background: transparent;
+        }
+        /* Force every descendant to inherit the page color so dark-mode body
+           color cannot leak in via Tailwind .dark utilities. */
+        .docx-page-content * {
+          color: inherit;
+          background-color: transparent;
         }
         .docx-page-content h1 { font-size: 18pt; font-weight: bold; margin-bottom: 12pt; }
         .docx-page-content h2 { font-size: 14pt; font-weight: bold; margin-top: 18pt; margin-bottom: 8pt; }

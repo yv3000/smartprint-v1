@@ -2,9 +2,15 @@
 
 import { useState } from "react";
 import type { PrintSettings as PrintSettingsType } from "@/lib/types";
-import { Shield } from "lucide-react";
-import Cropper from "react-cropper";
-// import "cropperjs/dist/cropper.css";
+import {
+  Lock,
+  Unlock,
+  ChevronDown,
+  Minus,
+  Plus,
+  ImageIcon as ImageLucide,
+  FileText,
+} from "lucide-react";
 
 interface PrintSettingsProps {
   settings: PrintSettingsType;
@@ -15,6 +21,170 @@ interface PrintSettingsProps {
   hasDocxFiles?: boolean;
 }
 
+/* ── Tiny inline UI primitives ───────────────────────────── */
+function Card({
+  title,
+  children,
+  rightSlot,
+}: {
+  title?: string;
+  children: React.ReactNode;
+  rightSlot?: React.ReactNode;
+}) {
+  return (
+    <div className="up-card" style={{ padding: 0 }}>
+      {title && (
+        <div
+          className="flex items-center justify-between"
+          style={{
+            padding: "16px 20px 12px",
+          }}
+        >
+          <div className="up-section-label">{title}</div>
+          {rightSlot}
+        </div>
+      )}
+      <div style={{ padding: "0 8px 8px" }}>{children}</div>
+    </div>
+  );
+}
+
+function Row({
+  label,
+  hint,
+  control,
+  noBorder,
+}: {
+  label: string;
+  hint?: string;
+  control: React.ReactNode;
+  noBorder?: boolean;
+}) {
+  return (
+    <div
+      className="flex items-center justify-between gap-3"
+      style={{
+        padding: "14px 12px",
+        borderTop: noBorder ? "none" : "0.5px solid var(--up-divider)",
+      }}
+    >
+      <div className="min-w-0 flex-1">
+        <div
+          style={{
+            fontSize: "1.08em",
+            fontWeight: 500,
+            color: "var(--up-text)",
+          }}
+        >
+          {label}
+        </div>
+        {hint && (
+          <div
+            style={{
+              fontSize: "0.92em",
+              color: "var(--up-text-2)",
+              marginTop: 2,
+            }}
+          >
+            {hint}
+          </div>
+        )}
+      </div>
+      <div className="shrink-0">{control}</div>
+    </div>
+  );
+}
+
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: { v: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="up-segmented">
+      {options.map((o) => (
+        <button
+          key={o.v}
+          data-active={value === o.v}
+          onClick={() => onChange(o.v)}
+          type="button"
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Toggle({
+  on,
+  onChange,
+  size = "md",
+  tone = "success",
+}: {
+  on: boolean;
+  onChange: (v: boolean) => void;
+  size?: "sm" | "md";
+  tone?: "success" | "accent";
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      data-on={on || undefined}
+      data-tone={tone}
+      onClick={() => onChange(!on)}
+      className={size === "sm" ? "up-toggle up-toggle-sm" : "up-toggle"}
+    >
+      <span className="up-toggle-knob" />
+    </button>
+  );
+}
+
+function Stepper({
+  value,
+  min = 1,
+  max = 99,
+  onChange,
+}: {
+  value: number;
+  min?: number;
+  max?: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <div className="up-stepper">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(min, value - 1))}
+        aria-label="Decrement"
+      >
+        <Minus size={12} strokeWidth={1.8} />
+      </button>
+      <input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        onChange={(e) => onChange(Math.max(min, Math.min(max, parseInt(e.target.value) || min)))}
+      />
+      <button
+        type="button"
+        onClick={() => onChange(Math.min(max, value + 1))}
+        aria-label="Increment"
+      >
+        <Plus size={12} strokeWidth={1.8} />
+      </button>
+    </div>
+  );
+}
+
+/* ── Component ───────────────────────────────────────────── */
 export default function PrintSettings({
   settings,
   onSettingsChange,
@@ -23,777 +193,768 @@ export default function PrintSettings({
   hasImageFiles,
   hasDocxFiles = false,
 }: PrintSettingsProps) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [advColorOpen, setAdvColorOpen] = useState(false);
+
   const update = (partial: Partial<PrintSettingsType>) => {
     onSettingsChange({ ...settings, ...partial });
   };
 
-  const renderModeA = () => {
-    return (
-      <div className="space-y-6 animate-fade-in text-[#111827]">
-        {/* SECTION 0: Pages Selection */}
-        <div className="p-4 rounded-xl border border-border bg-white transition-all duration-200 ease-out hover:shadow-sm">
-          <label className="block text-sm font-semibold mb-3">Pages</label>
-          <div className="space-y-3">
+  const isImageMode = hasImageFiles;
+  const isDocxMode = !hasImageFiles && hasDocxFiles;
+
+  const modeLabel = isImageMode
+    ? "Photo mode"
+    : isDocxMode
+    ? "Document mode · DOCX"
+    : "Document mode · PDF";
+
+  const paperSizes = isImageMode
+    ? [
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6",
+        "Letter",
+        "Legal",
+        "Tabloid",
+        "Executive",
+        "B4",
+        "B5",
+        "4×6 in",
+        "5×7 in",
+        "10×15 cm",
+        "13×18 cm",
+        "20×25 cm",
+      ]
+    : ["A2", "A3", "A4", "A5", "A6", "Letter", "Legal", "Tabloid", "Executive", "B4", "B5"];
+
+  return (
+    <div className="space-y-5">
+      {/* ── Mode label ────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <div className="up-section-label">{modeLabel}</div>
+      </div>
+
+      {/* ── Basic settings card ───────────────────────── */}
+      <Card>
+        <Row
+          noBorder
+          label="Pages"
+          control={
             <select
               value={settings.pageSelection}
-              onChange={e => update({ pageSelection: e.target.value as any })}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200"
+              onChange={(e) => update({ pageSelection: e.target.value as any })}
+              className="up-select-soft"
+              style={{ minWidth: 110 }}
             >
-              {["All", "Current", "Odd", "Even", "Custom"].map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
+              {["All", "Current", "Odd", "Even", "Custom"].map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
               ))}
             </select>
-            {settings.pageSelection === "Custom" && (
-              <input
-                type="text"
-                placeholder="e.g. 1, 3, 5-10"
-                value={settings.customPageRange || ""}
-                onChange={(e) => update({ customPageRange: e.target.value.replace(/[^0-9,\-\s]/g, '') })}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-              />
-            )}
+          }
+        />
+        {settings.pageSelection === "Custom" && (
+          <div style={{ padding: "0 12px 12px" }}>
+            <input
+              type="text"
+              placeholder="e.g. 1, 3, 5-10"
+              value={settings.customPageRange || ""}
+              onChange={(e) =>
+                update({ customPageRange: e.target.value.replace(/[^0-9,\-\s]/g, "") })
+              }
+              className="up-input"
+            />
           </div>
-        </div>
+        )}
 
-        {/* SECTION 1 & 2: Orientation & Color */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl border border-border bg-white">
-            <label className="block text-sm font-semibold mb-3">Orientation</label>
-            <div className="flex gap-2">
-              {["Portrait", "Landscape"].map(opt => (
-                <button
-                  key={opt}
-                  onClick={() => update({ orientation: opt as "Portrait" | "Landscape" })}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.orientation === opt ? "bg-[#111827] text-white shadow-sm" : "bg-surface hover:bg-gray-200"}`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="p-4 rounded-xl border border-border bg-white">
-            <label className="block text-sm font-semibold mb-3">Color Mode</label>
-            <div className="flex gap-2">
-              {["Color", "Black & White"].map(opt => (
-                <button
-                  key={opt}
-                  onClick={() => update({ colorMode: opt as "Color" | "Black & White" })}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.colorMode === opt ? "bg-[#111827] text-white shadow-sm" : "bg-surface hover:bg-gray-200"}`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 3 & 5: Paper Size & Pages per sheet */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl border border-border bg-white">
-            <label className="block text-sm font-semibold mb-3">Paper Size</label>
+        <Row
+          label="Paper size"
+          control={
             <select
               value={settings.paperSize}
-              onChange={e => update({ paperSize: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200"
+              onChange={(e) => update({ paperSize: e.target.value })}
+              className="up-select-soft"
+              style={{ minWidth: 110 }}
             >
-              {["A2", "A3", "A4", "A5", "A6", "Letter", "Legal", "Tabloid", "Executive", "B4", "B5", "4×6 in", "5×7 in", "10×15 cm", "13×18 cm", "20×25 cm"].map(size => (
-                <option key={size} value={size}>{size}</option>
+              {paperSizes.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
               ))}
             </select>
-          </div>
+          }
+        />
 
-          <div className="p-4 rounded-xl border border-border bg-white">
-            <div className="flex items-center justify-between mb-3">
-              <label className="block text-sm font-semibold">Pages per Sheet</label>
-              <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
-                <button
-                  onClick={() => update({ pagesPerSheetFill: 'blank' })}
-                  className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${settings.pagesPerSheetFill === 'blank' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400'}`}
-                >
-                  Blank
-                </button>
-                <button
-                  onClick={() => update({ pagesPerSheetFill: 'repeat' })}
-                  className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${settings.pagesPerSheetFill === 'repeat' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400'}`}
-                >
-                  Repeat
-                </button>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {[1, 2, 4, 6, 9, 16].map(num => (
-                <button
-                  key={num}
-                  onClick={() => update({ pagesPerSheet: num })}
-                  className={`w-10 h-10 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.pagesPerSheet === num ? "bg-[#4F46E5] text-white shadow-md scale-[1.02]" : "bg-surface hover:bg-gray-200"}`}
-                >
-                  {num}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        <Row
+          label="Orientation"
+          control={
+            <Segmented
+              value={settings.orientation}
+              options={[
+                { v: "Portrait" as const, label: "Portrait" },
+                { v: "Landscape" as const, label: "Landscape" },
+              ]}
+              onChange={(v) => update({ orientation: v })}
+            />
+          }
+        />
 
-        {/* SECTION 4: Scale */}
-        <div className="p-4 rounded-xl border border-border bg-white">
-          <label className="block text-sm font-semibold mb-3">Scale</label>
-          <div className="space-y-3">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="radio"
-                name="scale"
-                checked={settings.scaleMode === "Fit to Page Width"}
-                onChange={() => update({ scaleMode: "Fit to Page Width" })}
-                className="w-4 h-4 text-[#4F46E5]"
-              />
-              <span className="text-sm">Fit to Page Width</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="radio"
-                name="scale"
-                checked={settings.scaleMode === "Custom Scale"}
-                onChange={() => update({ scaleMode: "Custom Scale" })}
-                className="w-4 h-4 text-[#4F46E5]"
-              />
-              <span className="text-sm">Custom Scale</span>
-            </label>
-            {settings.scaleMode === "Custom Scale" && (
-              <div className="pl-7 flex items-center gap-2">
-                <input
-                  type="number"
-                  value={settings.customScalePercentage || 100}
-                  onChange={e => update({ customScalePercentage: parseInt(e.target.value) || 100 })}
-                  className="w-20 px-2 py-1 border border-border rounded text-sm"
+        <Row
+          label="Color"
+          control={
+            <Segmented
+              value={settings.colorMode}
+              options={[
+                { v: "Color" as const, label: "Color" },
+                { v: "Black & White" as const, label: "B & W" },
+              ]}
+              onChange={(v) => update({ colorMode: v })}
+            />
+          }
+        />
+
+        <Row
+          label="Copies"
+          control={
+            <Stepper
+              value={settings.copies}
+              onChange={(n) => update({ copies: n })}
+              min={1}
+              max={99}
+            />
+          }
+        />
+      </Card>
+
+      {/* ── More Settings (expandable) ───────────────── */}
+      <Card>
+        <button
+          type="button"
+          onClick={() => setMoreOpen((v) => !v)}
+          className="flex items-center justify-between w-full"
+          style={{
+            padding: "14px 12px",
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            textAlign: "left",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "1.08em",
+              fontWeight: 500,
+              color: "var(--up-text)",
+            }}
+          >
+            More settings
+          </span>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.8}
+            style={{
+              color: "var(--up-text-2)",
+              transition: "transform 0.3s var(--up-ease)",
+              transform: moreOpen ? "rotate(180deg)" : "rotate(0deg)",
+            }}
+          />
+        </button>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateRows: moreOpen ? "1fr" : "0fr",
+            transition: "grid-template-rows 0.3s var(--up-ease)",
+          }}
+        >
+          <div style={{ overflow: "hidden" }}>
+            {/* Pages per sheet — only docs */}
+            {!isImageMode && (
+              <>
+                <Row
+                  label="Pages per sheet"
+                  control={
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 4, 6, 9, 16].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => update({ pagesPerSheet: n })}
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 8,
+                            border: "none",
+                            background:
+                              settings.pagesPerSheet === n
+                                ? "var(--up-accent)"
+                                : "rgba(0,0,0,0.04)",
+                            color:
+                              settings.pagesPerSheet === n
+                                ? "#fff"
+                                : "var(--up-text)",
+                            fontSize: "0.95em",
+                            fontWeight: 500,
+                            cursor: "pointer",
+                            transition: "all 0.2s var(--up-ease)",
+                          }}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  }
                 />
-                <span className="text-sm text-secondary">%</span>
+                {settings.pagesPerSheet > 1 && (
+                  <Row
+                    label="Empty cells"
+                    hint="Show source page only on first cell, or repeat it"
+                    control={
+                      <Segmented
+                        value={settings.pagesPerSheetFill}
+                        options={[
+                          { v: "blank" as const, label: "Blank" },
+                          { v: "repeat" as const, label: "Repeat" },
+                        ]}
+                        onChange={(v) => update({ pagesPerSheetFill: v })}
+                      />
+                    }
+                  />
+                )}
+              </>
+            )}
+
+            {/* Margins */}
+            <Row
+              label="Margins"
+              control={
+                <select
+                  value={settings.margins}
+                  onChange={(e) => update({ margins: e.target.value as any })}
+                  className="up-select-soft"
+                  style={{ minWidth: 110 }}
+                >
+                  {["Default", "None", "Narrow", "Normal", "Wide", "Custom"].map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              }
+            />
+            {settings.margins === "Custom" && (
+              <div
+                className="grid grid-cols-2 gap-3"
+                style={{ padding: "0 12px 12px" }}
+              >
+                <div>
+                  <label
+                    style={{
+                      fontSize: "0.92em",
+                      color: "var(--up-text-2)",
+                      marginBottom: 4,
+                      display: "block",
+                    }}
+                  >
+                    Top / Bottom (in)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={settings.customMarginTopBottom ?? 1}
+                    onChange={(e) =>
+                      update({ customMarginTopBottom: parseFloat(e.target.value) || 0 })
+                    }
+                    className="up-input"
+                  />
+                </div>
+                <div>
+                  <label
+                    style={{
+                      fontSize: "0.92em",
+                      color: "var(--up-text-2)",
+                      marginBottom: 4,
+                      display: "block",
+                    }}
+                  >
+                    Left / Right (in)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={settings.customMarginLeftRight ?? 1}
+                    onChange={(e) =>
+                      update({ customMarginLeftRight: parseFloat(e.target.value) || 0 })
+                    }
+                    className="up-input"
+                  />
+                </div>
               </div>
+            )}
+
+            {/* Scale — for documents */}
+            {!isImageMode && (
+              <>
+                <Row
+                  label="Scale"
+                  control={
+                    <Segmented
+                      value={settings.scaleMode}
+                      options={[
+                        { v: "Fit to Page Width" as const, label: "Fit width" },
+                        { v: "Custom Scale" as const, label: "Custom" },
+                      ]}
+                      onChange={(v) => update({ scaleMode: v })}
+                    />
+                  }
+                />
+                {settings.scaleMode === "Custom Scale" && (
+                  <div style={{ padding: "0 12px 12px" }}>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={settings.customScalePercentage || 100}
+                        onChange={(e) =>
+                          update({ customScalePercentage: parseInt(e.target.value) || 100 })
+                        }
+                        className="up-input"
+                        style={{ width: 100 }}
+                      />
+                      <span style={{ color: "var(--up-text-2)", fontSize: "1em" }}>
+                        %
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── Image-only settings ─────────────────── */}
+            {isImageMode && (
+              <>
+                <Row
+                  label="Aspect ratio"
+                  control={
+                    <select
+                      value={settings.aspectRatio}
+                      onChange={(e) => update({ aspectRatio: e.target.value })}
+                      className="up-select-soft"
+                      style={{ minWidth: 110 }}
+                    >
+                      {[
+                        "Original",
+                        "Full Page",
+                        "1:1 Square",
+                        "3:4",
+                        "4:3",
+                        "2:3",
+                        "3:2",
+                        "5:7",
+                        "7:5",
+                        "9:16",
+                        "16:9",
+                        "Custom",
+                      ].map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  }
+                />
+                {settings.aspectRatio === "Custom" && (
+                  <div
+                    className="grid grid-cols-2 gap-3"
+                    style={{ padding: "0 12px 12px" }}
+                  >
+                    <div>
+                      <label
+                        style={{
+                          fontSize: "0.92em",
+                          color: "var(--up-text-2)",
+                          marginBottom: 4,
+                          display: "block",
+                        }}
+                      >
+                        Width
+                      </label>
+                      <input
+                        type="number"
+                        value={settings.customWidthDimensions ?? 100}
+                        onChange={(e) =>
+                          update({
+                            customWidthDimensions: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        className="up-input"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        style={{
+                          fontSize: "0.92em",
+                          color: "var(--up-text-2)",
+                          marginBottom: 4,
+                          display: "block",
+                        }}
+                      >
+                        Height
+                      </label>
+                      <input
+                        type="number"
+                        value={settings.customHeightDimensions ?? 100}
+                        onChange={(e) =>
+                          update({
+                            customHeightDimensions: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        className="up-input"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Photos per page */}
+                <Row
+                  label="Photos per page"
+                  control={
+                    <select
+                      value={settings.photosPerPage}
+                      onChange={(e) =>
+                        update({ photosPerPage: parseInt(e.target.value) || 1 })
+                      }
+                      className="up-select-soft"
+                      style={{ minWidth: 110 }}
+                    >
+                      {[1, 2, 4, 9, 35].map((n) => (
+                        <option key={n} value={n}>
+                          {n === 1
+                            ? "Full page"
+                            : n === 35
+                            ? "Contact sheet"
+                            : `${n} photos`}
+                        </option>
+                      ))}
+                    </select>
+                  }
+                />
+                {settings.photosPerPage > 1 && (
+                  <Row
+                    label="Tile mode"
+                    control={
+                      <Segmented
+                        value={settings.pagesPerSheetFill}
+                        options={[
+                          { v: "blank" as const, label: "Blank" },
+                          { v: "repeat" as const, label: "Repeat" },
+                        ]}
+                        onChange={(v) => update({ pagesPerSheetFill: v })}
+                      />
+                    }
+                  />
+                )}
+
+                {/* Crop toggle */}
+                <Row
+                  label="Crop image"
+                  hint={settings.enableCrop ? "Use Edit button on the preview" : undefined}
+                  control={
+                    <Toggle
+                      on={settings.enableCrop}
+                      onChange={(v) => update({ enableCrop: v })}
+                      tone="accent"
+                    />
+                  }
+                />
+
+                {/* Adjustments */}
+                <div
+                  style={{
+                    padding: "12px",
+                    borderTop: "0.5px solid var(--up-divider)",
+                  }}
+                >
+                  <div
+                    className="up-section-label"
+                    style={{ marginBottom: 12, paddingLeft: 0 }}
+                  >
+                    Adjustments
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { key: "brightness", label: "Brightness" },
+                      { key: "contrast", label: "Contrast" },
+                      { key: "saturation", label: "Saturation" },
+                      { key: "exposure", label: "Exposure" },
+                    ].map((it) => {
+                      const v = (settings as any)[it.key] as number;
+                      const pct = ((v + 100) / 200) * 100;
+                      return (
+                        <div key={it.key}>
+                          <div
+                            className="flex items-center justify-between"
+                            style={{ marginBottom: 6 }}
+                          >
+                            <span
+                              style={{
+                                fontSize: "1em",
+                                color: "var(--up-text)",
+                              }}
+                            >
+                              {it.label}
+                            </span>
+                            <span
+                              className="up-mono"
+                              style={{
+                                fontSize: "0.95em",
+                                color: "var(--up-text-2)",
+                              }}
+                            >
+                              {v > 0 ? `+${v}` : v}
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={-100}
+                            max={100}
+                            value={v}
+                            onChange={(e) =>
+                              update({ [it.key]: parseInt(e.target.value) } as any)
+                            }
+                            className="up-range"
+                            style={{
+                              backgroundSize: `${pct}% 100%`,
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>
+      </Card>
 
-        {/* SECTION 6: Margins */}
-        <div className="p-4 rounded-xl border border-border bg-white transition-all duration-200 ease-out hover:shadow-sm">
-          <label className="block text-sm font-semibold mb-3">Margins</label>
-          <select
-            value={settings.margins}
-            onChange={e => update({ margins: e.target.value as any })}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200"
+      {/* ── Advanced color management (PDF only) ───────── */}
+      {!isImageMode && !isDocxMode && (
+        <Card>
+          <button
+            type="button"
+            onClick={() => setAdvColorOpen((v) => !v)}
+            className="flex items-center justify-between w-full"
+            style={{
+              padding: "14px 12px",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              textAlign: "left",
+            }}
           >
-            {["Default", "None", "Narrow", "Normal", "Wide", "Custom"].map(m => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-          {settings.margins === "Custom" && (
-            <div className="flex gap-4">
-              <div>
-                <label className="text-xs text-secondary mb-1 block">Top/Bottom (in)</label>
-                <input type="number" step="0.1" value={settings.customMarginTopBottom ?? 1} onChange={e => update({ customMarginTopBottom: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm" />
+            <div className="min-w-0">
+              <div
+                style={{
+                  fontSize: "1.08em",
+                  fontWeight: 500,
+                  color: "var(--up-text)",
+                }}
+              >
+                Mixed color / B&W
               </div>
-              <div>
-                <label className="text-xs text-secondary mb-1 block">Left/Right (in)</label>
-                <input type="number" step="0.1" value={settings.customMarginLeftRight ?? 1} onChange={e => update({ customMarginLeftRight: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm" />
+              <div
+                style={{
+                  fontSize: "0.92em",
+                  color: "var(--up-text-2)",
+                  marginTop: 2,
+                }}
+              >
+                Print specific pages in color and the rest in B&W
               </div>
             </div>
-          )}
-        </div>
-
-        {/* SECTION 7: Advanced Colour Management */}
-        <div className="p-4 rounded-xl border border-border bg-white overflow-hidden">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex flex-col">
-              <label className="text-sm font-semibold">Advanced Colour Management</label>
-              <span className="text-[10px] text-secondary font-medium uppercase tracking-tight">Mixed color/B&W printing</span>
+            <div className="flex items-center gap-3">
+              <Toggle
+                on={settings.enableAdvancedColor}
+                onChange={(v) => {
+                  update({ enableAdvancedColor: v });
+                  if (v) setAdvColorOpen(true);
+                }}
+                tone="accent"
+              />
+              <ChevronDown
+                size={14}
+                strokeWidth={1.8}
+                style={{
+                  color: "var(--up-text-2)",
+                  transition: "transform 0.3s var(--up-ease)",
+                  transform: advColorOpen ? "rotate(180deg)" : "rotate(0deg)",
+                }}
+              />
             </div>
-            <div
-              className={`w-12 h-7 rounded-full cursor-pointer transition-all relative ${settings.enableAdvancedColor ? 'bg-[#4F46E5]' : 'bg-gray-200'}`}
-              onClick={() => update({ enableAdvancedColor: !settings.enableAdvancedColor })}
-            >
-              <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${settings.enableAdvancedColor ? 'left-6' : 'left-1 shadow-sm'}`} />
-            </div>
-          </div>
+          </button>
 
-          {settings.enableAdvancedColor && (
-            <div className="space-y-5 animate-in fade-in slide-in-from-top-2 pt-4 border-t border-gray-50">
-              {/* Color Pages Selection */}
-              <div className={`space-y-3 p-4 rounded-2xl transition-all duration-300 ${settings.enableColorRange ? 'bg-indigo-50/50 ring-1 ring-indigo-100 shadow-sm' : 'bg-gray-50/30 border border-transparent'}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2.5 h-2.5 rounded-full transition-colors ${settings.enableColorRange ? 'bg-indigo-500 animate-pulse' : 'bg-gray-300'}`} />
-                    <span className={`text-xs font-black uppercase tracking-tight ${settings.enableColorRange ? 'text-indigo-600' : 'text-gray-500'}`}>Specific Color Pages</span>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <span className={`text-[9px] font-black uppercase tracking-widest ${settings.enableColorRange ? 'text-indigo-600' : 'text-gray-400'}`}>
-                      {settings.enableColorRange ? 'ACTIVE' : 'OFF'}
-                    </span>
-                    <div 
-                      className={`w-11 h-6 rounded-full transition-all relative cursor-pointer ${settings.enableColorRange ? 'bg-indigo-600 shadow-inner' : 'bg-gray-200'}`} 
-                      onClick={() => update({ enableColorRange: !settings.enableColorRange })}
-                    >
-                       <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-300 ${settings.enableColorRange ? 'translate-x-5' : 'translate-x-0'}`} />
-                    </div>
-                  </div>
-                </div>
-                {settings.enableColorRange && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateRows: advColorOpen && settings.enableAdvancedColor ? "1fr" : "0fr",
+              transition: "grid-template-rows 0.3s var(--up-ease)",
+            }}
+          >
+            <div style={{ overflow: "hidden" }}>
+              <Row
+                label="Color pages"
+                control={
+                  <Toggle
+                    on={settings.enableColorRange}
+                    onChange={(v) => update({ enableColorRange: v })}
+                    size="sm"
+                    tone="accent"
+                  />
+                }
+              />
+              {settings.enableColorRange && (
+                <div style={{ padding: "0 12px 12px" }}>
                   <input
                     type="text"
                     placeholder="e.g. 1, 3, 5-10"
                     value={settings.colorPagesRange || ""}
-                    onChange={(e) => update({ colorPagesRange: e.target.value.replace(/[^0-9,\-\s]/g, '') })}
-                    className="w-full px-4 py-3 border border-indigo-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all bg-white shadow-sm placeholder:text-gray-300 animate-in slide-in-from-top-1"
+                    onChange={(e) =>
+                      update({
+                        colorPagesRange: e.target.value.replace(/[^0-9,\-\s]/g, ""),
+                      })
+                    }
+                    className="up-input"
                   />
-                )}
-              </div>
-
-              {/* B&W Pages Selection */}
-              <div className={`space-y-3 p-4 rounded-2xl transition-all duration-300 ${settings.enableBWRange ? 'bg-gray-100/80 ring-1 ring-gray-200 shadow-sm' : 'bg-gray-50/30 border border-transparent'}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2.5 h-2.5 rounded-full transition-colors ${settings.enableBWRange ? 'bg-gray-600 animate-pulse' : 'bg-gray-300'}`} />
-                    <span className={`text-xs font-black uppercase tracking-tight ${settings.enableBWRange ? 'text-gray-700' : 'text-gray-500'}`}>Specific B&W Pages</span>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                     <span className={`text-[9px] font-black uppercase tracking-widest ${settings.enableBWRange ? 'text-gray-700' : 'text-gray-400'}`}>
-                      {settings.enableBWRange ? 'ACTIVE' : 'OFF'}
-                     </span>
-                     <div 
-                      className={`w-11 h-6 rounded-full transition-all relative cursor-pointer ${settings.enableBWRange ? 'bg-gray-700 shadow-inner' : 'bg-gray-200'}`} 
-                      onClick={() => update({ enableBWRange: !settings.enableBWRange })}
-                    >
-                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-300 ${settings.enableBWRange ? 'translate-x-5' : 'translate-x-0'}`} />
-                     </div>
-                  </div>
                 </div>
-                {settings.enableBWRange && (
+              )}
+
+              <Row
+                label="B & W pages"
+                control={
+                  <Toggle
+                    on={settings.enableBWRange}
+                    onChange={(v) => update({ enableBWRange: v })}
+                    size="sm"
+                    tone="accent"
+                  />
+                }
+              />
+              {settings.enableBWRange && (
+                <div style={{ padding: "0 12px 12px" }}>
                   <input
                     type="text"
                     placeholder="e.g. 2, 4, 11-15"
                     value={settings.bwPagesRange || ""}
-                    onChange={(e) => update({ bwPagesRange: e.target.value.replace(/[^0-9,\-\s]/g, '') })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm font-medium focus:outline-none focus:ring-4 focus:ring-gray-500/10 focus:border-gray-500 transition-all bg-white shadow-sm placeholder:text-gray-300 animate-in slide-in-from-top-1"
+                    onChange={(e) =>
+                      update({
+                        bwPagesRange: e.target.value.replace(/[^0-9,\-\s]/g, ""),
+                      })
+                    }
+                    className="up-input"
                   />
-                )}
-              </div>
-
-              {/* Mixed Mode Info */}
-              {(settings.enableColorRange || settings.enableBWRange) && (
-                <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100 animate-in fade-in zoom-in-95">
-                  <div className="flex items-start gap-2">
-                    <div className="w-4 h-4 mt-0.5 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
-                      <span className="text-[10px] font-bold text-indigo-600">i</span>
-                    </div>
-                    <p className="text-[11px] text-indigo-900 leading-relaxed font-medium">
-                      {settings.enableColorRange && !settings.enableBWRange && (
-                        <>Only pages <span className="text-indigo-600 font-bold">[{settings.colorPagesRange || "..."}]</span> will be Color. All others will be B&W.</>
-                      )}
-                      {!settings.enableColorRange && settings.enableBWRange && (
-                        <>Only pages <span className="text-gray-700 font-bold">[{settings.bwPagesRange || "..."}]</span> will be B&W. All others will be Color.</>
-                      )}
-                      {settings.enableColorRange && settings.enableBWRange && (
-                        <>Page-specific overrides applied. Color: <span className="text-indigo-600 font-bold">[{settings.colorPagesRange || "none"}]</span>, B&W: <span className="text-gray-700 font-bold">[{settings.bwPagesRange || "none"}]</span>.</>
-                      )}
-                    </p>
-                  </div>
                 </div>
               )}
 
-              {/* How it works section */}
-              <div className="pt-2">
-                <details className="group">
-                  <summary className="list-none flex items-center gap-2 cursor-pointer text-[#4F46E5] text-[11px] font-bold uppercase tracking-wider hover:underline">
-                    How it works?
-                    <span className="group-open:rotate-180 transition-transform">↓</span>
-                  </summary>
-                  <div className="mt-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
-                    <div className="space-y-1.5">
-                      <p className="text-[11px] font-bold text-gray-700 uppercase">Single Pages</p>
-                      <p className="text-[11px] text-gray-500 leading-relaxed">Use commas to separate specific pages.</p>
-                      <code className="block p-2 bg-white border border-gray-100 rounded-lg text-xs text-indigo-600 font-mono">1, 3, 4, 7, 11, 23</code>
-                    </div>
-                    <div className="space-y-1.5">
-                      <p className="text-[11px] font-bold text-gray-700 uppercase">Page Ranges</p>
-                      <p className="text-[11px] text-gray-500 leading-relaxed">Use a hyphen for continuous sequences.</p>
-                      <code className="block p-2 bg-white border border-gray-100 rounded-lg text-xs text-indigo-600 font-mono">1-10, 23-28, 40-49</code>
-                    </div>
-                    <div className="space-y-1.5">
-                      <p className="text-[11px] font-bold text-gray-700 uppercase">Mixed Example</p>
-                      <p className="text-[11px] text-gray-500 leading-relaxed">Combine both for complex needs.</p>
-                      <code className="block p-2 bg-white border border-gray-100 rounded-lg text-[10px] text-indigo-600 font-mono">1, 2, 5, 9-15, 17, 18-23, 25</code>
-                    </div>
-                  </div>
-                </details>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderModeDocx = () => {
-    return (
-      <div className="space-y-6 animate-fade-in text-[#111827] dark:text-white">
-        {/* DOCX badge */}
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-100 dark:bg-indigo-500/10 dark:border-indigo-500/20">
-          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-300">Word Document</span>
-          <span className="text-[10px] text-indigo-500/70 dark:text-indigo-200/60 font-medium">Page-level color split not available for .docx</span>
-        </div>
-
-        {/* Pages Selection */}
-        <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800 transition-all duration-200 ease-out hover:shadow-sm">
-          <label className="block text-sm font-semibold mb-3">Pages</label>
-          <div className="space-y-3">
-            <select
-              value={settings.pageSelection}
-              onChange={e => update({ pageSelection: e.target.value as any })}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200 dark:bg-neutral-900 dark:border-neutral-800 dark:text-white"
-            >
-              {["All", "Current", "Odd", "Even", "Custom"].map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-            {settings.pageSelection === "Custom" && (
-              <input
-                type="text"
-                placeholder="e.g. 1, 3, 5-10"
-                value={settings.customPageRange || ""}
-                onChange={(e) => update({ customPageRange: e.target.value.replace(/[^0-9,\-\s]/g, '') })}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none dark:bg-neutral-900 dark:border-neutral-800 dark:text-white"
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Orientation & Color */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800">
-            <label className="block text-sm font-semibold mb-3">Orientation</label>
-            <div className="flex gap-2">
-              {["Portrait", "Landscape"].map(opt => (
-                <button
-                  key={opt}
-                  onClick={() => update({ orientation: opt as "Portrait" | "Landscape" })}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.orientation === opt ? "bg-[#111827] text-white shadow-sm dark:bg-white dark:text-black" : "bg-surface hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-white"}`}
+              {(settings.enableColorRange || settings.enableBWRange) && (
+                <div
+                  style={{
+                    margin: "0 12px 12px",
+                    padding: 12,
+                    background: "rgba(0,113,227,0.06)",
+                    borderRadius: 10,
+                    fontSize: "0.95em",
+                    color: "var(--up-accent)",
+                    lineHeight: 1.5,
+                  }}
                 >
-                  {opt}
-                </button>
-              ))}
+                  {settings.enableColorRange && !settings.enableBWRange && (
+                    <>
+                      Pages <strong>{settings.colorPagesRange || "…"}</strong> will be color.
+                      The rest will be B&W.
+                    </>
+                  )}
+                  {!settings.enableColorRange && settings.enableBWRange && (
+                    <>
+                      Pages <strong>{settings.bwPagesRange || "…"}</strong> will be B&W.
+                      The rest will be color.
+                    </>
+                  )}
+                  {settings.enableColorRange && settings.enableBWRange && (
+                    <>
+                      Color <strong>{settings.colorPagesRange || "none"}</strong>, B&W{" "}
+                      <strong>{settings.bwPagesRange || "none"}</strong>.
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-          <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800">
-            <label className="block text-sm font-semibold mb-3">Color Mode</label>
-            <div className="flex gap-2">
-              {["Color", "Black & White"].map(opt => (
-                <button
-                  key={opt}
-                  onClick={() => update({ colorMode: opt as "Color" | "Black & White" })}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.colorMode === opt ? "bg-[#111827] text-white shadow-sm dark:bg-white dark:text-black" : "bg-surface hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-white"}`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        </Card>
+      )}
 
-        {/* Paper Size & Pages per sheet */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800">
-            <label className="block text-sm font-semibold mb-3">Paper Size</label>
-            <select
-              value={settings.paperSize}
-              onChange={e => update({ paperSize: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200 dark:bg-neutral-900 dark:border-neutral-800 dark:text-white"
-            >
-              {["A2", "A3", "A4", "A5", "A6", "Letter", "Legal", "Tabloid", "Executive", "B4", "B5"].map(size => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800">
-            <div className="flex items-center justify-between mb-3">
-              <label className="block text-sm font-semibold">Pages per Sheet</label>
-              <div className="flex gap-1 p-0.5 bg-gray-100 dark:bg-neutral-800 rounded-lg">
-                <button
-                  onClick={() => update({ pagesPerSheetFill: 'blank' })}
-                  className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${settings.pagesPerSheetFill === 'blank' ? 'bg-white dark:bg-neutral-700 dark:text-indigo-300 shadow-sm text-indigo-600' : 'text-gray-400 dark:text-neutral-500'}`}
-                >
-                  Blank
-                </button>
-                <button
-                  onClick={() => update({ pagesPerSheetFill: 'repeat' })}
-                  className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${settings.pagesPerSheetFill === 'repeat' ? 'bg-white dark:bg-neutral-700 dark:text-indigo-300 shadow-sm text-indigo-600' : 'text-gray-400 dark:text-neutral-500'}`}
-                >
-                  Repeat
-                </button>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {[1, 2, 4, 6, 9, 16].map(num => (
-                <button
-                  key={num}
-                  onClick={() => update({ pagesPerSheet: num })}
-                  className={`w-10 h-10 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.pagesPerSheet === num ? "bg-[#4F46E5] text-white shadow-md scale-[1.02]" : "bg-surface hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-white"}`}
-                >
-                  {num}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Scale */}
-        <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800">
-          <label className="block text-sm font-semibold mb-3">Scale</label>
-          <div className="space-y-3">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="radio"
-                name="scale-docx"
-                checked={settings.scaleMode === "Fit to Page Width"}
-                onChange={() => update({ scaleMode: "Fit to Page Width" })}
-                className="w-4 h-4 text-[#4F46E5]"
-              />
-              <span className="text-sm">Fit to Page Width</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="radio"
-                name="scale-docx"
-                checked={settings.scaleMode === "Custom Scale"}
-                onChange={() => update({ scaleMode: "Custom Scale" })}
-                className="w-4 h-4 text-[#4F46E5]"
-              />
-              <span className="text-sm">Custom Scale</span>
-            </label>
-            {settings.scaleMode === "Custom Scale" && (
-              <div className="pl-7 flex items-center gap-2">
-                <input
-                  type="number"
-                  value={settings.customScalePercentage || 100}
-                  onChange={e => update({ customScalePercentage: parseInt(e.target.value) || 100 })}
-                  className="w-20 px-2 py-1 border border-border rounded text-sm dark:bg-neutral-900 dark:border-neutral-800 dark:text-white"
-                />
-                <span className="text-sm text-secondary">%</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Margins */}
-        <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800 transition-all duration-200 ease-out hover:shadow-sm">
-          <label className="block text-sm font-semibold mb-3">Margins</label>
-          <select
-            value={settings.margins}
-            onChange={e => update({ margins: e.target.value as any })}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200 dark:bg-neutral-900 dark:border-neutral-800 dark:text-white"
-          >
-            {["Default", "None", "Narrow", "Normal", "Wide", "Custom"].map(m => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-          {settings.margins === "Custom" && (
-            <div className="flex gap-4">
-              <div>
-                <label className="text-xs text-secondary mb-1 block">Top/Bottom (in)</label>
-                <input type="number" step="0.1" value={settings.customMarginTopBottom ?? 1} onChange={e => update({ customMarginTopBottom: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm dark:bg-neutral-900 dark:border-neutral-800 dark:text-white" />
-              </div>
-              <div>
-                <label className="text-xs text-secondary mb-1 block">Left/Right (in)</label>
-                <input type="number" step="0.1" value={settings.customMarginLeftRight ?? 1} onChange={e => update({ customMarginLeftRight: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm dark:bg-neutral-900 dark:border-neutral-800 dark:text-white" />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderModeB = () => {
-    return (
-      <div className="space-y-6 animate-fade-in text-[#111827]">
-        {/* SECTION 0: Pages Selection */}
-        <div className="p-4 rounded-xl border border-border bg-white transition-all duration-200 ease-out hover:shadow-sm">
-          <label className="block text-sm font-semibold mb-3">Pages</label>
-          <div className="space-y-3">
-            <select
-              value={settings.pageSelection}
-              onChange={e => update({ pageSelection: e.target.value as any })}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200"
-            >
-              {["All", "Current", "Odd", "Even", "Custom"].map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-            {settings.pageSelection === "Custom" && (
-              <input
-                type="text"
-                placeholder="e.g. 1, 3, 5-10"
-                value={settings.customPageRange || ""}
-                onChange={(e) => update({ customPageRange: e.target.value.replace(/[^0-9,\-\s]/g, '') })}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-              />
-            )}
-          </div>
-        </div>
-
-        {/* SECTION 1 & 2: Orientation & Color */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl border border-border bg-white">
-            <label className="block text-sm font-semibold mb-3">Orientation</label>
-            <div className="flex gap-2">
-              {["Portrait", "Landscape"].map(opt => (
-                <button
-                  key={opt}
-                  onClick={() => update({ orientation: opt as "Portrait" | "Landscape" })}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.orientation === opt ? "bg-[#111827] text-white shadow-sm" : "bg-surface hover:bg-gray-200"}`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="p-4 rounded-xl border border-border bg-white">
-            <label className="block text-sm font-semibold mb-3">Color Mode</label>
-            <div className="flex gap-2">
-              {["Color", "Black & White"].map(opt => (
-                <button
-                  key={opt}
-                  onClick={() => update({ colorMode: opt as "Color" | "Black & White" })}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-200 ease-out ${settings.colorMode === opt ? "bg-[#111827] text-white shadow-sm" : "bg-surface hover:bg-gray-200"}`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 3: Aspect Ratio */}
-        <div className="p-4 rounded-xl border border-border bg-white">
-          <label className="block text-sm font-semibold mb-3">Size / Aspect Ratio</label>
-          <select
-            value={settings.aspectRatio}
-            onChange={e => update({ aspectRatio: e.target.value })}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm mb-3 focus:outline-none"
-          >
-            {["Original", "Full Page", "1:1 Square", "3:4", "4:3", "2:3", "3:2", "5:7", "7:5", "9:16", "16:9", "Custom"].map(ratio => (
-              <option key={ratio} value={ratio}>{ratio}</option>
-            ))}
-          </select>
-          {settings.aspectRatio === "Custom" && (
-            <div className="flex gap-4">
-              <div>
-                <label className="text-xs text-secondary mb-1 block">Width</label>
-                <input type="number" value={settings.customWidthDimensions ?? 100} onChange={e => update({ customWidthDimensions: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm" />
-              </div>
-              <div>
-                <label className="text-xs text-secondary mb-1 block">Height</label>
-                <input type="number" value={settings.customHeightDimensions ?? 100} onChange={e => update({ customHeightDimensions: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm" />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* SECTION 4: Crop */}
-        <div className="p-4 rounded-xl border border-border bg-white">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-semibold">Enable Crop</label>
-            <div
-              className={`w-10 h-6 rounded-full cursor-pointer transition-colors relative ${settings.enableCrop ? 'bg-[#4F46E5]' : 'bg-gray-300'}`}
-              onClick={() => update({ enableCrop: !settings.enableCrop })}
-            >
-              <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.enableCrop ? 'translate-x-4' : ''}`} />
-            </div>
-          </div>
-          {settings.enableCrop && (
-            <div className="mt-3 space-y-3">
-              <div className="p-3 bg-surface rounded-lg text-xs text-secondary leading-relaxed">
-                Crop mode is active. You can now use the <span className="font-bold text-[#4F46E5]">Edit/Crop</span> button at the top of the preview to adjust your image.
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* SECTION 5: Adjustments */}
-        <div className="p-4 rounded-xl border border-border bg-white space-y-4">
-          <label className="block text-sm font-semibold mb-3">Adjustments</label>
-          <div>
-            <div className="flex justify-between text-xs mb-1"><span>Exposure (Saturate)</span><span>{settings.exposure}</span></div>
-            <input type="range" min="-100" max="100" value={settings.exposure} onChange={e => update({ exposure: parseInt(e.target.value) })} className="w-full accent-[#4F46E5]" />
-          </div>
-          <div>
-            <div className="flex justify-between text-xs mb-1"><span>Brightness</span><span>{settings.brightness}</span></div>
-            <input type="range" min="-100" max="100" value={settings.brightness} onChange={e => update({ brightness: parseInt(e.target.value) })} className="w-full accent-[#4F46E5]" />
-          </div>
-          <div>
-            <div className="flex justify-between text-xs mb-1"><span>Contrast</span><span>{settings.contrast}</span></div>
-            <input type="range" min="-100" max="100" value={settings.contrast} onChange={e => update({ contrast: parseInt(e.target.value) })} className="w-full accent-[#4F46E5]" />
-          </div>
-          <div>
-            <div className="flex justify-between text-xs mb-1"><span>Saturation</span><span>{settings.saturation}</span></div>
-            <input type="range" min="-100" max="100" value={settings.saturation} onChange={e => update({ saturation: parseInt(e.target.value) })} className="w-full accent-[#4F46E5]" />
-          </div>
-        </div>
-
-        {/* SECTION 6: Margins */}
-        <div className="p-4 rounded-xl border border-border bg-white transition-all duration-200 ease-out hover:shadow-sm">
-          <label className="block text-sm font-semibold mb-3">Margins</label>
-          <select
-            value={settings.margins}
-            onChange={e => update({ margins: e.target.value as any })}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/25 transition-all duration-200"
-          >
-            {["Default", "None", "Narrow", "Normal", "Wide", "Custom"].map(m => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-          {settings.margins === "Custom" && (
-            <div className="flex gap-4">
-              <div>
-                <label className="text-xs text-secondary mb-1 block">Top/Bottom (in)</label>
-                <input type="number" step="0.1" value={settings.customMarginTopBottom ?? 1} onChange={e => update({ customMarginTopBottom: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm" />
-              </div>
-              <div>
-                <label className="text-xs text-secondary mb-1 block">Left/Right (in)</label>
-                <input type="number" step="0.1" value={settings.customMarginLeftRight ?? 1} onChange={e => update({ customMarginLeftRight: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1 border border-border rounded text-sm" />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* SECTION 7: Photos Per Page (Layout Layout) */}
-        <div className="p-4 rounded-xl border border-border bg-white">
-          <div className="flex items-center justify-between mb-3">
-            <label className="block text-sm font-semibold">Layout — Photos per Page</label>
-            <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
-              <button
-                onClick={() => update({ pagesPerSheetFill: 'blank' })}
-                className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${settings.pagesPerSheetFill === 'blank' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400'}`}
-              >
-                Blank
-              </button>
-              <button
-                onClick={() => update({ pagesPerSheetFill: 'repeat' })}
-                className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${settings.pagesPerSheetFill === 'repeat' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400'}`}
-              >
-                Repeat
-              </button>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
-            {[
-              { value: 1, label: "Full Page", desc: "1 photo" },
-              { value: 2, label: "2 Photos", desc: "13×18cm layout" },
-              { value: 4, label: "4 Photos", desc: "10×15cm grid" },
-              { value: 9, label: "9 Photos", desc: "Wallet size" },
-              { value: 35, label: "Contact Sheet", desc: "5×7 grid" },
-            ].map(l => (
-              <div
-                key={l.value}
-                onClick={() => update({ photosPerPage: l.value })}
-                className={`p-3 rounded-lg border text-center cursor-pointer transition-all ${settings.photosPerPage === l.value ? "border-[#4F46E5] bg-[#4F46E5]/5 shadow-sm" : "border-border hover:bg-surface"}`}
-              >
-                <div className="text-sm font-semibold">{l.label}</div>
-                <div className="text-xs text-secondary">{l.desc}</div>
-              </div>
-            ))}
-            <div className={`p-3 rounded-lg border text-center transition-all ${![1, 2, 4, 9, 35].includes(settings.photosPerPage) ? "border-[#4F46E5] bg-[#4F46E5]/5 shadow-sm" : "border-border hover:bg-surface"}`}>
-              <div className="text-sm font-semibold mb-1">Custom</div>
-              <input 
-                type="number" 
-                min="1" 
-                max="100" 
-                value={settings.photosPerPage} 
-                onChange={(e) => update({ photosPerPage: parseInt(e.target.value) || 1 })} 
-                className="w-full px-2 py-1 border border-border bg-white rounded text-xs text-center focus:outline-none focus:border-[#4F46E5]" 
-              />
-            </div>
-          </div>
-          {settings.photosPerPage > 1 && (
-            <div className="p-3 bg-indigo-50/50 rounded-lg text-xs text-[#4F46E5] font-medium border border-[#4F46E5]/10 flex items-center gap-2">
-              <div className="w-1.5 h-1.5 bg-[#4F46E5] rounded-full animate-pulse" />
-              Your image will be tiled {settings.photosPerPage} times on one page.
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const documentModeLabel = hasDocxFiles ? "Document Mode · DOCX" : "Document Mode · PDF";
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3 p-1 bg-surface border border-border rounded-xl dark:bg-neutral-900 dark:border-neutral-800">
-        <div className={`flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all ${!hasImageFiles ? "bg-white shadow-sm text-[#111827] dark:bg-neutral-800 dark:text-white" : "text-secondary cursor-not-allowed opacity-50"}`}>
-          {documentModeLabel}
-        </div>
-        <div className={`flex-1 py-2 text-center text-sm font-semibold rounded-lg transition-all ${hasImageFiles ? "bg-white shadow-sm text-[#111827] dark:bg-neutral-800 dark:text-white" : "text-secondary cursor-not-allowed opacity-50"}`}>
-          Photo Mode
-        </div>
-      </div>
-
-      {hasImageFiles ? renderModeB() : hasDocxFiles ? renderModeDocx() : renderModeA()}
-
-      {/* ── Copies ─────────────────────────────────── */}
-      <div className="p-4 rounded-xl border border-border bg-white dark:bg-neutral-900 dark:border-neutral-800 flex items-center justify-between">
-        <label className="text-sm font-semibold dark:text-white">Total Copies</label>
-        <div className="flex items-center gap-0 border border-border rounded-xl overflow-hidden dark:border-neutral-700">
-          <button
-            onClick={() => update({ copies: Math.max(1, settings.copies - 1) })}
-            className="w-10 h-10 hover:bg-surface transition-colors text-lg font-light border-r border-border flex items-center justify-center bg-white dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:border-neutral-700 dark:text-white"
-          >
-            −
-          </button>
-          <input
-            type="number"
-            value={settings.copies}
-            onChange={(e) => update({ copies: Math.max(1, parseInt(e.target.value) || 1) })}
-            className="w-12 h-10 text-center text-sm font-medium focus:outline-none border-none dark:bg-neutral-900 dark:text-white"
-          />
-          <button
-            onClick={() => update({ copies: Math.min(99, settings.copies + 1) })}
-            className="w-10 h-10 hover:bg-surface transition-colors text-lg font-light border-l border-border flex items-center justify-center bg-white dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:border-neutral-700 dark:text-white"
-          >
-            +
-          </button>
-        </div>
-      </div>
-
-      {/* Security Toggle */}
-      <div
-        className={`p-5 rounded-2xl border transition-all cursor-pointer ${isEncrypted
-            ? "border-accent bg-[#4F46E5]/5 dark:bg-indigo-500/10"
-            : "border-border bg-white dark:bg-neutral-900 dark:border-neutral-800"
-          }`}
+      {/* ── Secure It (prominent) ─────────────────────── */}
+      <button
+        type="button"
         onClick={() => onEncryptedChange(!isEncrypted)}
+        className="up-card w-full text-left"
+        style={{
+          padding: 20,
+          background: isEncrypted ? "rgba(0,113,227,0.04)" : "var(--up-surface)",
+          border: isEncrypted
+            ? "0.5px solid rgba(0,113,227,0.20)"
+            : "0.5px solid var(--up-border)",
+          cursor: "pointer",
+          transition: "all 0.25s var(--up-ease)",
+        }}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${isEncrypted ? "bg-[#4F46E5] text-white" : "bg-surface border border-border dark:bg-neutral-800 dark:border-neutral-700 dark:text-white"
-              }`}>
-              <Shield className="w-5 h-5" />
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className="flex items-center justify-center"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                flex: "none",
+                background: isEncrypted ? "var(--up-accent)" : "rgba(0,0,0,0.04)",
+                color: isEncrypted ? "#fff" : "var(--up-text-2)",
+                transition: "all 0.25s var(--up-ease)",
+              }}
+            >
+              {isEncrypted ? (
+                <Lock size={16} strokeWidth={1.5} />
+              ) : (
+                <Unlock size={16} strokeWidth={1.5} />
+              )}
             </div>
-            <div>
-              <div className="text-[15px] font-medium dark:text-white">Secure Delivery</div>
-              <div className="text-xs text-secondary mt-0.5 dark:text-neutral-400">
-                {isEncrypted ? "Files encrypted locally" : "Standard security"}
+            <div className="min-w-0">
+              <div
+                style={{
+                  fontSize: "1.16em",
+                  fontWeight: 500,
+                  color: "var(--up-text)",
+                }}
+              >
+                Secure It
+              </div>
+              <div
+                style={{
+                  fontSize: "0.95em",
+                  color: "var(--up-text-2)",
+                  marginTop: 2,
+                }}
+              >
+                Files encrypted before leaving your device
               </div>
             </div>
           </div>
-          <div
-            className="w-12 h-7 rounded-full transition-all relative shrink-0"
-            style={{ background: isEncrypted ? "#4F46E5" : "#D1D5DB" }}
-          >
-            <div
-              className="absolute top-[3px] w-[22px] h-[22px] rounded-full bg-white shadow-md transition-all"
-              style={{ left: isEncrypted ? "22px" : "3px" }}
-            />
-          </div>
+          <Toggle on={isEncrypted} onChange={onEncryptedChange} />
         </div>
-      </div>
+      </button>
     </div>
   );
 }

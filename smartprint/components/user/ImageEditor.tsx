@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { RotateCw, Sun, Contrast, Droplets, Crop, Maximize2, X, Check } from "lucide-react";
+import { RotateCw, Sun, Contrast, Droplets, Crop, Maximize2, Check, X } from "lucide-react";
 
 interface ImageEditorProps {
   file: File;
@@ -9,10 +9,10 @@ interface ImageEditorProps {
   onCancel: () => void;
 }
 
-const SIZE_PRESETS = [
+const SIZE_PRESETS: { label: string; value: string }[] = [
   { label: "Original", value: "original" },
   { label: "Passport 35×45", value: "passport" },
-  { label: "Square 1:1", value: "square" },
+  { label: "Square", value: "square" },
   { label: "16:9", value: "16:9" },
   { label: "4:3", value: "4:3" },
 ];
@@ -34,7 +34,12 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
   const [isDragging, setIsDragging] = useState(false);
   const [cropStart, setCropStart] = useState<{ x: number; y: number } | null>(null);
   const [cropEnd, setCropEnd] = useState<{ x: number; y: number } | null>(null);
-  const [appliedCrop, setAppliedCrop] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [appliedCrop, setAppliedCrop] = useState<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null>(null);
 
   // Load image
   useEffect(() => {
@@ -56,17 +61,13 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Determine source region (with crop)
     const sx = appliedCrop?.x ?? 0;
     const sy = appliedCrop?.y ?? 0;
     const sw = appliedCrop?.w ?? img.naturalWidth;
     const sh = appliedCrop?.h ?? img.naturalHeight;
 
-    // Handle rotation
     const isRotated90 = rotation === 90 || rotation === 270;
-    const displayW = isRotated90 ? Math.min(sh, 500) : Math.min(sw, 500);
-    const displayH = isRotated90 ? Math.min(sw, 500) : Math.min(sh, 500);
-    const scale = Math.min(500 / sw, 500 / sh, 1);
+    const scale = Math.min(640 / sw, 640 / sh, 1);
     const w = Math.round(sw * scale);
     const h = Math.round(sh * scale);
 
@@ -75,15 +76,12 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
-
-    // Apply filter
-    ctx.filter = `brightness(${100 + brightness}%) contrast(${100 + contrast}%) saturate(${100 + saturation}%)`;
-
-    // Apply rotation
+    ctx.filter = `brightness(${100 + brightness}%) contrast(${100 + contrast}%) saturate(${
+      100 + saturation
+    }%)`;
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.rotate((rotation * Math.PI) / 180);
     ctx.drawImage(img, sx, sy, sw, sh, -w / 2, -h / 2, w, h);
-
     ctx.restore();
   }, [brightness, contrast, saturation, rotation, appliedCrop]);
 
@@ -91,7 +89,7 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
     if (imageLoaded) renderCanvas();
   }, [imageLoaded, renderCanvas]);
 
-  // Crop mouse handlers
+  /* ── Crop handlers ─────────────────────────────────── */
   const handleCropMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isCropping) return;
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -99,18 +97,19 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
     setCropEnd(null);
     setIsDragging(true);
   };
-
   const handleCropMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isCropping || !isDragging || !cropStart) return;
     const rect = canvasRef.current!.getBoundingClientRect();
     setCropEnd({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
-
   const handleCropMouseUp = () => {
     setIsDragging(false);
   };
 
-  const getCropRect = (start: { x: number, y: number }, end: { x: number, y: number }) => {
+  const getCropRect = (
+    start: { x: number; y: number },
+    end: { x: number; y: number }
+  ) => {
     if (!canvasRef.current || !sourceRef.current) return null;
     const canvas = canvasRef.current;
     const img = sourceRef.current;
@@ -128,23 +127,19 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
       const isRotated90 = rotation === 90 || rotation === 270;
       const cw = canvas.width;
       const ch = canvas.height;
-
       const w = isRotated90 ? ch : cw;
       const h = isRotated90 ? cw : ch;
 
       const dx = cx - cw / 2;
       const dy = cy - ch / 2;
-
       const theta = (-rotation * Math.PI) / 180;
       const rx = dx * Math.cos(theta) - dy * Math.sin(theta);
       const ry = dx * Math.sin(theta) + dy * Math.cos(theta);
-
       const px = rx + w / 2;
       const py = ry + h / 2;
 
       const ix = sx + px * (sw / w);
       const iy = sy + py * (sh / h);
-
       return { x: ix, y: iy };
     };
 
@@ -163,7 +158,12 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
     const newW = Math.min(maxX - newX, img.naturalWidth - newX);
     const newH = Math.min(maxY - newY, img.naturalHeight - newY);
 
-    return { x: Math.round(newX), y: Math.round(newY), w: Math.round(newW), h: Math.round(newH) };
+    return {
+      x: Math.round(newX),
+      y: Math.round(newY),
+      w: Math.round(newW),
+      h: Math.round(newH),
+    };
   };
 
   const applyCrop = () => {
@@ -177,12 +177,12 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
     setCropEnd(null);
   };
 
-  // Apply size preset as crop
   const applySizePreset = (preset: string) => {
     setSizePreset(preset);
     if (!sourceRef.current) return;
     const img = sourceRef.current;
-    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const iw = img.naturalWidth,
+      ih = img.naturalHeight;
 
     if (preset === "original") {
       setAppliedCrop(null);
@@ -211,12 +211,10 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
     setAppliedCrop({ x: cx, y: cy, w: cw, h: ch });
   };
 
-  // Save edited image
   const handleSave = () => {
     if (!sourceRef.current) return;
     const img = sourceRef.current;
 
-    // Use applied crop or current selection
     let finalCrop = appliedCrop;
     if (isCropping && cropStart && cropEnd) {
       const rect = getCropRect(cropStart, cropEnd);
@@ -225,7 +223,6 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
       }
     }
 
-    // Create an off-screen canvas for high-quality save
     const saveCanvas = document.createElement("canvas");
     const sx = finalCrop?.x ?? 0;
     const sy = finalCrop?.y ?? 0;
@@ -240,21 +237,26 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
     if (!sctx) return;
 
     sctx.save();
-    sctx.filter = `brightness(${100 + brightness}%) contrast(${100 + contrast}%) saturate(${100 + saturation}%)`;
+    sctx.filter = `brightness(${100 + brightness}%) contrast(${100 + contrast}%) saturate(${
+      100 + saturation
+    }%)`;
     sctx.translate(saveCanvas.width / 2, saveCanvas.height / 2);
     sctx.rotate((rotation * Math.PI) / 180);
     sctx.drawImage(img, sx, sy, sw, sh, -sw / 2, -sh / 2, sw, sh);
     sctx.restore();
 
-    saveCanvas.toBlob((blob) => {
-      if (blob) {
-        const newFile = new File([blob], file.name, { type: "image/png" });
-        onSave(newFile);
-      }
-    }, "image/png", 0.95);
+    saveCanvas.toBlob(
+      (blob) => {
+        if (blob) {
+          const newFile = new File([blob], file.name, { type: "image/png" });
+          onSave(newFile);
+        }
+      },
+      "image/png",
+      0.95
+    );
   };
 
-  // Crop overlay rendering
   const getCropStyle = (): React.CSSProperties | null => {
     if (!cropStart || !cropEnd) return null;
     const x = Math.min(cropStart.x, cropEnd.x);
@@ -264,153 +266,349 @@ export default function ImageEditor({ file, onSave, onCancel }: ImageEditorProps
     return { left: x, top: y, width: w, height: h };
   };
 
+  /* ── Render ────────────────────────────────────────── */
   return (
-    <div className="bg-white rounded-[32px] border border-[#E5E7EB] p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold">Edit Image</h3>
-        <div className="flex gap-2">
-          <button onClick={onCancel} className="px-4 py-2 text-sm font-medium text-[#1A1A1A]/50 hover:text-[#1A1A1A] transition-colors flex items-center gap-1">
-            <X className="w-4 h-4" /> Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="px-6 py-2.5 bg-[#4F46E5] text-white text-sm font-extrabold rounded-xl hover:bg-[#4338CA] active:scale-[0.98] transition-all flex items-center gap-2 shadow-lg shadow-indigo-100"
-          >
-            <Check className="w-5 h-5" /> Save Changes
-          </button>
+    <div
+      className="user-portal fixed inset-0 z-[60] flex flex-col"
+      style={{
+        background: "var(--up-bg)",
+        animation: "up-page-enter 0.3s var(--up-ease)",
+      }}
+    >
+      {/* Header */}
+      <header
+        className="up-topbar flex items-center justify-between px-4 sm:px-6"
+        style={{ height: 56 }}
+      >
+        <button onClick={onCancel} className="up-btn-text" style={{ fontSize: "1em" }}>
+          Cancel
+        </button>
+        <div
+          style={{
+            fontSize: "1.16em",
+            fontWeight: 600,
+            color: "var(--up-text)",
+          }}
+        >
+          Edit Image
         </div>
-      </div>
+        <button
+          onClick={handleSave}
+          className="up-btn-primary"
+          style={{
+            padding: "8px 18px",
+            minHeight: 36,
+            fontSize: "1em",
+          }}
+        >
+          <Check size={14} strokeWidth={1.8} />
+          Apply
+        </button>
+      </header>
 
-      {/* Canvas Preview */}
-      <div className="flex justify-center bg-[#F9FAFB] rounded-2xl p-8 border border-[#E5E7EB] min-h-[300px]">
-        <div className="relative inline-block h-fit w-fit">
+      {/* Canvas area */}
+      <div
+        className="flex-1 flex items-center justify-center"
+        style={{ padding: 24, overflow: "hidden" }}
+      >
+        <div
+          className="relative inline-block"
+          style={{ maxWidth: "100%", maxHeight: "100%" }}
+        >
           <canvas
             ref={canvasRef}
-            className={`max-w-full max-h-[400px] rounded-lg shadow-md ${isCropping ? "cursor-crosshair" : ""}`}
+            className={isCropping ? "cursor-crosshair" : ""}
+            style={{
+              maxWidth: "100%",
+              maxHeight: "60vh",
+              borderRadius: 12,
+              boxShadow:
+                "0 10px 40px rgba(0,0,0,0.10), 0 0 0 0.5px rgba(0,0,0,0.06)",
+              background: "#fff",
+              display: "block",
+            }}
             onMouseDown={handleCropMouseDown}
             onMouseMove={handleCropMouseMove}
             onMouseUp={handleCropMouseUp}
             onMouseLeave={handleCropMouseUp}
           />
+
           {/* Crop overlay */}
           {isCropping && cropStart && cropEnd && (
             <div
-              className="absolute border-2 border-[#4F46E5] bg-[#4F46E5]/10 pointer-events-none"
+              className="absolute"
               style={{
                 ...getCropStyle()!,
-                boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.4)'
+                border: "1.5px solid var(--up-accent)",
+                background: "rgba(0,113,227,0.08)",
+                boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)",
+                pointerEvents: "none",
               }}
             >
-              <div className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-[#4F46E5] rounded-full ring-2 ring-white" />
-              <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#4F46E5] rounded-full ring-2 ring-white" />
-              <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-[#4F46E5] rounded-full ring-2 ring-white" />
-              <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-[#4F46E5] rounded-full ring-2 ring-white" />
+              {(["tl", "tr", "bl", "br"] as const).map((c) => {
+                const s: React.CSSProperties = {
+                  position: "absolute",
+                  width: 10,
+                  height: 10,
+                  background: "#fff",
+                  border: "1.5px solid var(--up-accent)",
+                  borderRadius: 2,
+                };
+                if (c === "tl") return <div key={c} style={{ ...s, top: -5, left: -5 }} />;
+                if (c === "tr") return <div key={c} style={{ ...s, top: -5, right: -5 }} />;
+                if (c === "bl") return <div key={c} style={{ ...s, bottom: -5, left: -5 }} />;
+                return <div key={c} style={{ ...s, bottom: -5, right: -5 }} />;
+              })}
             </div>
           )}
+
           {isCropping && !cropStart && (
-            <div className="absolute inset-0 bg-black/20 flex items-center justify-center pointer-events-none rounded-lg">
-              <p className="bg-white px-4 py-2 rounded-full text-xs font-bold text-[#4F46E5] shadow-xl animate-bounce">
-                Click and drag to select area
-              </p>
+            <div
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
+              style={{ borderRadius: 12 }}
+            >
+              <div
+                className="up-chip"
+                style={{
+                  background: "rgba(255,255,255,0.92)",
+                  color: "var(--up-accent)",
+                  fontSize: "0.95em",
+                  boxShadow: "var(--up-shadow-rest)",
+                }}
+              >
+                Click and drag to select an area
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Controls in horizontal row */}
-      <div className="flex gap-4 overflow-x-auto pb-2 -mx-2 px-2">
-        {/* Size Presets */}
-        <div className="min-w-[200px] p-4 rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] shrink-0">
-          <div className="flex items-center gap-2 mb-3">
-            <Maximize2 className="w-4 h-4 text-[#4F46E5]" />
-            <span className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A]/50">Size</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {SIZE_PRESETS.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => applySizePreset(p.value)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${sizePreset === p.value
-                  ? "bg-[#4F46E5] text-white"
-                  : "bg-white border border-[#E5E7EB] text-[#1A1A1A] hover:border-[#4F46E5]"
-                  }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Manual Crop */}
-        <div className="min-w-[140px] p-4 rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] shrink-0">
-          <div className="flex items-center gap-2 mb-3">
-            <Crop className="w-4 h-4 text-[#4F46E5]" />
-            <span className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A]/50">Crop</span>
-          </div>
-          {isCropping ? (
-            <div className="flex gap-2">
-              <button
-                onClick={applyCrop}
-                className="px-4 py-2 text-xs font-bold bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] shadow-lg shadow-indigo-200 animate-pulse"
-              >
-                Apply Crop
-              </button>
-              <button onClick={() => { setIsCropping(false); setCropStart(null); setCropEnd(null); setIsDragging(false); }} className="px-3 py-2 text-xs font-bold bg-white border border-[#E5E7EB] rounded-lg">Cancel</button>
+      {/* Bottom controls */}
+      <div
+        style={{
+          borderTop: "0.5px solid var(--up-divider)",
+          background: "rgba(255,255,255,0.85)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          padding: "12px 0",
+        }}
+      >
+        <div
+          className="flex items-stretch gap-3 overflow-x-auto up-no-scrollbar px-4 sm:px-6"
+          style={{ scrollSnapType: "x mandatory" }}
+        >
+          {/* Size */}
+          <div
+            className="up-card shrink-0"
+            style={{ padding: 12, scrollSnapAlign: "start", minWidth: 220 }}
+          >
+            <div
+              className="flex items-center gap-2"
+              style={{ marginBottom: 8 }}
+            >
+              <Maximize2
+                size={12}
+                strokeWidth={1.8}
+                style={{ color: "var(--up-accent)" }}
+              />
+              <span className="up-section-label">Size</span>
             </div>
-          ) : (
-            <button onClick={() => setIsCropping(true)} className="w-full px-3 py-2 text-xs font-bold bg-white border border-[#E5E7EB] rounded-lg hover:border-[#4F46E5] transition-all">
-              Start Crop
-            </button>
-          )}
-        </div>
-
-        {/* Adjustments */}
-        <div className="min-w-[240px] p-4 rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] shrink-0">
-          <div className="flex items-center gap-2 mb-3">
-            <Sun className="w-4 h-4 text-[#4F46E5]" />
-            <span className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A]/50">Adjust</span>
+            <div className="flex flex-wrap gap-1.5">
+              {SIZE_PRESETS.map((p) => (
+                <button
+                  key={p.value}
+                  onClick={() => applySizePreset(p.value)}
+                  type="button"
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 999,
+                    border:
+                      sizePreset === p.value
+                        ? "0.5px solid var(--up-accent)"
+                        : "0.5px solid var(--up-border-strong)",
+                    background:
+                      sizePreset === p.value ? "var(--up-accent)" : "transparent",
+                    color: sizePreset === p.value ? "#fff" : "var(--up-text)",
+                    fontSize: "0.95em",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "all 0.2s var(--up-ease)",
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="space-y-3">
-            {[
-              { label: "Brightness", icon: <Sun className="w-3 h-3" />, value: brightness, set: setBrightness },
-              { label: "Contrast", icon: <Contrast className="w-3 h-3" />, value: contrast, set: setContrast },
-              { label: "Saturation", icon: <Droplets className="w-3 h-3" />, value: saturation, set: setSaturation },
-            ].map(({ label, value, set }) => (
-              <div key={label} className="flex items-center gap-2">
-                <span className="text-[10px] font-medium text-[#1A1A1A]/40 w-16 shrink-0">{label}</span>
-                <input
-                  type="range"
-                  min={-100}
-                  max={100}
-                  value={value}
-                  onChange={(e) => set(Number(e.target.value))}
-                  className="flex-1 h-1.5 accent-[#4F46E5]"
-                />
-                <span className="text-[10px] font-mono w-8 text-right text-[#1A1A1A]/40">{value > 0 ? `+${value}` : value}</span>
+
+          {/* Crop */}
+          <div
+            className="up-card shrink-0"
+            style={{ padding: 12, scrollSnapAlign: "start", minWidth: 180 }}
+          >
+            <div
+              className="flex items-center gap-2"
+              style={{ marginBottom: 8 }}
+            >
+              <Crop
+                size={12}
+                strokeWidth={1.8}
+                style={{ color: "var(--up-accent)" }}
+              />
+              <span className="up-section-label">Crop</span>
+            </div>
+            {isCropping ? (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setIsCropping(false);
+                    setCropStart(null);
+                    setCropEnd(null);
+                    setIsDragging(false);
+                  }}
+                  className="up-btn-ghost"
+                  style={{ padding: "6px 12px", fontSize: "0.95em", minHeight: 32 }}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={applyCrop}
+                  className="up-btn-primary"
+                  style={{ padding: "6px 16px", fontSize: "0.95em", minHeight: 32 }}
+                  type="button"
+                >
+                  Apply crop
+                </button>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Rotation */}
-        <div className="min-w-[140px] p-4 rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] shrink-0">
-          <div className="flex items-center gap-2 mb-3">
-            <RotateCw className="w-4 h-4 text-[#4F46E5]" />
-            <span className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A]/50">Rotate</span>
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {[0, 90, 180, 270].map((deg) => (
+            ) : (
               <button
-                key={deg}
-                onClick={() => setRotation(deg)}
-                className={`px-2 py-2 text-xs font-medium rounded-lg transition-all ${rotation === deg
-                  ? "bg-[#4F46E5] text-white"
-                  : "bg-white border border-[#E5E7EB] text-[#1A1A1A] hover:border-[#4F46E5]"
-                  }`}
+                onClick={() => setIsCropping(true)}
+                className="up-btn-ghost w-full"
+                style={{ padding: "6px 12px", fontSize: "0.95em", minHeight: 32 }}
+                type="button"
               >
-                {deg}°
+                Start crop
               </button>
-            ))}
+            )}
+          </div>
+
+          {/* Adjust */}
+          <div
+            className="up-card shrink-0"
+            style={{ padding: 12, scrollSnapAlign: "start", minWidth: 280 }}
+          >
+            <div
+              className="flex items-center gap-2"
+              style={{ marginBottom: 8 }}
+            >
+              <Sun
+                size={12}
+                strokeWidth={1.8}
+                style={{ color: "var(--up-accent)" }}
+              />
+              <span className="up-section-label">Adjust</span>
+            </div>
+            <div className="space-y-2">
+              {[
+                {
+                  label: "Brightness",
+                  icon: Sun,
+                  value: brightness,
+                  set: setBrightness,
+                },
+                {
+                  label: "Contrast",
+                  icon: Contrast,
+                  value: contrast,
+                  set: setContrast,
+                },
+                {
+                  label: "Saturation",
+                  icon: Droplets,
+                  value: saturation,
+                  set: setSaturation,
+                },
+              ].map(({ label, value, set }) => {
+                const pct = ((value + 100) / 200) * 100;
+                return (
+                  <div key={label}>
+                    <div
+                      className="flex items-center justify-between"
+                      style={{ marginBottom: 4 }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "0.95em",
+                          color: "var(--up-text-2)",
+                        }}
+                      >
+                        {label}
+                      </span>
+                      <span
+                        className="up-mono"
+                        style={{
+                          fontSize: "0.92em",
+                          color: "var(--up-text-2)",
+                        }}
+                      >
+                        {value > 0 ? `+${value}` : value}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={-100}
+                      max={100}
+                      value={value}
+                      onChange={(e) => set(Number(e.target.value))}
+                      className="up-range"
+                      style={{ backgroundSize: `${pct}% 100%` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Rotate */}
+          <div
+            className="up-card shrink-0"
+            style={{ padding: 12, scrollSnapAlign: "start", minWidth: 180 }}
+          >
+            <div
+              className="flex items-center gap-2"
+              style={{ marginBottom: 8 }}
+            >
+              <RotateCw
+                size={12}
+                strokeWidth={1.8}
+                style={{ color: "var(--up-accent)" }}
+              />
+              <span className="up-section-label">Rotate</span>
+            </div>
+            <div className="grid grid-cols-4 gap-1">
+              {[0, 90, 180, 270].map((deg) => (
+                <button
+                  key={deg}
+                  onClick={() => setRotation(deg)}
+                  type="button"
+                  style={{
+                    padding: "6px 0",
+                    borderRadius: 8,
+                    border: "none",
+                    background:
+                      rotation === deg ? "var(--up-accent)" : "rgba(0,0,0,0.04)",
+                    color: rotation === deg ? "#fff" : "var(--up-text)",
+                    fontSize: "0.95em",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "all 0.2s var(--up-ease)",
+                  }}
+                >
+                  {deg}°
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

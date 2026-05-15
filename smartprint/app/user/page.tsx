@@ -7,7 +7,19 @@ import dynamic from "next/dynamic";
 import Cookies from "js-cookie";
 import { toast } from "react-hot-toast";
 import { PDFDocument } from "pdf-lib";
-import { Loader2, QrCode, Printer, Crop, AlertCircle, MapPin, Clock, ChevronRight, FileText } from "lucide-react";
+import {
+  Loader2,
+  QrCode,
+  Printer,
+  Crop,
+  ChevronRight,
+  ChevronLeft,
+  FileText,
+  Clock,
+  Hash,
+  ScanLine,
+  Pencil,
+} from "lucide-react";
 import type { PrintSettings as PrintSettingsType } from "@/lib/types";
 import { DEFAULT_PRINT_SETTINGS } from "@/lib/types";
 import FileUpload from "@/components/user/FileUpload";
@@ -15,30 +27,33 @@ import PrintSettings from "@/components/user/PrintSettings";
 import SuccessScreen from "@/components/user/SuccessScreen";
 import QRScanner from "@/components/user/QRScanner";
 import ImageEditor from "@/components/user/ImageEditor";
-import ThemeToggle from "@/components/theme/ThemeToggle";
 import { getPaperAspectForOrientation, getPaperPortraitMm } from "@/lib/printLayout";
 
 const PDFPreview = dynamic(() => import("@/components/user/PDFPreview"), {
   ssr: false,
   loading: () => (
     <div className="flex flex-col items-center justify-center p-20 gap-3">
-      <Loader2 className="w-8 h-8 text-[#4F46E5] animate-spin" />
-      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Initializing PDF Engine...</p>
+      <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--up-accent)" }} />
+      <p className="up-section-label" style={{ fontSize: "0.92em" }}>
+        Initializing PDF Engine
+      </p>
     </div>
-  )
+  ),
 });
 
 const DocxPreview = dynamic(() => import("@/components/user/DocxPreview"), {
   ssr: false,
   loading: () => (
     <div className="flex flex-col items-center justify-center p-20 gap-3">
-      <Loader2 className="w-8 h-8 text-[#4F46E5] animate-spin" />
-      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Loading Document Viewer...</p>
+      <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--up-accent)" }} />
+      <p className="up-section-label" style={{ fontSize: "0.92em" }}>
+        Loading Document Viewer
+      </p>
     </div>
-  )
+  ),
 });
 
-/* ── Helpers ─────────────────────────────────────────────── */
+/* ── Helpers ────────────────────────────────────────────── */
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -48,15 +63,14 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-/** Parse a page range string like "1,3,5-8" into an array of page numbers */
 function parsePageRange(rangeStr: string): number[] {
   if (!rangeStr) return [];
   const pages = new Set<number>();
-  const parts = rangeStr.split(',');
-  parts.forEach(part => {
+  const parts = rangeStr.split(",");
+  parts.forEach((part) => {
     const trimmed = part.trim();
-    if (trimmed.includes('-')) {
-      const [startStr, endStr] = trimmed.split('-');
+    if (trimmed.includes("-")) {
+      const [startStr, endStr] = trimmed.split("-");
       const start = parseInt(startStr?.trim());
       const end = parseInt(endStr?.trim());
       if (!isNaN(start) && !isNaN(end)) {
@@ -70,24 +84,27 @@ function parsePageRange(rangeStr: string): number[] {
   return Array.from(pages).sort((a, b) => a - b);
 }
 
-/** Filter pages based on selection (All, Current, Odd, Even, Custom) */
-function filterPages(totalPages: number, selection: string, range?: string, currentPage: number = 1): number[] {
+function filterPages(
+  totalPages: number,
+  selection: string,
+  range?: string,
+  currentPage: number = 1
+): number[] {
   const allPages = Array.from({ length: totalPages }, (_, i) => i + 1);
   switch (selection) {
     case "Current":
       return [currentPage];
     case "Odd":
-      return allPages.filter(p => p % 2 !== 0);
+      return allPages.filter((p) => p % 2 !== 0);
     case "Even":
-      return allPages.filter(p => p % 2 === 0);
+      return allPages.filter((p) => p % 2 === 0);
     case "Custom":
-      return parsePageRange(range || "").filter(p => p >= 1 && p <= totalPages);
+      return parsePageRange(range || "").filter((p) => p >= 1 && p <= totalPages);
     default:
       return allPages;
   }
 }
 
-/** Split a PDF file into separate color and B&W files based on page ranges */
 async function splitPdfByColor(
   file: File,
   colorPagesRange: string,
@@ -102,8 +119,7 @@ async function splitPdfByColor(
   const arrayBuffer = await file.arrayBuffer();
   const pdfDoc = await PDFDocument.load(arrayBuffer);
   const totalPages = pdfDoc.getPageCount();
-  
-  // First, filter by general page selection
+
   const selectedPages = filterPages(totalPages, pageSelection, customPageRange, currentPage);
   if (selectedPages.length === 0) return [];
 
@@ -111,23 +127,19 @@ async function splitPdfByColor(
   let bwPageNums: number[] = [];
 
   if (enableColorRange && enableBWRange) {
-    // Both specified — use exact ranges, but only from selected pages
     const colorRequested = parsePageRange(colorPagesRange);
     const bwRequested = parsePageRange(bwPagesRange);
-    colorPageNums = selectedPages.filter(p => colorRequested.includes(p));
-    bwPageNums = selectedPages.filter(p => bwRequested.includes(p));
+    colorPageNums = selectedPages.filter((p) => colorRequested.includes(p));
+    bwPageNums = selectedPages.filter((p) => bwRequested.includes(p));
   } else if (enableColorRange) {
-    // Only color pages specified — rest of SELECTED is B&W
     const colorRequested = parsePageRange(colorPagesRange);
-    colorPageNums = selectedPages.filter(p => colorRequested.includes(p));
-    bwPageNums = selectedPages.filter(p => !colorPageNums.includes(p));
+    colorPageNums = selectedPages.filter((p) => colorRequested.includes(p));
+    bwPageNums = selectedPages.filter((p) => !colorPageNums.includes(p));
   } else if (enableBWRange) {
-    // Only B&W pages specified — rest of SELECTED is color
     const bwRequested = parsePageRange(bwPagesRange);
-    bwPageNums = selectedPages.filter(p => bwRequested.includes(p));
-    colorPageNums = selectedPages.filter(p => !bwPageNums.includes(p));
+    bwPageNums = selectedPages.filter((p) => bwRequested.includes(p));
+    colorPageNums = selectedPages.filter((p) => !bwPageNums.includes(p));
   } else {
-    // No advanced color — everything selected is processed based on base color mode
     if (baseColorMode === "Color") {
       colorPageNums = selectedPages;
     } else {
@@ -136,26 +148,32 @@ async function splitPdfByColor(
   }
 
   const result: File[] = [];
-  const baseName = file.name.replace(/\.pdf$/i, '');
+  const baseName = file.name.replace(/\.pdf$/i, "");
 
-  // Create color PDF
   if (colorPageNums.length > 0) {
     const colorDoc = await PDFDocument.create();
-    const indices = colorPageNums.map(p => p - 1); // pdf-lib is 0-indexed
+    const indices = colorPageNums.map((p) => p - 1);
     const pages = await colorDoc.copyPages(pdfDoc, indices);
-    pages.forEach(page => colorDoc.addPage(page));
+    pages.forEach((page) => colorDoc.addPage(page));
     const colorBytes = await colorDoc.save();
-    result.push(new File([colorBytes.buffer as ArrayBuffer], `${baseName}_COLOR_pages.pdf`, { type: 'application/pdf' }));
+    result.push(
+      new File([colorBytes.buffer as ArrayBuffer], `${baseName}_COLOR_pages.pdf`, {
+        type: "application/pdf",
+      })
+    );
   }
 
-  // Create B&W PDF
   if (bwPageNums.length > 0) {
     const bwDoc = await PDFDocument.create();
-    const indices = bwPageNums.map(p => p - 1);
+    const indices = bwPageNums.map((p) => p - 1);
     const pages = await bwDoc.copyPages(pdfDoc, indices);
-    pages.forEach(page => bwDoc.addPage(page));
+    pages.forEach((page) => bwDoc.addPage(page));
     const bwBytes = await bwDoc.save();
-    result.push(new File([bwBytes.buffer as ArrayBuffer], `${baseName}_BW_pages.pdf`, { type: 'application/pdf' }));
+    result.push(
+      new File([bwBytes.buffer as ArrayBuffer], `${baseName}_BW_pages.pdf`, {
+        type: "application/pdf",
+      })
+    );
   }
 
   return result;
@@ -172,12 +190,13 @@ function UserPageContent() {
   const [showQRModal, setShowQRModal] = useState(false);
 
   // Connection by Shop ID
-  const [shopIdInput, setShopIdInput] = useState('');
-  const [shopIdError, setShopIdError] = useState('');
+  const [shopIdInput, setShopIdInput] = useState("");
+  const [shopIdError, setShopIdError] = useState("");
 
-  // Discovery tabs
-  const [activeTab, setActiveTab] = useState<"none" | "recent">("none");
+  // Discovery tabs — "scan" | "id" | "recent" | null
+  const [connectTab, setConnectTab] = useState<"scan" | "id" | "recent">("id");
   const [recentShops, setRecentShops] = useState<any[]>([]);
+  const [showConnectPanel, setShowConnectPanel] = useState(false);
 
   // Job flow
   const [step, setStep] = useState(1);
@@ -204,17 +223,22 @@ function UserPageContent() {
     if (shopToken) {
       setIsVerifying(true);
       fetch(`/api/shops/${shopToken}`)
-        .then(res => res.json())
-        .then(data => {
+        .then((res) => res.json())
+        .then((data) => {
           if (data.shopName && data.isOnline) {
             setShopName(data.shopName);
             setShopOnline(true);
             const existing = Cookies.get("sp_recent");
             let recent = existing ? JSON.parse(existing) : [];
             recent = recent.filter((s: any) => s.qrToken !== shopToken);
-            recent.unshift({ shopName: data.shopName, qrToken: shopToken, lastVisited: new Date().toISOString() });
+            recent.unshift({
+              shopName: data.shopName,
+              qrToken: shopToken,
+              lastVisited: new Date().toISOString(),
+            });
             Cookies.set("sp_recent", JSON.stringify(recent.slice(0, 3)), { expires: 90 });
             setRecentShops(recent.slice(0, 3));
+            setShowConnectPanel(false);
           } else {
             setShopName(null);
             setShopOnline(false);
@@ -231,50 +255,52 @@ function UserPageContent() {
   };
 
   const handleShopIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 6);
+    const val = e.target.value
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "")
+      .slice(0, 6);
     setShopIdInput(val);
-    setShopIdError('');
+    setShopIdError("");
   };
 
   const connectByShopId = async () => {
     if (shopIdInput.length !== 6) {
-      setShopIdError('Shop ID must be exactly 6 characters');
+      setShopIdError("Shop ID must be exactly 6 characters");
       return;
     }
-    
     try {
       const res = await fetch(`/api/shops/by-id/${shopIdInput}`);
       const data = await res.json();
-      
       if (!res.ok || !data.success) {
-        setShopIdError(data?.error || 'Shop not found. Check the ID and try again.');
+        setShopIdError(data?.error || "Shop not found. Check the ID and try again.");
         return;
       }
-      
       const existing = Cookies.get("sp_recent");
       let recent = existing ? JSON.parse(existing) : [];
       recent = recent.filter((s: any) => s.qrToken !== data.shop.qrCode);
-      recent.unshift({ shopName: data.shop.shopName, qrToken: data.shop.qrCode, lastVisited: new Date().toISOString() });
+      recent.unshift({
+        shopName: data.shop.shopName,
+        qrToken: data.shop.qrCode,
+        lastVisited: new Date().toISOString(),
+      });
       Cookies.set("sp_recent", JSON.stringify(recent.slice(0, 3)), { expires: 90 });
       setRecentShops(recent.slice(0, 3));
-      
-      toast.success(`Connected to ${data.shop.shopName}!`);
+      toast.success(`Connected to ${data.shop.shopName}`);
       router.push(`/user?shop=${data.shop.qrCode}`);
-      setShopIdInput('');
+      setShopIdInput("");
     } catch {
-      setShopIdError('Connection failed. Please try again.');
+      setShopIdError("Connection failed. Please try again.");
     }
   };
 
   const handleSettingsChange = (newSettings: PrintSettingsType) => {
     const cropEnabledNow = !settings.enableCrop && newSettings.enableCrop;
     setSettings(newSettings);
-    // Persist per-file adjustments
-    setFiles(prev => prev.map((f, i) => i === selectedFileIndex ? { 
-      ...f, 
-      adjustments: { ...newSettings } 
-    } : f));
-
+    setFiles((prev) =>
+      prev.map((f, i) =>
+        i === selectedFileIndex ? { ...f, adjustments: { ...newSettings } } : f
+      )
+    );
     if (cropEnabledNow && files[selectedFileIndex]?.file.type.startsWith("image/")) {
       setShowEditor(true);
     }
@@ -282,11 +308,13 @@ function UserPageContent() {
 
   const handleEditorSave = (editedFile: File) => {
     const previewUrl = URL.createObjectURL(editedFile);
-    setFiles(prev => prev.map((f, i) => i === selectedFileIndex ? { 
-      ...f, 
-      file: editedFile, 
-      preview: previewUrl 
-    } : f));
+    setFiles((prev) =>
+      prev.map((f, i) =>
+        i === selectedFileIndex
+          ? { ...f, file: editedFile, preview: previewUrl }
+          : f
+      )
+    );
     setShowEditor(false);
   };
 
@@ -360,42 +388,42 @@ function UserPageContent() {
       const encryptionKeys: string[] = [];
       const fileInfos: any[] = [];
 
-      // Determine if we need to split PDFs by color/BW or filter pages
       const needsFiltering = settings.pageSelection !== "All";
-      const needsColorSplit = settings.enableAdvancedColor && 
+      const needsColorSplit =
+        settings.enableAdvancedColor &&
         (settings.enableColorRange || settings.enableBWRange) &&
         (settings.colorPagesRange || settings.bwPagesRange);
 
       const needsProcessing = needsFiltering || needsColorSplit;
 
-      // Build the final file list (possibly with split PDFs)
       let finalFiles: File[] = [];
 
       if (needsProcessing) {
-        // Split PDFs into color and B&W files
         for (const f of files) {
-          const isPDF = f.file.type === 'application/pdf' || f.file.name.toLowerCase().endsWith('.pdf');
+          const isPDF =
+            f.file.type === "application/pdf" ||
+            f.file.name.toLowerCase().endsWith(".pdf");
           if (isPDF) {
             try {
-              toast.loading('Splitting PDF pages...', { id: 'split' });
+              toast.loading("Splitting PDF pages...", { id: "split" });
               const splitFiles = await splitPdfByColor(
                 f.file,
-                settings.colorPagesRange || '',
-                settings.bwPagesRange || '',
+                settings.colorPagesRange || "",
+                settings.bwPagesRange || "",
                 settings.enableColorRange,
                 settings.enableBWRange,
                 settings.pageSelection,
-                settings.customPageRange || '',
+                settings.customPageRange || "",
                 settings.colorMode,
                 currentPreviewPage
               );
               finalFiles.push(...splitFiles);
-              toast.dismiss('split');
-              toast.success(`PDF split into ${splitFiles.length} file${splitFiles.length > 1 ? 's' : ''}`);
+              toast.dismiss("split");
+              toast.success(`PDF split into ${splitFiles.length} file${splitFiles.length > 1 ? "s" : ""}`);
             } catch (splitErr) {
-              console.error('PDF split failed:', splitErr);
-              toast.dismiss('split');
-              toast.error('PDF split failed. Sending original file instead.');
+              console.error("PDF split failed:", splitErr);
+              toast.dismiss("split");
+              toast.error("PDF split failed. Sending original file instead.");
               finalFiles.push(f.file);
             }
           } else {
@@ -403,46 +431,53 @@ function UserPageContent() {
           }
         }
       } else {
-        finalFiles = files.map(f => f.file);
+        finalFiles = files.map((f) => f.file);
       }
 
-      // Handle Encryption
       if (isEncrypted) {
-        const encryptedFiles = await Promise.all(finalFiles.map(async (file) => {
-          const key = crypto.getRandomValues(new Uint8Array(32));
-          const keyBase64 = btoa(String.fromCharCode(...key));
-          encryptionKeys.push(keyBase64);
-          
-          const iv = crypto.getRandomValues(new Uint8Array(12));
-          const cryptoKey = await crypto.subtle.importKey(
-            'raw', key, { name: 'AES-GCM' }, false, ['encrypt']
-          );
-          
-          const fileBuffer = await file.arrayBuffer();
-          const encrypted = await crypto.subtle.encrypt(
-            { name: 'AES-GCM', iv },
-            cryptoKey,
-            fileBuffer
-          );
+        const encryptedFiles = await Promise.all(
+          finalFiles.map(async (file) => {
+            const key = crypto.getRandomValues(new Uint8Array(32));
+            const keyBase64 = btoa(String.fromCharCode(...key));
+            encryptionKeys.push(keyBase64);
 
-          const combined = new Uint8Array(iv.length + encrypted.byteLength);
-          combined.set(iv);
-          combined.set(new Uint8Array(encrypted), iv.length);
-          
-          fileInfos.push({
-            originalName: file.name,
-            originalType: file.type,
-            size: combined.length
-          });
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const cryptoKey = await crypto.subtle.importKey(
+              "raw",
+              key,
+              { name: "AES-GCM" },
+              false,
+              ["encrypt"]
+            );
 
-          return new File([combined], `${file.name}.enc`, { type: 'application/octet-stream' });
-        }));
+            const fileBuffer = await file.arrayBuffer();
+            const encrypted = await crypto.subtle.encrypt(
+              { name: "AES-GCM", iv },
+              cryptoKey,
+              fileBuffer
+            );
 
-        encryptedFiles.forEach(f => formData.append("files", f));
-        updatedSettings.encryptionKeys = encryptionKeys.join(':');
+            const combined = new Uint8Array(iv.length + encrypted.byteLength);
+            combined.set(iv);
+            combined.set(new Uint8Array(encrypted), iv.length);
+
+            fileInfos.push({
+              originalName: file.name,
+              originalType: file.type,
+              size: combined.length,
+            });
+
+            return new File([combined], `${file.name}.enc`, {
+              type: "application/octet-stream",
+            });
+          })
+        );
+
+        encryptedFiles.forEach((f) => formData.append("files", f));
+        updatedSettings.encryptionKeys = encryptionKeys.join(":");
         updatedSettings.fileInfos = fileInfos;
       } else {
-        finalFiles.forEach(f => formData.append("files", f));
+        finalFiles.forEach((f) => formData.append("files", f));
       }
 
       formData.append("shopToken", shopToken);
@@ -458,12 +493,10 @@ function UserPageContent() {
         let errorMessage = "Upload failed";
         try {
           const text = await res.text();
-          // Try to parse as JSON first
           try {
             const errorData = JSON.parse(text);
             errorMessage = errorData.error || errorMessage;
           } catch {
-            // Not JSON — could be HTML error page from Vercel
             if (res.status === 413) {
               errorMessage = "File too large. Please reduce file size and try again.";
             } else if (res.status === 504) {
@@ -477,11 +510,11 @@ function UserPageContent() {
         }
         throw new Error(errorMessage);
       }
-      
+
       const data = await res.json();
       setJobResult(data);
       setStep(3);
-      toast.success("Files sent successfully!");
+      toast.success("Files sent successfully");
     } catch (error: any) {
       toast.error(error.message || "Failed to send files. Please try again.");
       console.error(error);
@@ -490,159 +523,497 @@ function UserPageContent() {
     }
   };
 
+  /* ────────────────────────────────────────────────────────────
+     Render
+     ──────────────────────────────────────────────────────────── */
+  const isConnected = !!(shopToken && shopName && shopOnline);
+
   return (
-    <div className="min-h-screen bg-[#F8F7F4] dark:bg-[#0B0B0F] transition-colors duration-300">
-      <div className={`${step === 2 ? 'max-w-6xl' : 'max-w-2xl'} w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 space-y-4 sm:space-y-6 transition-all duration-300`}>
-        
-        <div className="flex items-center justify-end">
-          <ThemeToggle />
-        </div>
-
-        {/* ── Connection Bar ─────────────────────────────────── */}
-        <div className="bg-white dark:bg-neutral-900 p-4 rounded-2xl border border-[#E5E7EB] dark:border-neutral-800 shadow-sm space-y-4 transition-colors">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col min-w-0">
-              <span className="text-[10px] font-semibold text-[#6B7280] dark:text-neutral-400 uppercase tracking-wider">Current Shop</span>
-              <div className="flex items-center gap-2 mt-0.5">
-                {isVerifying ? (
-                  <><Loader2 className="w-3.5 h-3.5 animate-spin text-[#4F46E5]" /><span className="text-sm font-semibold text-[#111827] dark:text-white">Verifying…</span></>
-                ) : shopToken && shopName ? (
-                  <>
-                    <div className={`w-2 h-2 rounded-full animate-pulse ${shopOnline ? "bg-[#2563EB]" : "bg-[#EF4444]"}`} />
-                    <span className="text-sm font-semibold text-[#111827] dark:text-white truncate">{shopName}</span>
-                  </>
-                ) : (
-                  <><div className="w-2 h-2 bg-[#EF4444] rounded-full" /><span className="text-sm font-medium text-[#6B7280] dark:text-neutral-400">Not Connected</span></>
-                )}
-              </div>
-            </div>
-            <button onClick={() => setShowQRModal(true)} className="flex items-center gap-2 bg-[#111827] text-white px-4 py-2.5 rounded-xl font-medium text-sm hover:bg-black dark:bg-white dark:text-[#111827] dark:hover:bg-neutral-200 active:scale-[0.98] transition-all shrink-0">
-              <QrCode className="w-4 h-4" /> Scan QR
-            </button>
-          </div>
-
-          <div className="pt-4 border-t border-border space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-[10px] font-bold text-secondary uppercase tracking-widest">Connect with Shop ID</span>
-              <span className="text-[10px] font-medium text-secondary/40">Enter 6-digit code</span>
-            </div>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  placeholder="e.g. k7m2x9"
-                  value={shopIdInput}
-                  onChange={handleShopIdChange}
-                  className="w-full pl-4 pr-4 py-3 bg-white dark:bg-neutral-900 border-2 border-[#E5E7EB] dark:border-neutral-800 rounded-xl text-sm font-bold focus:outline-none focus:border-[#4F46E5] transition-all uppercase placeholder:normal-case shadow-sm text-[#111827] dark:text-white"
-                />
-                {shopIdError && <p className="absolute -bottom-5 left-1 text-[11px] text-red-500 font-bold">{shopIdError}</p>}
-              </div>
-              <button 
-                onClick={connectByShopId} 
-                disabled={shopIdInput.length !== 6}
-                className="px-8 py-3 bg-[#111827] dark:bg-white dark:text-[#111827] text-white rounded-xl text-sm font-black hover:bg-black dark:hover:bg-neutral-200 disabled:bg-gray-100 dark:disabled:bg-neutral-800 disabled:text-gray-300 dark:disabled:text-neutral-600 disabled:border-gray-100 transition-all shadow-lg active:scale-95 border border-[#111827] dark:border-white"
-              >
-                CONNECT
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Discovery Tabs ─────────────────────────────────── */}
-        {step === 1 && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setActiveTab(activeTab === "recent" ? "none" : "recent")}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                activeTab === "recent" ? "bg-[#111827] text-white dark:bg-white dark:text-[#111827]" : "bg-white dark:bg-neutral-900 border border-[#E5E7EB] dark:border-neutral-800 text-[#111827] dark:text-white hover:border-[#6B7280] dark:hover:border-neutral-600"
-              }`}
+    <div className="user-portal min-h-screen flex flex-col">
+      {/* ── Topbar ─────────────────────────────────────────── */}
+      <header className="up-topbar">
+        <div
+          className="mx-auto h-full flex items-center justify-between px-4 sm:px-6"
+          style={{ maxWidth: 1080 }}
+        >
+          {/* Logo */}
+          <button
+            onClick={() => router.push("/")}
+            className="flex items-center gap-2"
+            style={{ fontWeight: 600 }}
+          >
+            <div
+              className="w-7 h-7 rounded-[8px] flex items-center justify-center"
+              style={{ background: "var(--up-text)" }}
             >
-              <Clock className="w-3.5 h-3.5" /> Recent
-            </button>
-          </div>
-        )}
+              <Printer size={14} color="#fff" strokeWidth={2} />
+            </div>
+            <span style={{ fontSize: "1.17em" }}>SmartPrint</span>
+          </button>
 
-        {/* ── Discovery Panels ─────────────────────────────────── */}
-        <AnimatePresence>
-          {step === 1 && activeTab === "recent" && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-              <div className="space-y-2">
-                {recentShops.length === 0 ? (
-                  <div className="bg-white dark:bg-neutral-900 border border-[#E5E7EB] dark:border-neutral-800 rounded-xl p-6 text-center">
-                    <p className="text-sm text-[#6B7280] dark:text-neutral-400">No recent shops. Scan a QR code to connect.</p>
-                  </div>
-                ) : recentShops.map((s: any, i: number) => (
-                  <button key={i} onClick={() => router.push(`/user?shop=${s.qrToken}`)} className="w-full flex items-center justify-between bg-white dark:bg-neutral-900 border border-[#E5E7EB] dark:border-neutral-800 rounded-xl p-4 hover:border-[#4F46E5] transition-all group">
-                    <div className="text-left min-w-0">
-                      <p className="text-sm font-semibold text-[#111827] dark:text-white">{s.shopName}</p>
-                      <p className="text-xs text-[#6B7280] dark:text-neutral-400 mt-0.5">{timeAgo(s.lastVisited)}</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-[#6B7280] dark:text-neutral-400 group-hover:text-[#4F46E5] transition-colors shrink-0" />
+          {/* Connection status pill */}
+          <button
+            onClick={() => setShowConnectPanel((v) => !v)}
+            className={`up-chip ${
+              isConnected ? "up-chip-success" : ""
+            }`}
+            style={{
+              background: isConnected ? "rgba(52,199,89,0.10)" : "rgba(0,0,0,0.04)",
+              color: isConnected ? "#1A8038" : "var(--up-text-2)",
+              fontSize: "1em",
+              fontWeight: 500,
+              cursor: "pointer",
+            }}
+          >
+            {isVerifying ? (
+              <>
+                <Loader2 size={10} className="animate-spin" />
+                <span>Verifying…</span>
+              </>
+            ) : isConnected ? (
+              <>
+                <span className="up-dot up-dot-online" />
+                <span style={{ maxWidth: 140 }} className="truncate">
+                  {shopName}
+                </span>
+                <ChevronRight
+                  size={12}
+                  strokeWidth={1.8}
+                  style={{ opacity: 0.6 }}
+                />
+              </>
+            ) : (
+              <>
+                <span className="up-dot up-dot-offline" />
+                <span>Not Connected</span>
+              </>
+            )}
+          </button>
+        </div>
+      </header>
+
+      {/* ── Page body ──────────────────────────────────────── */}
+      <div
+        className="flex-1 mx-auto w-full px-4 sm:px-6"
+        style={{
+          maxWidth: step === 2 ? 1080 : 680,
+          paddingTop: 24,
+          paddingBottom: 96,
+        }}
+      >
+        {/* ── Connection panel ────────────────────────────── */}
+        <AnimatePresence initial={false}>
+          {(!isConnected || showConnectPanel) && step !== 3 && (
+            <motion.div
+              key="connect"
+              initial={{ opacity: 0, y: -8, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -8, height: 0 }}
+              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              className="overflow-hidden"
+              style={{ marginBottom: 24 }}
+            >
+              <div className="up-card" style={{ padding: 20 }}>
+                <div
+                  className="flex items-center justify-between"
+                  style={{ marginBottom: 16 }}
+                >
+                  <div className="up-section-label">Connect to a shop</div>
+                  {isConnected && (
+                    <button
+                      onClick={() => setShowConnectPanel(false)}
+                      className="up-btn-text"
+                      style={{ fontSize: "0.95em" }}
+                    >
+                      Done
+                    </button>
+                  )}
+                </div>
+
+                {/* Segmented tabs */}
+                <div className="up-segmented" style={{ width: "100%" }}>
+                  <button
+                    data-active={connectTab === "scan"}
+                    onClick={() => setConnectTab("scan")}
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <ScanLine size={12} strokeWidth={1.8} /> QR Scan
+                    </span>
                   </button>
-                ))}
+                  <button
+                    data-active={connectTab === "id"}
+                    onClick={() => setConnectTab("id")}
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <Hash size={12} strokeWidth={1.8} /> Enter ID
+                    </span>
+                  </button>
+                  <button
+                    data-active={connectTab === "recent"}
+                    onClick={() => setConnectTab("recent")}
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock size={12} strokeWidth={1.8} /> Recent
+                    </span>
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 20 }}>
+                  {connectTab === "scan" && (
+                    <div className="text-center" style={{ paddingBlock: 8 }}>
+                      <p
+                        style={{
+                          fontSize: "1.08em",
+                          color: "var(--up-text-2)",
+                          marginBottom: 16,
+                        }}
+                      >
+                        Scan the QR code displayed at the shop counter.
+                      </p>
+                      <button
+                        onClick={() => setShowQRModal(true)}
+                        className="up-btn-primary"
+                        style={{ minHeight: 44 }}
+                      >
+                        <QrCode size={14} strokeWidth={1.8} />
+                        Open camera
+                      </button>
+                    </div>
+                  )}
+
+                  {connectTab === "id" && (
+                    <div>
+                      <label
+                        className="up-section-label"
+                        style={{ marginBottom: 8, display: "block" }}
+                      >
+                        Shop ID
+                      </label>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            value={shopIdInput}
+                            onChange={handleShopIdChange}
+                            placeholder="e.g. k7m2x9"
+                            className="up-input"
+                            style={{
+                              fontFamily:
+                                "'SF Mono', ui-monospace, 'Courier New', monospace",
+                              letterSpacing: "0.06em",
+                              textTransform: "uppercase",
+                            }}
+                            maxLength={6}
+                          />
+                          <span
+                            style={{
+                              position: "absolute",
+                              right: 12,
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              fontSize: "0.92em",
+                              color: "var(--up-text-3)",
+                            }}
+                          >
+                            {shopIdInput.length}/6
+                          </span>
+                        </div>
+                        <button
+                          onClick={connectByShopId}
+                          disabled={shopIdInput.length !== 6}
+                          className="up-btn-primary"
+                          style={{ minHeight: 44 }}
+                        >
+                          Connect
+                        </button>
+                      </div>
+                      {shopIdError && (
+                        <p
+                          style={{
+                            color: "var(--up-danger)",
+                            fontSize: "0.95em",
+                            marginTop: 8,
+                          }}
+                        >
+                          {shopIdError}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {connectTab === "recent" && (
+                    <div>
+                      {recentShops.length === 0 ? (
+                        <div
+                          className="text-center"
+                          style={{
+                            paddingBlock: 24,
+                            color: "var(--up-text-2)",
+                            fontSize: "1em",
+                          }}
+                        >
+                          <Clock
+                            size={20}
+                            strokeWidth={1.5}
+                            style={{ margin: "0 auto 8px", opacity: 0.5 }}
+                          />
+                          No recent shops yet.
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          {recentShops.slice(0, 3).map((s: any, i: number) => (
+                            <button
+                              key={i}
+                              onClick={() =>
+                                router.push(`/user?shop=${s.qrToken}`)
+                              }
+                              className="flex items-center justify-between"
+                              style={{
+                                padding: "12px 4px",
+                                borderBottom:
+                                  i < Math.min(2, recentShops.length - 1)
+                                    ? "0.5px solid var(--up-divider)"
+                                    : "none",
+                                textAlign: "left",
+                                background: "transparent",
+                                border: "none",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <div className="min-w-0">
+                                <div
+                                  style={{
+                                    fontSize: "1.08em",
+                                    fontWeight: 500,
+                                    marginBottom: 2,
+                                  }}
+                                  className="truncate"
+                                >
+                                  {s.shopName}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: "0.95em",
+                                    color: "var(--up-text-2)",
+                                  }}
+                                >
+                                  {timeAgo(s.lastVisited)}
+                                </div>
+                              </div>
+                              <ChevronRight
+                                size={14}
+                                strokeWidth={1.8}
+                                style={{ color: "var(--up-text-3)" }}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
+        {/* ── Stepper indicator (subtle) ───────────────────── */}
+        {step !== 3 && (
+          <div
+            className="flex items-center gap-3"
+            style={{ marginBottom: 20 }}
+          >
+            {[
+              { n: 1, label: "Files" },
+              { n: 2, label: "Settings" },
+              { n: 3, label: "Send" },
+            ].map((s, i, arr) => {
+              const active = step === s.n;
+              const past = step > s.n;
+              return (
+                <div key={s.n} className="flex items-center gap-3 flex-1">
+                  <div className="flex items-center gap-2">
+                    <div
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 999,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: active
+                          ? "var(--up-accent)"
+                          : past
+                          ? "rgba(0,113,227,0.12)"
+                          : "rgba(0,0,0,0.06)",
+                        color: active ? "#fff" : past ? "var(--up-accent)" : "var(--up-text-2)",
+                        fontSize: "0.92em",
+                        fontWeight: 600,
+                        transition: "all 0.25s var(--up-ease)",
+                      }}
+                    >
+                      {s.n}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: "1em",
+                        color: active ? "var(--up-text)" : "var(--up-text-2)",
+                        fontWeight: active ? 500 : 400,
+                      }}
+                    >
+                      {s.label}
+                    </span>
+                  </div>
+                  {i < arr.length - 1 && (
+                    <div
+                      style={{
+                        flex: 1,
+                        height: 0.5,
+                        background: "var(--up-divider)",
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-        {/* ── Main Content ────────────────────────────────────── */}
+        {/* ── Steps ───────────────────────────────────────── */}
         <AnimatePresence mode="wait">
           {step === 1 && (
-            <motion.div key="step1" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-5">
+            <motion.div
+              key="step1"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+              className="space-y-6"
+            >
               <FileUpload
                 files={files}
-                onFilesAdded={(newFiles) => setFiles(prev => [...prev, ...newFiles.map(f => ({ 
-                  file: f, 
-                  id: Math.random().toString(), 
-                  progress: 100,
-                  preview: (f.type.startsWith("image/") || f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf") || f.name.toLowerCase().endsWith(".jpg") || f.name.toLowerCase().endsWith(".jpeg") || f.name.toLowerCase().endsWith(".png") || f.name.toLowerCase().endsWith(".docx") || f.name.toLowerCase().endsWith(".pptx")) ? URL.createObjectURL(f) : "preview-active",
-                  adjustments: { ...DEFAULT_PRINT_SETTINGS }
-                }))])}
-                onRemoveFile={(id) => setFiles(prev => {
-                  const filtered = prev.filter(f => f.id !== id);
-                  const removed = prev.find(f => f.id === id);
-                  if (removed?.preview) URL.revokeObjectURL(removed.preview);
-                  return filtered;
-                })}
+                onFilesAdded={(newFiles) =>
+                  setFiles((prev) => [
+                    ...prev,
+                    ...newFiles.map((f) => ({
+                      file: f,
+                      id: Math.random().toString(),
+                      progress: 100,
+                      preview:
+                        f.type.startsWith("image/") ||
+                        f.type === "application/pdf" ||
+                        f.name.toLowerCase().endsWith(".pdf") ||
+                        f.name.toLowerCase().endsWith(".jpg") ||
+                        f.name.toLowerCase().endsWith(".jpeg") ||
+                        f.name.toLowerCase().endsWith(".png") ||
+                        f.name.toLowerCase().endsWith(".docx") ||
+                        f.name.toLowerCase().endsWith(".pptx")
+                          ? URL.createObjectURL(f)
+                          : "preview-active",
+                      adjustments: { ...DEFAULT_PRINT_SETTINGS },
+                    })),
+                  ])
+                }
+                onRemoveFile={(id) =>
+                  setFiles((prev) => {
+                    const filtered = prev.filter((f) => f.id !== id);
+                    const removed = prev.find((f) => f.id === id);
+                    if (removed?.preview) URL.revokeObjectURL(removed.preview);
+                    return filtered;
+                  })
+                }
               />
 
               {files.length > 0 && (
-                <button onClick={() => setStep(2)} className="w-full bg-[#111827] text-white py-4 rounded-xl font-medium text-base hover:bg-black dark:bg-white dark:text-black dark:hover:bg-neutral-200 active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-sm">
-                  Configure Print <Printer className="w-4 h-4" />
+                <button
+                  onClick={() => setStep(2)}
+                  className="up-btn-primary w-full"
+                  style={{ height: 52, fontSize: "1.16em", fontWeight: 600 }}
+                >
+                  Continue
+                  <ChevronRight size={16} strokeWidth={1.8} />
                 </button>
               )}
             </motion.div>
           )}
 
           {step === 2 && (
-            <motion.div key="step2" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }} className="space-y-4 sm:space-y-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-0.5">
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#111827] dark:text-white">Settings</h1>
-                <button type="button" onClick={() => setStep(1)} className="text-sm font-medium text-[#4F46E5] dark:text-indigo-300 hover:opacity-70 transition-opacity w-fit">Edit Files</button>
+            <motion.div
+              key="step2"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+              className="space-y-6"
+            >
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setStep(1)}
+                  className="up-btn-text"
+                  style={{ fontSize: "1em" }}
+                >
+                  <ChevronLeft size={14} strokeWidth={1.8} /> Files
+                </button>
+                <div className="up-section-label">Print Settings</div>
+                <div style={{ width: 60 }} />
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] gap-4 lg:gap-6 items-start max-w-[1400px] mx-auto">
-                {/* Left Column: Controls */}
-                <div className="space-y-5 sm:space-y-6 order-2 xl:order-1 transition-all duration-300">
-                  {/* File Selector for Editing */}
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6 items-start">
+                {/* ── Left: controls ─────────────────────── */}
+                <div className="space-y-6 order-2 xl:order-1">
+                  {/* File selector for editing */}
                   {files.length > 1 && (
-                    <div className="bg-white dark:bg-neutral-900 p-4 rounded-2xl border border-[#E5E7EB] dark:border-neutral-800 shadow-sm">
-                      <label className="text-[10px] font-bold text-secondary dark:text-neutral-400 uppercase tracking-widest mb-3 block">Select File to Edit</label>
-                      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    <div className="up-card" style={{ padding: 16 }}>
+                      <div
+                        className="up-section-label"
+                        style={{ marginBottom: 12 }}
+                      >
+                        Select file to edit
+                      </div>
+                      <div
+                        className="flex gap-2 overflow-x-auto up-no-scrollbar"
+                        style={{ paddingBottom: 4 }}
+                      >
                         {files.map((f, i) => (
-                          <button 
-                            key={f.id} 
+                          <button
+                            key={f.id}
                             onClick={() => {
                               setSelectedFileIndex(i);
                               setSettings(f.adjustments || DEFAULT_PRINT_SETTINGS);
                             }}
-                            className={`relative min-w-[60px] h-[60px] rounded-lg border-2 transition-all overflow-hidden shrink-0 ${selectedFileIndex === i ? 'border-[#4F46E5] ring-2 ring-[#4F46E5]/20' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                            className="relative shrink-0"
+                            style={{
+                              width: 56,
+                              height: 56,
+                              borderRadius: 10,
+                              overflow: "hidden",
+                              border:
+                                selectedFileIndex === i
+                                  ? "2px solid var(--up-accent)"
+                                  : "0.5px solid var(--up-border)",
+                              opacity: selectedFileIndex === i ? 1 : 0.7,
+                              transition: "all 0.2s var(--up-ease)",
+                            }}
                           >
-                            {f.preview ? (
-                              <img src={f.preview} className="w-full h-full object-cover" alt="" />
+                            {f.preview && f.preview !== "preview-active" ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={f.preview}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
                             ) : (
-                              <div className="w-full h-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-400">DOC</div>
+                              <div
+                                className="w-full h-full flex items-center justify-center"
+                                style={{
+                                  background: "rgba(0,0,0,0.04)",
+                                  color: "var(--up-text-2)",
+                                  fontSize: "0.92em",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                DOC
+                              </div>
                             )}
                           </button>
                         ))}
@@ -651,383 +1022,550 @@ function UserPageContent() {
                   )}
 
                   <PrintSettings
-                    settings={settings} onSettingsChange={handleSettingsChange}
-                    isEncrypted={isEncrypted} onEncryptedChange={setIsEncrypted}
-                    hasImageFiles={files.some(f => f.file.type.startsWith("image/"))}
-                    hasDocxFiles={files.some(f => f.file.name.toLowerCase().endsWith(".docx") || f.file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
+                    settings={settings}
+                    onSettingsChange={handleSettingsChange}
+                    isEncrypted={isEncrypted}
+                    onEncryptedChange={setIsEncrypted}
+                    hasImageFiles={files.some((f) => f.file.type.startsWith("image/"))}
+                    hasDocxFiles={files.some(
+                      (f) =>
+                        f.file.name.toLowerCase().endsWith(".docx") ||
+                        f.file.type ===
+                          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    )}
                   />
 
-                  <div className="pt-6 border-t border-[#E5E7EB] dark:border-neutral-800 space-y-4">
-                    <button disabled={isSubmitting} onClick={handleSubmit} className="w-full bg-[#4F46E5] text-white py-4 rounded-xl font-bold text-base hover:bg-[#4338CA] active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-indigo-100">
-                      {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : shopToken ? "Send to Print Shop" : "Connect Shop to Send"}
-                    </button>
-                  </div>
+                  <button
+                    disabled={isSubmitting}
+                    onClick={handleSubmit}
+                    className="up-btn-primary w-full"
+                    style={{ height: 52, fontSize: "1.16em", fontWeight: 600 }}
+                  >
+                    {isSubmitting ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : shopToken ? (
+                      "Send to print shop"
+                    ) : (
+                      "Connect a shop to send"
+                    )}
+                  </button>
                 </div>
 
-                {/* Right Column: Preview */}
-                <div className="xl:sticky xl:top-4 space-y-3 order-1 xl:order-2 min-h-0">
-                  <div className="bg-white dark:bg-neutral-900 p-3 sm:p-4 rounded-2xl border border-[#E5E7EB] dark:border-neutral-800 shadow-sm min-h-[min(48vh,360px)] sm:min-h-[360px] flex flex-col transition-shadow duration-300 hover:shadow-md">
-                    <div className="flex items-center justify-between mb-4">
-                      <label className="text-[10px] font-bold text-secondary dark:text-neutral-400 uppercase tracking-widest block">Real-time Preview</label>
-                      {settings.enableCrop && files[selectedFileIndex]?.file.type.startsWith("image/") && (
-                        <button 
-                          onClick={() => setShowEditor(true)}
-                          className="flex items-center gap-1.5 px-3 py-1 bg-[#4F46E5] text-white text-[11px] font-bold rounded-lg hover:bg-[#4338CA] transition-all"
-                        >
-                          <Crop className="w-3.5 h-3.5" /> Edit/Crop
-                        </button>
-                      )}
+                {/* ── Right: preview ─────────────────────── */}
+                <div className="xl:sticky xl:top-[68px] order-1 xl:order-2 space-y-3">
+                  <div className="up-card" style={{ padding: 16 }}>
+                    <div
+                      className="flex items-center justify-between"
+                      style={{ marginBottom: 12 }}
+                    >
+                      <div className="up-section-label">Preview</div>
+                      {settings.enableCrop &&
+                        files[selectedFileIndex]?.file.type.startsWith("image/") && (
+                          <button
+                            onClick={() => setShowEditor(true)}
+                            className="up-btn-ghost"
+                            style={{
+                              padding: "4px 10px",
+                              fontSize: "0.95em",
+                              minHeight: 28,
+                            }}
+                          >
+                            <Pencil size={12} strokeWidth={1.8} /> Edit
+                          </button>
+                        )}
                     </div>
 
                     <motion.div
                       layout
-                      className="flex-1 bg-[#E8E8E8] dark:bg-neutral-800 rounded-xl overflow-hidden relative flex items-center justify-center border border-border dark:border-neutral-700"
-                      style={{ minHeight: "clamp(280px, 45vh, 520px)" }}
-                      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                      className="relative flex items-center justify-center"
+                      style={{
+                        background: "rgba(0,0,0,0.04)",
+                        borderRadius: 12,
+                        minHeight: "clamp(280px, 45vh, 520px)",
+                        overflow: "hidden",
+                      }}
+                      transition={{
+                        duration: 0.3,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
                     >
-                      {files[selectedFileIndex]?.preview ? (() => {
-                        const currentFile = files[selectedFileIndex];
-                        const isImage = currentFile.file.type.startsWith("image/");
-                        const isPDF = currentFile.file.type === "application/pdf" || currentFile.file.name.toLowerCase().endsWith(".pdf");
-                        const isDocx = currentFile.file.name.toLowerCase().endsWith(".docx") || currentFile.file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-                        const isPptx = currentFile.file.name.toLowerCase().endsWith(".pptx") || currentFile.file.name.toLowerCase().endsWith(".ppt") || currentFile.file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-                        
-                        if (isPDF) {
-                          return (
-                            <PDFPreview 
-                              fileUrl={currentFile.preview!} 
-                              colorPagesRange={settings.colorPagesRange || ""}
-                              bwPagesRange={settings.bwPagesRange || ""}
-                              enableColorRange={settings.enableColorRange}
-                              enableBWRange={settings.enableBWRange}
-                              enableAdvancedColor={settings.enableAdvancedColor}
-                              baseColorMode={settings.colorMode}
-                              onPageChange={setCurrentPreviewPage}
-                              currentPage={currentPreviewPage}
-                              paperSize={settings.paperSize}
-                              margins={settings.margins}
-                              customMarginTopBottom={settings.customMarginTopBottom}
-                              customMarginLeftRight={settings.customMarginLeftRight}
-                              orientation={settings.orientation}
-                              pagesPerSheet={settings.pagesPerSheet}
-                              pagesPerSheetFill={settings.pagesPerSheetFill}
-                              pageSelection={settings.pageSelection}
-                              customPageRange={settings.customPageRange || ""}
-                            />
-                          );
-                        }
+                      {files[selectedFileIndex]?.preview
+                        ? (() => {
+                            const currentFile = files[selectedFileIndex];
+                            const isImage = currentFile.file.type.startsWith("image/");
+                            const isPDF =
+                              currentFile.file.type === "application/pdf" ||
+                              currentFile.file.name.toLowerCase().endsWith(".pdf");
+                            const isDocx =
+                              currentFile.file.name.toLowerCase().endsWith(".docx") ||
+                              currentFile.file.type ===
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                            const isPptx =
+                              currentFile.file.name.toLowerCase().endsWith(".pptx") ||
+                              currentFile.file.name.toLowerCase().endsWith(".ppt") ||
+                              currentFile.file.type ===
+                                "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
-                        if (isDocx) {
-                          return (
-                            <DocxPreview
-                              file={currentFile.file}
-                              paperSize={settings.paperSize}
-                              margins={settings.margins}
-                              customMarginTopBottom={settings.customMarginTopBottom}
-                              customMarginLeftRight={settings.customMarginLeftRight}
-                              orientation={settings.orientation}
-                              baseColorMode={settings.colorMode}
-                              pagesPerSheet={settings.pagesPerSheet}
-                              pagesPerSheetFill={settings.pagesPerSheetFill}
-                              pageSelection={settings.pageSelection}
-                              customPageRange={settings.customPageRange || ""}
-                              currentPage={currentPreviewPage}
-                              onPageChange={setCurrentPreviewPage}
-                              scaleMode={settings.scaleMode}
-                              customScalePercentage={settings.customScalePercentage}
-                            />
-                          );
-                        }
+                            if (isPDF) {
+                              return (
+                                <PDFPreview
+                                  fileUrl={currentFile.preview!}
+                                  colorPagesRange={settings.colorPagesRange || ""}
+                                  bwPagesRange={settings.bwPagesRange || ""}
+                                  enableColorRange={settings.enableColorRange}
+                                  enableBWRange={settings.enableBWRange}
+                                  enableAdvancedColor={settings.enableAdvancedColor}
+                                  baseColorMode={settings.colorMode}
+                                  onPageChange={setCurrentPreviewPage}
+                                  currentPage={currentPreviewPage}
+                                  paperSize={settings.paperSize}
+                                  margins={settings.margins}
+                                  customMarginTopBottom={settings.customMarginTopBottom}
+                                  customMarginLeftRight={settings.customMarginLeftRight}
+                                  orientation={settings.orientation}
+                                  pagesPerSheet={settings.pagesPerSheet}
+                                  pagesPerSheetFill={settings.pagesPerSheetFill}
+                                  pageSelection={settings.pageSelection}
+                                  customPageRange={settings.customPageRange || ""}
+                                />
+                              );
+                            }
 
-                        if (isPptx) {
-                          const pptAspect = getPaperAspectForOrientation(settings.paperSize, settings.orientation);
-                          const pptCols =
-                            settings.pagesPerSheet >= 16 ? 4 :
-                            settings.pagesPerSheet >= 9 ? 3 :
-                            settings.pagesPerSheet >= 4 ? 2 :
-                            settings.pagesPerSheet >= 2 ? 2 : 1;
-                          return (
-                            <div className="w-full h-full flex items-center justify-center p-4">
-                              <div
-                                className="w-full max-w-[min(100%,520px)] bg-white rounded-lg shadow-[0_10px_40px_rgba(0,0,0,0.25)] p-3"
-                                style={{ aspectRatio: `${pptAspect.w} / ${pptAspect.h}` }}
-                              >
-                                <div
-                                  className="w-full h-full grid gap-1.5"
-                                  style={{ gridTemplateColumns: `repeat(${pptCols}, minmax(0, 1fr))` }}
-                                >
-                                  {Array.from({ length: Math.max(1, settings.pagesPerSheet) }).map((_, idx) => {
-                                    const showSlide = settings.pagesPerSheetFill === "repeat" || idx === 0;
-                                    return (
-                                      <div key={idx} className="rounded border border-gray-200 bg-gray-50 flex items-center justify-center min-h-0">
-                                        {showSlide ? (
-                                          <FileText className="w-4 h-4 text-orange-400" />
-                                        ) : (
-                                          <div className="w-[70%] h-[70%] border border-dashed border-gray-200 rounded-sm" />
-                                        )}
-                                      </div>
-                                    );
-                                  })}
+                            if (isDocx) {
+                              return (
+                                <DocxPreview
+                                  file={currentFile.file}
+                                  paperSize={settings.paperSize}
+                                  margins={settings.margins}
+                                  customMarginTopBottom={settings.customMarginTopBottom}
+                                  customMarginLeftRight={settings.customMarginLeftRight}
+                                  orientation={settings.orientation}
+                                  baseColorMode={settings.colorMode}
+                                  pagesPerSheet={settings.pagesPerSheet}
+                                  pagesPerSheetFill={settings.pagesPerSheetFill}
+                                  pageSelection={settings.pageSelection}
+                                  customPageRange={settings.customPageRange || ""}
+                                  currentPage={currentPreviewPage}
+                                  onPageChange={setCurrentPreviewPage}
+                                  scaleMode={settings.scaleMode}
+                                  customScalePercentage={settings.customScalePercentage}
+                                />
+                              );
+                            }
+
+                            if (isPptx) {
+                              const pptAspect = getPaperAspectForOrientation(
+                                settings.paperSize,
+                                settings.orientation
+                              );
+                              const pptCols =
+                                settings.pagesPerSheet >= 16
+                                  ? 4
+                                  : settings.pagesPerSheet >= 9
+                                  ? 3
+                                  : settings.pagesPerSheet >= 4
+                                  ? 2
+                                  : settings.pagesPerSheet >= 2
+                                  ? 2
+                                  : 1;
+                              return (
+                                <div className="w-full h-full flex items-center justify-center p-4">
+                                  <div
+                                    className="w-full"
+                                    style={{
+                                      maxWidth: 520,
+                                      background: "#fff",
+                                      borderRadius: 8,
+                                      boxShadow:
+                                        "0 10px 40px rgba(0,0,0,0.10), 0 0 0 0.5px rgba(0,0,0,0.06)",
+                                      padding: 12,
+                                      aspectRatio: `${pptAspect.w} / ${pptAspect.h}`,
+                                    }}
+                                  >
+                                    <div
+                                      className="w-full h-full grid gap-1.5"
+                                      style={{
+                                        gridTemplateColumns: `repeat(${pptCols}, minmax(0, 1fr))`,
+                                      }}
+                                    >
+                                      {Array.from({
+                                        length: Math.max(1, settings.pagesPerSheet),
+                                      }).map((_, idx) => {
+                                        const showSlide =
+                                          settings.pagesPerSheetFill === "repeat" || idx === 0;
+                                        return (
+                                          <div
+                                            key={idx}
+                                            className="rounded flex items-center justify-center"
+                                            style={{
+                                              border: "0.5px solid rgba(0,0,0,0.06)",
+                                              background: "rgba(0,0,0,0.02)",
+                                              minHeight: 0,
+                                            }}
+                                          >
+                                            {showSlide ? (
+                                              <FileText
+                                                size={14}
+                                                strokeWidth={1.5}
+                                                style={{ color: "#FF9F0A" }}
+                                              />
+                                            ) : (
+                                              <div
+                                                style={{
+                                                  width: "70%",
+                                                  height: "70%",
+                                                  border: "0.5px dashed rgba(0,0,0,0.10)",
+                                                  borderRadius: 2,
+                                                }}
+                                              />
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                              <p className="text-[10px] text-center text-gray-500 font-semibold mt-3">
-                                PPT preview uses layout simulation for paper size and pages-per-sheet.
-                              </p>
-                            </div>
-                          );
-                        }
+                              );
+                            }
 
-                        if (!isImage) {
-                          return (
-                            <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 max-w-[280px]">
-                              <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 rotate-3 group-hover:rotate-6 transition-transform duration-500">
-                                <FileText className="w-8 h-8 text-gray-400" />
-                              </div>
-                              <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight mb-1">{currentFile.file.name}</h3>
-                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4">{(currentFile.file.size / 1024).toFixed(1)} KB</p>
-                              <div className="px-3 py-1.5 bg-gray-100 rounded-full">
-                                <span className="text-[9px] font-black text-gray-500 uppercase">Preview not available for this format</span>
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        const currentAdjustments = settings; // use current settings
-                        /* ── compute helpers ─────────────────── */
-                        const parseAspectRatioValue = (ratio: string): number | null => {
-                          if (!ratio || ratio === "Original") return null;
-                          if (ratio === "1:1 Square") return 1;
-                          if (ratio === "Full Page") {
-                            return settings.orientation === "Portrait" ? 210 / 297 : 297 / 210;
-                          }
-                          if (ratio === "Custom") {
-                            const w = settings.customWidthDimensions || 0;
-                            const h = settings.customHeightDimensions || 0;
-                            return w > 0 && h > 0 ? w / h : null;
-                          }
-                          const [w, h] = ratio.split(":").map(Number);
-                          if (!w || !h) return null;
-                          return w / h;
-                        };
-
-                        const ratioValue = parseAspectRatioValue(settings.aspectRatio);
-                        const marginY =
-                          settings.margins === "None" ? 0 :
-                          settings.margins === "Narrow" ? 8 :
-                          settings.margins === "Normal" ? 16 :
-                          settings.margins === "Wide" ? 32 :
-                          settings.margins === "Custom" ? Math.max(0, (settings.customMarginTopBottom ?? 1) * 18) : 16;
-                        const marginX =
-                          settings.margins === "None" ? 0 :
-                          settings.margins === "Narrow" ? 8 :
-                          settings.margins === "Normal" ? 16 :
-                          settings.margins === "Wide" ? 32 :
-                          settings.margins === "Custom" ? Math.max(0, (settings.customMarginLeftRight ?? 1) * 18) : 16;
-
-                        const cols =
-                          settings.photosPerPage >= 35 ? 7 :
-                          settings.photosPerPage >= 16 ? 4 :
-                          settings.photosPerPage >= 9  ? 3 :
-                          settings.photosPerPage >= 4  ? 2 :
-                          settings.photosPerPage >= 2  ? 2 : 1;
-
-                        const rows = Math.ceil((settings.photosPerPage || 1) / cols);
-
-                        const imgFilter = `
-                          brightness(${100 + (settings.brightness || 0)}%)
-                          contrast(${100 + (settings.contrast || 0)}%)
-                          saturate(${100 + (settings.saturation || 0)}%)
-                          grayscale(${settings.colorMode === 'Black & White' ? '100%' : '0%'})
-                        `;
-
-                        const getFrameDimensions = (cellWidth: number, cellHeight: number) => {
-                          if (!ratioValue) return { width: cellWidth, height: cellHeight };
-                          const byWidthHeight = cellWidth / ratioValue;
-                          if (byWidthHeight <= cellHeight) {
-                            return { width: cellWidth, height: byWidthHeight };
-                          }
-                          return { width: cellHeight * ratioValue, height: cellHeight };
-                        };
-
-                        const paper = getPaperAspectForOrientation(settings.paperSize, settings.orientation);
-                        const paperMm = getPaperPortraitMm(settings.paperSize);
-                        const areaScale = Math.max(0.55, Math.min(1.45, Math.sqrt((paperMm.w * paperMm.h) / (210 * 297))));
-
-                        const previewRenderKey = [
-                          settings.orientation,
-                          settings.paperSize,
-                          settings.aspectRatio,
-                          settings.photosPerPage,
-                          settings.margins,
-                          marginX,
-                          marginY,
-                          settings.customWidthDimensions,
-                          settings.customHeightDimensions,
-                          currentFile.preview, // Use reference to force update
-                          Date.now() // added to ensure freshness
-                        ].join("|");
-
-                        return (
-                          <div
-                            key={previewRenderKey}
-                            className="bg-white shadow-lg transition-all duration-500 overflow-hidden"
-                            style={{
-                              width: `${Math.round((settings.orientation === 'Landscape' ? 460 : 330) * areaScale)}px`,
-                              maxWidth: "100%",
-                              aspectRatio: `${paper.w} / ${paper.h}`,
-                              padding: `${marginY}px ${marginX}px`,
-                              display: 'flex',
-                              flexDirection: 'column',
-                            }}
-                          >
-                            {/* Page simulation */}
-                            <div
-                              style={{
-                                flex: 1,
-                                display: 'grid',
-                                gridTemplateColumns: `repeat(${cols}, 1fr)`,
-                                gridTemplateRows: `repeat(${rows}, 1fr)`,
-                                gap: settings.photosPerPage > 1 ? 4 : 0,
-                                overflow: 'hidden',
-                                placeContent: 'center',
-                                outline: '1px dashed rgba(99, 102, 241, 0.25)',
-                                outlineOffset: '-1px'
-                              }}
-                            >
-                              {Array.from({ length: settings.photosPerPage || 1 }).map((_, idx) => (
-                                (() => {
-                                  const pageWidth = settings.orientation === "Landscape" ? 440 : 320;
-                                  const pageHeight = settings.orientation === "Landscape" ? 320 : 440;
-                                  const contentWidth = Math.max(40, pageWidth - marginX * 2);
-                                  const contentHeight = Math.max(40, pageHeight - marginY * 2 - (settings.photosPerPage > 1 ? 20 : 0));
-                                  const cellWidth = contentWidth / cols;
-                                  const cellHeight = contentHeight / rows;
-                                  const frame = getFrameDimensions(cellWidth, cellHeight);
-
-                                  // Check if we should show the image or a blank placeholder
-                                  const showImage = settings.pagesPerSheetFill === 'repeat' || idx === 0;
-
-                                  return (
+                            if (!isImage) {
+                              return (
                                 <div
-                                  key={idx}
-                                  className="flex items-center justify-center overflow-hidden"
+                                  className="text-center"
                                   style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    minHeight: 0,
-                                    minWidth: 0
+                                    padding: 32,
+                                    color: "var(--up-text-2)",
                                   }}
                                 >
                                   <div
+                                    className="mx-auto flex items-center justify-center"
                                     style={{
-                                      position: 'relative',
-                                      overflow: 'hidden',
-                                      width: ratioValue ? `${Math.round(frame.width)}px` : '100%',
-                                      height: ratioValue ? `${Math.round(frame.height)}px` : '100%',
-                                      backgroundColor: '#f3f4f6',
-                                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                                      border: ratioValue ? '1px solid rgba(79, 70, 229, 0.35)' : 'none',
-                                      cursor: showImage && canRepositionImage ? (isDraggingImage ? 'grabbing' : 'grab') : 'default'
-                                    }}
-                                    onMouseDown={(e) => showImage && beginImageDrag(e.clientX, e.clientY)}
-                                    onTouchStart={(e) => {
-                                      const touch = e.touches[0];
-                                      if (showImage && touch) beginImageDrag(touch.clientX, touch.clientY);
+                                      width: 56,
+                                      height: 56,
+                                      borderRadius: 14,
+                                      background: "var(--up-surface)",
+                                      boxShadow: "var(--up-shadow-rest)",
+                                      marginBottom: 16,
                                     }}
                                   >
-                                      {showImage ? (
-                                        <img
-                                          src={currentFile.preview}
-                                          alt="Preview"
-                                          className={`transition-all duration-300 ${settings.enableCrop ? 'ring-2 ring-dashed ring-[#4F46E5] ring-offset-2' : ''}`}
-                                          style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            objectFit: (ratioValue || settings.photosPerPage > 1) ? 'cover' : 'contain',
-                                            objectPosition: `${imagePosition.x}% ${imagePosition.y}%`,
-                                            filter: imgFilter,
-                                          }}
-                                        />
-                                      ) : (
-                                        <div className="w-full h-full bg-white/80 border border-dashed border-gray-200 rounded-[4px]" />
-                                      )}
-                                      {showImage && settings.enableCrop && (
-                                        <div className="absolute inset-0 pointer-events-none border-2 border-dashed border-[#4F46E5]/40 flex items-center justify-center">
-                                          <div className="bg-[#4F46E5] text-white text-[8px] font-bold px-1 py-0.5 rounded absolute top-1 left-1 uppercase">Crop Active</div>
-                                        </div>
-                                      )}
+                                    <FileText size={20} strokeWidth={1.5} />
                                   </div>
+                                  <p
+                                    style={{
+                                      fontSize: "1.08em",
+                                      color: "var(--up-text)",
+                                      fontWeight: 500,
+                                      marginBottom: 4,
+                                    }}
+                                  >
+                                    {currentFile.file.name}
+                                  </p>
+                                  <p style={{ fontSize: "0.95em" }}>
+                                    {(currentFile.file.size / 1024).toFixed(1)} KB —
+                                    Preview unavailable
+                                  </p>
                                 </div>
-                                  );
-                                })()
-                              ))}
-                            </div>
+                              );
+                            }
 
-                            {/* Layout label overlay */}
-                            {settings.photosPerPage > 1 && (
-                              <div className="text-center pt-1 border-t border-gray-100 mt-1">
-                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">
-                                  Layout: {settings.photosPerPage} Photos per page
-                                </span>
+                            // Image preview with all the layout / margins / aspect-ratio logic
+                            const parseAspectRatioValue = (ratio: string): number | null => {
+                              if (!ratio || ratio === "Original") return null;
+                              if (ratio === "1:1 Square") return 1;
+                              if (ratio === "Full Page") {
+                                return settings.orientation === "Portrait"
+                                  ? 210 / 297
+                                  : 297 / 210;
+                              }
+                              if (ratio === "Custom") {
+                                const w = settings.customWidthDimensions || 0;
+                                const h = settings.customHeightDimensions || 0;
+                                return w > 0 && h > 0 ? w / h : null;
+                              }
+                              const [w, h] = ratio.split(":").map(Number);
+                              if (!w || !h) return null;
+                              return w / h;
+                            };
+
+                            const ratioValue = parseAspectRatioValue(settings.aspectRatio);
+                            const marginY =
+                              settings.margins === "None"
+                                ? 0
+                                : settings.margins === "Narrow"
+                                ? 8
+                                : settings.margins === "Normal"
+                                ? 16
+                                : settings.margins === "Wide"
+                                ? 32
+                                : settings.margins === "Custom"
+                                ? Math.max(0, (settings.customMarginTopBottom ?? 1) * 18)
+                                : 16;
+                            const marginX =
+                              settings.margins === "None"
+                                ? 0
+                                : settings.margins === "Narrow"
+                                ? 8
+                                : settings.margins === "Normal"
+                                ? 16
+                                : settings.margins === "Wide"
+                                ? 32
+                                : settings.margins === "Custom"
+                                ? Math.max(0, (settings.customMarginLeftRight ?? 1) * 18)
+                                : 16;
+
+                            const cols =
+                              settings.photosPerPage >= 35
+                                ? 7
+                                : settings.photosPerPage >= 16
+                                ? 4
+                                : settings.photosPerPage >= 9
+                                ? 3
+                                : settings.photosPerPage >= 4
+                                ? 2
+                                : settings.photosPerPage >= 2
+                                ? 2
+                                : 1;
+
+                            const rows = Math.ceil((settings.photosPerPage || 1) / cols);
+
+                            const imgFilter = `
+                              brightness(${100 + (settings.brightness || 0)}%)
+                              contrast(${100 + (settings.contrast || 0)}%)
+                              saturate(${100 + (settings.saturation || 0)}%)
+                              grayscale(${
+                                settings.colorMode === "Black & White" ? "100%" : "0%"
+                              })
+                            `;
+
+                            const getFrameDimensions = (
+                              cellWidth: number,
+                              cellHeight: number
+                            ) => {
+                              if (!ratioValue) return { width: cellWidth, height: cellHeight };
+                              const byWidthHeight = cellWidth / ratioValue;
+                              if (byWidthHeight <= cellHeight) {
+                                return { width: cellWidth, height: byWidthHeight };
+                              }
+                              return {
+                                width: cellHeight * ratioValue,
+                                height: cellHeight,
+                              };
+                            };
+
+                            const paper = getPaperAspectForOrientation(
+                              settings.paperSize,
+                              settings.orientation
+                            );
+                            const paperMm = getPaperPortraitMm(settings.paperSize);
+                            const areaScale = Math.max(
+                              0.55,
+                              Math.min(1.45, Math.sqrt((paperMm.w * paperMm.h) / (210 * 297)))
+                            );
+
+                            return (
+                              <div
+                                style={{
+                                  width: `${Math.round(
+                                    (settings.orientation === "Landscape" ? 460 : 330) *
+                                      areaScale
+                                  )}px`,
+                                  maxWidth: "100%",
+                                  aspectRatio: `${paper.w} / ${paper.h}`,
+                                  background: "#fff",
+                                  boxShadow:
+                                    "0 10px 30px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.06)",
+                                  padding: `${marginY}px ${marginX}px`,
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  transition: "all 0.3s var(--up-ease)",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    flex: 1,
+                                    display: "grid",
+                                    gridTemplateColumns: `repeat(${cols}, 1fr)`,
+                                    gridTemplateRows: `repeat(${rows}, 1fr)`,
+                                    gap: settings.photosPerPage > 1 ? 4 : 0,
+                                    overflow: "hidden",
+                                    placeContent: "center",
+                                    outline: "1px dashed rgba(0,113,227,0.20)",
+                                    outlineOffset: "-1px",
+                                  }}
+                                >
+                                  {Array.from({ length: settings.photosPerPage || 1 }).map(
+                                    (_, idx) =>
+                                      (() => {
+                                        const pageWidth =
+                                          settings.orientation === "Landscape" ? 440 : 320;
+                                        const pageHeight =
+                                          settings.orientation === "Landscape" ? 320 : 440;
+                                        const contentWidth = Math.max(
+                                          40,
+                                          pageWidth - marginX * 2
+                                        );
+                                        const contentHeight = Math.max(
+                                          40,
+                                          pageHeight -
+                                            marginY * 2 -
+                                            (settings.photosPerPage > 1 ? 20 : 0)
+                                        );
+                                        const cellWidth = contentWidth / cols;
+                                        const cellHeight = contentHeight / rows;
+                                        const frame = getFrameDimensions(cellWidth, cellHeight);
+                                        const showImage =
+                                          settings.pagesPerSheetFill === "repeat" || idx === 0;
+
+                                        return (
+                                          <div
+                                            key={idx}
+                                            className="flex items-center justify-center overflow-hidden"
+                                            style={{
+                                              width: "100%",
+                                              height: "100%",
+                                              minHeight: 0,
+                                              minWidth: 0,
+                                            }}
+                                          >
+                                            <div
+                                              style={{
+                                                position: "relative",
+                                                overflow: "hidden",
+                                                width: ratioValue
+                                                  ? `${Math.round(frame.width)}px`
+                                                  : "100%",
+                                                height: ratioValue
+                                                  ? `${Math.round(frame.height)}px`
+                                                  : "100%",
+                                                backgroundColor: "rgba(0,0,0,0.03)",
+                                                border: ratioValue
+                                                  ? "0.5px solid rgba(0,113,227,0.30)"
+                                                  : "none",
+                                                cursor:
+                                                  showImage && canRepositionImage
+                                                    ? isDraggingImage
+                                                      ? "grabbing"
+                                                      : "grab"
+                                                    : "default",
+                                              }}
+                                              onMouseDown={(e) =>
+                                                showImage && beginImageDrag(e.clientX, e.clientY)
+                                              }
+                                              onTouchStart={(e) => {
+                                                const touch = e.touches[0];
+                                                if (showImage && touch)
+                                                  beginImageDrag(touch.clientX, touch.clientY);
+                                              }}
+                                            >
+                                              {showImage ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img
+                                                  src={currentFile.preview}
+                                                  alt="Preview"
+                                                  style={{
+                                                    width: "100%",
+                                                    height: "100%",
+                                                    objectFit:
+                                                      ratioValue || settings.photosPerPage > 1
+                                                        ? "cover"
+                                                        : "contain",
+                                                    objectPosition: `${imagePosition.x}% ${imagePosition.y}%`,
+                                                    filter: imgFilter,
+                                                    transition: "filter 0.25s var(--up-ease)",
+                                                  }}
+                                                />
+                                              ) : (
+                                                <div
+                                                  style={{
+                                                    width: "100%",
+                                                    height: "100%",
+                                                    background: "rgba(0,0,0,0.02)",
+                                                    border: "0.5px dashed rgba(0,0,0,0.08)",
+                                                    borderRadius: 4,
+                                                  }}
+                                                />
+                                              )}
+                                              {showImage && settings.enableCrop && (
+                                                <div
+                                                  className="absolute inset-0 pointer-events-none"
+                                                  style={{
+                                                    border: "1.5px dashed rgba(0,113,227,0.55)",
+                                                  }}
+                                                />
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })()
+                                  )}
+                                </div>
                               </div>
-                            )}
+                            );
+                          })()
+                        : (
+                          <div
+                            className="text-center"
+                            style={{
+                              padding: 32,
+                              color: "var(--up-text-2)",
+                            }}
+                          >
+                            <div
+                              className="mx-auto flex items-center justify-center"
+                              style={{
+                                width: 56,
+                                height: 56,
+                                borderRadius: 14,
+                                background: "var(--up-surface)",
+                                boxShadow: "var(--up-shadow-rest)",
+                                marginBottom: 16,
+                              }}
+                            >
+                              <FileText size={20} strokeWidth={1.5} />
+                            </div>
+                            <p
+                              style={{
+                                fontSize: "1.08em",
+                                color: "var(--up-text)",
+                                fontWeight: 500,
+                              }}
+                            >
+                              No file selected
+                            </p>
                           </div>
-                        );
-                      })() : (
-                        <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 max-w-[280px] animate-in fade-in zoom-in-95 duration-500">
-                          <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 rotate-3">
-                            <FileText className="w-8 h-8 text-gray-400" />
-                          </div>
-                          <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight mb-1">{files[selectedFileIndex]?.file.name || 'Unknown File'}</h3>
-                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4">
-                            {files[selectedFileIndex] ? (files[selectedFileIndex].file.size / 1024).toFixed(1) : '0'} KB
-                          </p>
-                          <div className="px-3 py-1.5 bg-gray-100 rounded-full">
-                            <span className="text-[9px] font-black text-gray-500 uppercase">Preview not available for this format</span>
-                          </div>
-                        </div>
-                      )}
+                        )}
                     </motion.div>
 
-                    {/* Margin indicator */}
-                    <div className="flex items-center justify-between mt-2 px-1">
-                      <span className="text-[10px] font-bold text-secondary/50 uppercase">Margin: {settings.margins}</span>
-                      <span className="text-[10px] font-bold text-secondary/50 uppercase">
-                        {settings.aspectRatio !== 'Original' ? `Ratio: ${settings.aspectRatio}` : 'Original Size'}
-                        {settings.aspectRatio === 'Custom' ? ` (${settings.customWidthDimensions}×${settings.customHeightDimensions})` : ''}
+                    <div
+                      className="flex items-center justify-between"
+                      style={{
+                        marginTop: 12,
+                        fontSize: "0.95em",
+                        color: "var(--up-text-2)",
+                      }}
+                    >
+                      <span>Margins · {settings.margins}</span>
+                      <span>
+                        {settings.aspectRatio !== "Original"
+                          ? `Ratio · ${settings.aspectRatio}`
+                          : "Original"}
+                        {settings.aspectRatio === "Custom"
+                          ? ` (${settings.customWidthDimensions}×${settings.customHeightDimensions})`
+                          : ""}
                       </span>
                     </div>
+
                     {canRepositionImage && (
-                      <p className="text-[10px] text-[#4F46E5] font-semibold mt-2 px-1">
-                        Drag on photo preview to choose which part should stay inside selected ratio.
+                      <p
+                        style={{
+                          fontSize: "0.92em",
+                          color: "var(--up-accent)",
+                          marginTop: 6,
+                        }}
+                      >
+                        Drag the photo to reposition.
                       </p>
                     )}
-                    {/* Adjustments (Photos Only) */}
-                    {files[selectedFileIndex]?.file.type.startsWith("image/") && (
-                      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <div className="text-center p-2 bg-surface rounded-lg">
-                          <p className="text-[10px] text-secondary uppercase font-bold">Brightness</p>
-                          <p className="text-sm font-bold">{settings.brightness || 0}%</p>
-                        </div>
-                        <div className="text-center p-2 bg-surface rounded-lg">
-                          <p className="text-[10px] text-secondary uppercase font-bold">Contrast</p>
-                          <p className="text-sm font-bold">{settings.contrast || 0}%</p>
-                        </div>
-                        <div className="text-center p-2 bg-surface rounded-lg">
-                          <p className="text-[10px] text-secondary uppercase font-bold">Saturation</p>
-                          <p className="text-sm font-bold">{settings.saturation || 0}%</p>
-                        </div>
-                        <div className="text-center p-2 bg-surface rounded-lg">
-                          <p className="text-[10px] text-secondary uppercase font-bold">Exposure</p>
-                          <p className="text-sm font-bold">{settings.exposure || 0}%</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="bg-[#111827] p-4 rounded-2xl text-white">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">Print Note</p>
-                    <p className="text-xs leading-relaxed opacity-80 italic">"The final print quality may vary slightly based on the printer's calibration and paper quality."</p>
                   </div>
                 </div>
               </div>
@@ -1035,39 +1573,55 @@ function UserPageContent() {
           )}
 
           {step === 3 && jobResult && (
-            <SuccessScreen userId={jobResult.userId} jobId={jobResult.jobId} userToken={jobResult.userToken} isEncrypted={isEncrypted} />
+            <SuccessScreen
+              userId={jobResult.userId}
+              jobId={jobResult.jobId}
+              userToken={jobResult.userToken}
+              isEncrypted={isEncrypted}
+            />
           )}
         </AnimatePresence>
+      </div>
 
-        {showQRModal && <QRScanner onScan={handleScan} onClose={() => setShowQRModal(false)} />}
-      
+      {/* QR Scanner */}
+      {showQRModal && (
+        <QRScanner onScan={handleScan} onClose={() => setShowQRModal(false)} />
+      )}
+
+      {/* Image Editor */}
       <AnimatePresence>
         {showEditor && files[selectedFileIndex] && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }} 
-              animate={{ opacity: 1, scale: 1 }} 
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="w-full max-w-4xl"
-            >
-              <ImageEditor 
-                file={files[selectedFileIndex].file}
-                onSave={handleEditorSave}
-                onCancel={() => setShowEditor(false)}
-              />
-            </motion.div>
-          </div>
+          <motion.div
+            key="image-editor"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ImageEditor
+              file={files[selectedFileIndex].file}
+              onSave={handleEditorSave}
+              onCancel={() => setShowEditor(false)}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
-
-      </div>
     </div>
   );
 }
 
 export default function UserPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#F8F7F4] dark:bg-[#0B0B0F]"><Loader2 className="w-8 h-8 animate-spin text-[#4F46E5]" /></div>}>
+    <Suspense
+      fallback={
+        <div
+          className="user-portal min-h-screen flex items-center justify-center"
+          style={{ background: "var(--up-bg)" }}
+        >
+          <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--up-accent)" }} />
+        </div>
+      }
+    >
       <UserPageContent />
     </Suspense>
   );

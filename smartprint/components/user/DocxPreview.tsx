@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Loader2, FileText, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { getPaperAspectForOrientation } from "@/lib/printLayout";
+import { safeSplitOverflowingSections } from "@/lib/docxPaginate";
 
 interface DocxPreviewProps {
   file: File;
@@ -134,99 +135,7 @@ export default function DocxPreview({
         // single oversized section. Walk each section, and if its rendered
         // height exceeds the declared page height (min-height), redistribute
         // its <article> flow children across cloned section pages.
-        const splitOverflowingSections = () => {
-          const topLevel = Array.from(
-            host.querySelectorAll<HTMLElement>(":scope > section.docx")
-          );
-          if (!topLevel.length) return;
-
-          for (const section of topLevel) {
-            const cs = window.getComputedStyle(section);
-            const declaredHeight =
-              parseFloat(cs.minHeight) || section.offsetHeight;
-            const padTop = parseFloat(cs.paddingTop) || 0;
-            const padBottom = parseFloat(cs.paddingBottom) || 0;
-
-            const header = section.querySelector<HTMLElement>(":scope > header");
-            const footer = section.querySelector<HTMLElement>(":scope > footer");
-            const articles = Array.from(
-              section.querySelectorAll<HTMLElement>(":scope > article")
-            );
-            if (!articles.length) continue;
-
-            const headerH = header ? header.offsetHeight : 0;
-            const footerH = footer ? footer.offsetHeight : 0;
-            const availableContent = Math.max(
-              0,
-              declaredHeight - padTop - padBottom - headerH - footerH
-            );
-
-            // Already fits — nothing to split.
-            if (section.offsetHeight <= declaredHeight + 2) continue;
-            if (availableContent <= 0) continue;
-
-            // Collect every flow child across all <article> elements in
-            // document order.
-            const flowChildren: HTMLElement[] = [];
-            for (const a of articles) {
-              for (const child of Array.from(a.children)) {
-                if (child instanceof HTMLElement) flowChildren.push(child);
-              }
-            }
-            if (!flowChildren.length) continue;
-
-            const articleTemplate = articles[0];
-
-            const newPage = (): { page: HTMLElement; article: HTMLElement } => {
-              const page = section.cloneNode(false) as HTMLElement;
-              if (header) page.appendChild(header.cloneNode(true));
-              const article = articleTemplate.cloneNode(false) as HTMLElement;
-              page.appendChild(article);
-              // Insert next to original so layout context (font, width)
-              // stays identical for measurement.
-              section.parentElement?.insertBefore(page, section);
-              return { page, article };
-            };
-
-            const built: { page: HTMLElement; article: HTMLElement }[] = [];
-            let cur = newPage();
-            built.push(cur);
-
-            for (const child of flowChildren) {
-              cur.article.appendChild(child);
-              const articleH = cur.article.offsetHeight;
-              if (
-                articleH > availableContent &&
-                cur.article.children.length > 1
-              ) {
-                cur.article.removeChild(child);
-                cur = newPage();
-                built.push(cur);
-                cur.article.appendChild(child);
-              }
-            }
-
-            // Footers are placed after content (flex column nowrap with
-            // article margin-bottom: auto pushes footer to the bottom).
-            if (footer) {
-              for (const { page } of built) {
-                page.appendChild(footer.cloneNode(true));
-              }
-            }
-
-            // Remove original oversized section.
-            section.parentElement?.removeChild(section);
-          }
-        };
-
-        try {
-          splitOverflowingSections();
-        } catch (paginationErr) {
-          // Pagination is best-effort — fall back to single long section
-          // on any DOM error rather than crashing the preview.
-          // eslint-disable-next-line no-console
-          console.warn("docx pagination split failed:", paginationErr);
-        }
+        safeSplitOverflowingSections(host);
 
         // Each page is rendered as <section class="docx ...">
         const sections = Array.from(

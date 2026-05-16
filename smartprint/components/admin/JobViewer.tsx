@@ -4,11 +4,11 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import CountdownTimer from "./CountdownTimer";
 import type { JobResponse, PrintSettings } from "@/lib/types";
-import mammoth from "mammoth";
 import toast from "react-hot-toast";
 import { getMarginMm } from "@/lib/printLayout";
 
 const PDFPreview = dynamic(() => import("@/components/user/PDFPreview"), { ssr: false });
+const DocxPreview = dynamic(() => import("@/components/admin/DocxPreview"), { ssr: false });
 
 interface JobViewerProps {
   job: JobResponse;
@@ -31,7 +31,6 @@ export default function JobViewer({
   const [printProgress, setPrintProgress] = useState("");
   const [hasPrinted, setHasPrinted] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
-  const [docxHtmlPreviews, setDocxHtmlPreviews] = useState<Record<number, string[]>>({});
   const printRef = useRef<HTMLDivElement>(null);
 
   const fetchJobDetails = useCallback(async () => {
@@ -47,35 +46,6 @@ export default function JobViewer({
       const urls = data.fileUrls || [];
       setPreviewUrls(urls);
       if (data.status === "printed") setHasPrinted(true);
-
-      if (!data.isEncrypted && data.fileNames) {
-        data.fileNames.forEach(async (name: string, idx: number) => {
-          if (getFileType(name) === "docx" && urls[idx]) {
-            try {
-              const fetchUrlPart = urls[idx].split('token=')[1]?.split('&')[0];
-              const docRes = await fetch(`/api/jobs/${job.id}/file?name=${encodeURIComponent(name)}&token=${fetchUrlPart}`, {
-                credentials: "include"
-              });
-              const blob = await docRes.blob();
-              const arrayBuffer = await blob.arrayBuffer();
-              const mammothOptions = {
-                styleMap: ["p[style-name='Page Break'] => div.page-break"],
-                convertImage: mammoth.images.imgElement(function (image: any) {
-                  return image.read("base64").then(function (imageBuffer: any) {
-                    return { src: "data:" + image.contentType + ";base64," + imageBuffer }
-                  })
-                })
-              };
-              const result = await mammoth.convertToHtml({ arrayBuffer }, mammothOptions);
-              const pages = result.value.split(/<div class="page-break"><\/div>/i).filter(p => p.trim().length > 0);
-
-              setDocxHtmlPreviews(prev => ({ ...prev, [idx]: pages }));
-            } catch (e) {
-              console.error("Failed to fetch docx for preview", e);
-            }
-          }
-        });
-      }
     } catch (error) {
       console.error("Failed to fetch job details:", error);
     } finally {
@@ -282,45 +252,154 @@ export default function JobViewer({
         </script>
       </body>
       </html>`);
+    } else if (
+      fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      fileType?.includes('wordprocessingml') ||
+      fileType?.includes('officedocument')
+    ) {
+      // DOCX: render with docx-preview here in the main window so we
+      // have full DOM access (for fonts/styles + post-render pagination
+      // split). Then transplant the rendered HTML + extracted styles
+      // into the print window. We avoid loading any third-party CDN.
+
+      // Sync: write a loading placeholder so the outer document.close()
+      // call below has a valid document to finalise.
+      printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head><title></title><style>
+  body { margin:0; font-family: system-ui, sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; color:#666; }
+</style></head>
+<body><div>Preparing document for printing…</div></body>
+</html>`);
+
+      (async () => {
+        try {
+          // Offscreen render host inside the main page
+          const renderHost = document.createElement('div');
+          renderHost.style.position = 'fixed';
+          renderHost.style.left = '-99999px';
+          renderHost.style.top = '0';
+          renderHost.style.visibility = 'hidden';
+          renderHost.style.pointerEvents = 'none';
+          document.body.appendChild(renderHost);
+
+          const styleContainer = document.createElement('div');
+          document.head.appendChild(styleContainer);
+
+          const arrayBuffer = await fileBlob.arrayBuffer();
+          const { renderAsync } = await import('docx-preview');
+          await renderAsync(arrayBuffer, renderHost, styleContainer, {
+            className: 'docx-print',
+            inWrapper: true,
+            ignoreWidth: false,
+            ignoreHeight: false,
+            ignoreFonts: false,
+            breakPages: true,
+            ignoreLastRenderedPageBreak: false,
+            experimental: false,
+            trimXmlDeclaration: true,
+            useBase64URL: true,
+            renderHeaders: true,
+            renderFooters: true,
+            renderFootnotes: true,
+            renderEndnotes: true,
+          });
+
+          const { safeSplitOverflowingSections } = await import('@/lib/docxPaginate');
+          safeSplitOverflowingSections(renderHost);
+
+          const renderedHtml = renderHost.innerHTML;
+          const extractedStyles = styleContainer.innerHTML;
+
+          document.body.removeChild(renderHost);
+          document.head.removeChild(styleContainer);
+
+          // Replace the loading placeholder with the real document.
+          // We let docx-preview control the page geometry; @page uses
+          // size:auto so the browser picks the right sheet.
+          const printDoc = printWindow.document;
+
+          const printStyle = printDoc.createElement('style');
+          printStyle.textContent = `
+            * { box-sizing: border-box; }
+            @page { size: auto; margin: 0mm; }
+            html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { margin: 0; padding: 0; background: white; ${isGrayscale ? 'filter: grayscale(100%);' : ''} }
+
+            /* Strip the on-screen wrapper chrome — flow real pages into
+               the printer, one per sheet. Do NOT touch section width /
+               min-height / padding. */
+            .docx-print-wrapper {
+              background: white !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              display: block !important;
+            }
+            .docx-print-wrapper > section.docx-print {
+              background: white !important;
+              box-shadow: none !important;
+              margin: 0 !important;
+              page-break-after: always !important;
+              break-after: page !important;
+            }
+            .docx-print-wrapper > section.docx-print:last-child {
+              page-break-after: avoid !important;
+              break-after: auto !important;
+            }
+          `;
+
+          const docxStyle = printDoc.createElement('div');
+          docxStyle.innerHTML = extractedStyles;
+
+          printDoc.head.innerHTML = '<title></title>';
+          printDoc.head.appendChild(printStyle);
+          // Move every <style>/<link> emitted by docx-preview into the
+          // print window's <head>.
+          Array.from(docxStyle.children).forEach((el) => printDoc.head.appendChild(el));
+
+          printDoc.body.innerHTML = renderedHtml;
+
+          // Trigger print after layout settles.
+          const trigger = () => {
+            try {
+              printWindow.focus();
+              printWindow.print();
+            } catch (e) {
+              console.error('Print trigger failed:', e);
+            }
+          };
+          printWindow.onafterprint = () => printWindow.close();
+          setTimeout(trigger, 600);
+        } catch (err) {
+          console.error('DOCX print render failed:', err);
+          try {
+            printWindow.document.body.innerHTML =
+              '<p style="font-family:system-ui;padding:2rem;">Could not render document for printing.</p>';
+          } catch {
+            /* ignore */
+          }
+          toast.error('Failed to prepare DOCX for printing.');
+        }
+      })();
     } else {
-      // DOCX and other: use mammoth conversion
+      // Unknown type — best-effort iframe fallback
       printWindow.document.write(`<!DOCTYPE html>
       <html>
       <head>
         <title></title>
         <style>${printCSS}
-          body {
-            font-family: 'Times New Roman', Times, serif;
-            font-size: 12pt;
-            line-height: 1.5;
-            padding: 2cm;
-            color: black;
-          }
-          img { max-width: 100%; height: auto; }
-          table { border-collapse: collapse; width: 100%; }
-          td, th { border: 1px solid #ccc; padding: 6px; }
-          @media print {
-            @page { margin: 2cm; size: ${cssSize} ${orientation}; }
-            body { padding: 0; }
-          }
+          iframe { width: 100vw; height: 100vh; border: none; }
         </style>
       </head>
       <body>
-        <div id="content">Converting document...</div>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+        <iframe src="${blobUrl}" id="genericFrame"></iframe>
         <script>
-          fetch("${blobUrl}")
-            .then(r => r.arrayBuffer())
-            .then(buf => mammoth.convertToHtml({arrayBuffer: buf}))
-            .then(result => {
-              document.getElementById('content').innerHTML = result.value
-              setTimeout(function() { window.print() }, 800)
-            })
-            .catch(err => {
-              document.getElementById('content').innerHTML = 
-                '<p>Could not render document. Please check the file.</p>'
-            })
-          window.onafterprint = function() { window.close() }
+          document.getElementById('genericFrame').onload = function() {
+            setTimeout(function() {
+              this.contentWindow.print();
+            }.bind(document.getElementById('genericFrame')), 500);
+          };
+          window.onafterprint = function() { window.close(); };
         </script>
       </body>
       </html>`);
@@ -700,15 +779,12 @@ export default function JobViewer({
                           </div>
                         ) : isPdfFile(name) && previewUrls[index] ? (
                           <iframe src={`${previewUrls[index]}#toolbar=0`} style={{ width: '100%', height: '800px', border: 'none' }} title={name} />
-                        ) : isDocxFile(name) && docxHtmlPreviews[index] ? (
-                          <div className="bg-[#E5E7EB] py-8 flex flex-col items-center gap-6">
-                            {docxHtmlPreviews[index].map((pageHtml, pIdx) => (
-                               <div
-                                 key={pIdx}
-                                 style={{ width: '794px', minHeight: '1123px', padding: '96px', background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', boxSizing: 'border-box', fontFamily: 'Calibri, Arial, sans-serif', fontSize: '12pt', lineHeight: 1.5, color: '#000', overflow: 'hidden' }}
-                                 dangerouslySetInnerHTML={{ __html: pageHtml }}
-                               />
-                            ))}
+                        ) : isDocxFile(name) && previewUrls[index] ? (
+                          <div className="w-full min-h-[min(70vh,720px)] bg-[#E5E7EB] rounded-b-lg overflow-hidden">
+                            <DocxPreview
+                              fileUrl={previewUrls[index]}
+                              grayscale={jobData.settings?.colorMode === "Black & White"}
+                            />
                           </div>
                         ) : (
                           <div className="p-12 text-center text-secondary">

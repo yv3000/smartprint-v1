@@ -98,9 +98,9 @@ export default function DocxPreview({
   }, [fileUrl]);
 
   return (
-    <div className={`relative w-full h-full bg-[#E8E8E8] ${className}`}>
+    <div className={`relative w-full h-full ${className}`}>
       {loading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#E8E8E8] z-10">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#EFEFEF] z-10">
           <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
             Rendering document…
@@ -109,7 +109,7 @@ export default function DocxPreview({
       )}
 
       {error && !loading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#E8E8E8] z-10 p-8 text-center">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#EFEFEF] z-10 p-8 text-center">
           <div className="w-14 h-14 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center">
             <AlertCircle className="w-7 h-7 text-red-400" />
           </div>
@@ -122,32 +122,46 @@ export default function DocxPreview({
         </div>
       )}
 
+      {/*
+        This is the container passed to docx-preview's renderAsync.
+        It owns the gray paper backdrop + scrollable viewport.
+        docx-preview will mount <div class="docx-admin-wrapper"> inside,
+        which itself contains one <section class="docx-admin"> per page.
+      */}
       <div
         ref={containerRef}
-        className="docx-admin-host w-full h-full overflow-auto"
+        className="docx-admin-host w-full h-full overflow-y-auto"
         style={{
+          background: "#EFEFEF",
+          padding: "24px",
           filter: grayscale ? "grayscale(1) contrast(1.05)" : undefined,
         }}
       />
 
       <style jsx global>{`
-        /* docx-preview emits a wrapper + per-page <section.docx-admin>.
-           We provide the gray paper backdrop, drop shadow and gap between
-           pages. Crucially we do NOT touch width / min-height / padding
-           on .docx-admin sections — those carry the original Word page
-           geometry and must stay intact. */
+        /*
+          Wrapper provided by docx-preview (inWrapper: true). We make it a
+          flex column so pages stack vertically with a gap between them.
+          We deliberately do NOT touch width / min-height / padding on
+          section.docx-admin — those carry the original Word page
+          geometry (page size, margins) and must stay intact.
+        */
         .docx-admin-host .docx-admin-wrapper {
-          background: #e8e8e8 !important;
-          padding: 24px !important;
-          display: flex;
-          flex-flow: column;
-          align-items: center;
-          gap: 24px;
+          background: transparent !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          display: flex !important;
+          flex-flow: column nowrap !important;
+          align-items: center !important;
+          gap: 24px !important;
         }
 
         .docx-admin-host section.docx-admin {
           background: white !important;
-          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18) !important;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+          /* Reset docx-preview's default margin-bottom: 30px so the
+             flex gap controls page spacing instead. We do NOT touch
+             width / min-height / padding. */
           margin: 0 !important;
           color-scheme: light;
           color: #1a1a1a;

@@ -780,7 +780,7 @@ export default function JobViewer({
                         ) : isPdfFile(name) && previewUrls[index] ? (
                           <iframe src={`${previewUrls[index]}#toolbar=0`} style={{ width: '100%', height: '800px', border: 'none' }} title={name} />
                         ) : isDocxFile(name) && previewUrls[index] ? (
-                          <div className="w-full min-h-[min(70vh,720px)] bg-[#E5E7EB] rounded-b-lg overflow-hidden">
+                          <div className="w-full h-[80vh] max-h-[900px] bg-[#EFEFEF] rounded-b-lg overflow-hidden">
                             <DocxPreview
                               fileUrl={previewUrls[index]}
                               grayscale={jobData.settings?.colorMode === "Black & White"}

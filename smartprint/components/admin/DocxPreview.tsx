@@ -188,6 +188,11 @@ export default function DocxPreview({
              flex gap controls page spacing instead. We do NOT touch
              width / min-height / padding. */
           margin: 0 !important;
+          /* Don't clip oversized children at the section bottom edge.
+             Tall tables / images that exceed the declared min-height
+             would otherwise get cut by docx-preview's default
+             overflow: hidden. */
+          overflow: visible !important;
           color-scheme: light;
           color: #1a1a1a;
         }

@@ -115,12 +115,18 @@ export function safeSplitOverflowingSections(host: HTMLElement): void {
 }
 
 /**
- * Remove section pages whose <article> contains no text and no media.
+ * Remove section pages whose <article> renders nothing visible.
  *
  * Forced pagination via ignoreLastRenderedPageBreak: true creates a
  * trailing empty section after every paragraph-level <w:sectPr>, plus
  * one for the document's body-level master sectPr. Those render as
  * blank page boxes in the preview. This pass strips them.
+ *
+ * Conservative detection: a section is "blank" only when every
+ * <article> child either has no children at all or all children have
+ * offsetHeight ≤ 1px. This preserves pages that contain intentional
+ * empty paragraphs (which retain their min-height: 1em via the default
+ * docx-preview style) or any other rendered-but-textless content.
  */
 export function removeBlankSections(host: HTMLElement): void {
   const sections = Array.from(
@@ -130,23 +136,26 @@ export function removeBlankSections(host: HTMLElement): void {
     const articles = Array.from(
       section.querySelectorAll<HTMLElement>(":scope > article"),
     );
+
+    // No article at all = pure header/footer chrome → blank.
     if (!articles.length) {
-      // Section without any article = pure header/footer chrome page.
-      // Treat as blank.
       section.parentElement?.removeChild(section);
       continue;
     }
-    let hasContent = false;
+
+    let hasRenderedContent = false;
     for (const article of articles) {
-      const text = (article.textContent ?? "").replace(/\s+/g, "");
-      const hasMedia =
-        article.querySelector("img, svg, table, canvas, video") !== null;
-      if (text.length > 0 || hasMedia) {
-        hasContent = true;
-        break;
+      if (article.children.length === 0) continue;
+      for (const child of Array.from(article.children)) {
+        if (child instanceof HTMLElement && child.offsetHeight > 1) {
+          hasRenderedContent = true;
+          break;
+        }
       }
+      if (hasRenderedContent) break;
     }
-    if (!hasContent) {
+
+    if (!hasRenderedContent) {
       section.parentElement?.removeChild(section);
     }
   }

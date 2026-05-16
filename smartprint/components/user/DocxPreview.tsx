@@ -6,6 +6,7 @@ import { getPaperAspectForOrientation } from "@/lib/printLayout";
 import {
   safeSplitOverflowingSections,
   safeRemoveBlankSections,
+  docxHasPageBorders,
 } from "@/lib/docxPaginate";
 
 interface DocxPreviewProps {
@@ -69,6 +70,7 @@ export default function DocxPreview({
   const [pageNodes, setPageNodes] = useState<HTMLElement[]>([]);
   const [pageWidthPx, setPageWidthPx] = useState<number>(794); // A4 portrait default
   const [pageHeightPx, setPageHeightPx] = useState<number>(1123);
+  const [hasPageBorders, setHasPageBorders] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [visibleIndex, setVisibleIndex] = useState(0);
@@ -86,6 +88,13 @@ export default function DocxPreview({
         const { renderAsync } = await import("docx-preview");
         const buffer = await file.arrayBuffer();
         if (cancelled) return;
+
+        // Detect <w:pgBorders> in the source XML so we can draw a
+        // matching CSS border on each rendered section (docx-preview
+        // parses pgBorders but never renders them).
+        const borderFlag = await docxHasPageBorders(buffer);
+        if (cancelled) return;
+        setHasPageBorders(borderFlag);
 
         // Hidden render host for the page bodies
         const host = document.createElement("div");
@@ -351,6 +360,7 @@ export default function DocxPreview({
                     width={pageWidthPx}
                     height={pageHeightPx}
                     scale={pageScale}
+                    hasPageBorders={hasPageBorders}
                   />
                 ) : (
                   <div className="absolute inset-0 border border-dashed border-gray-200 rounded-sm bg-white/90" />
@@ -414,6 +424,21 @@ export default function DocxPreview({
           color: #1a1a1a;
           background: transparent;
         }
+
+        /* Don't clip oversized children at the section bottom edge.
+           docx-preview's default style has overflow: hidden, which can
+           crop tall tables or single-image pages where post-pagination
+           content is bigger than the declared min-height. */
+        .docx-page-mount section[class*='docx'] {
+          overflow: visible !important;
+        }
+
+        /* Source document defines <w:pgBorders>: draw a matching inset
+           border on every rendered section to mimic Word's page border
+           (docx-preview parses but never renders pgBorders). */
+        .docx-page-mount[data-page-borders="1"] section[class*='docx'] {
+          box-shadow: inset 0 0 0 1.2pt #000 !important;
+        }
       `}</style>
     </div>
   );
@@ -427,11 +452,13 @@ function DocxPageHost({
   width,
   height,
   scale,
+  hasPageBorders,
 }: {
   pageNode: HTMLElement;
   width: number;
   height: number;
   scale: number;
+  hasPageBorders?: boolean;
 }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
 
@@ -449,6 +476,7 @@ function DocxPageHost({
     <div
       ref={mountRef}
       className="docx-page-mount"
+      data-page-borders={hasPageBorders ? "1" : undefined}
       style={{
         position: "absolute",
         top: 0,

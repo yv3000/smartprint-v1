@@ -295,7 +295,10 @@ export default function JobViewer({
             ignoreHeight: false,
             ignoreFonts: false,
             breakPages: true,
-            ignoreLastRenderedPageBreak: false,
+            // Force pagination on every <w:sectPr> boundary so docs
+            // with section breaks but no lastRenderedPageBreak markers
+            // print one section per sheet.
+            ignoreLastRenderedPageBreak: true,
             experimental: false,
             trimXmlDeclaration: true,
             useBase64URL: true,

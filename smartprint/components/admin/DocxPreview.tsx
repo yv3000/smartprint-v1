@@ -63,7 +63,13 @@ export default function DocxPreview({
           ignoreHeight: false,
           ignoreFonts: false,
           breakPages: true,
-          ignoreLastRenderedPageBreak: false,
+          // Force every <w:sectPr> boundary to create a new page group
+          // (docx-preview only honours sectPr as page break when page
+          // size changes, otherwise sections collapse into one giant
+          // page). Setting this true makes every section break paginate.
+          // Files that do contain genuine lastRenderedPageBreak hints
+          // are still served by the post-render overflow split.
+          ignoreLastRenderedPageBreak: true,
           experimental: false,
           trimXmlDeclaration: true,
           useBase64URL: true,

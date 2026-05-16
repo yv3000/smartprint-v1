@@ -113,7 +113,10 @@ export default function DocxPreview({
           ignoreHeight: false,
           ignoreFonts: false,
           breakPages: true,
-          ignoreLastRenderedPageBreak: false,
+          // See admin/DocxPreview.tsx — same rationale: forces every
+          // <w:sectPr> boundary to paginate so files with section
+          // breaks but no lastRenderedPageBreak markers split correctly.
+          ignoreLastRenderedPageBreak: true,
           experimental: false,
           trimXmlDeclaration: true,
           useBase64URL: false,

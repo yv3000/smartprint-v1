@@ -113,3 +113,77 @@ export function safeSplitOverflowingSections(host: HTMLElement): void {
     console.warn("docx pagination split failed:", err);
   }
 }
+
+/**
+ * Remove section pages whose <article> contains no text and no media.
+ *
+ * Forced pagination via ignoreLastRenderedPageBreak: true creates a
+ * trailing empty section after every paragraph-level <w:sectPr>, plus
+ * one for the document's body-level master sectPr. Those render as
+ * blank page boxes in the preview. This pass strips them.
+ */
+export function removeBlankSections(host: HTMLElement): void {
+  const sections = Array.from(
+    host.querySelectorAll<HTMLElement>("section[class*='docx']"),
+  );
+  for (const section of sections) {
+    const articles = Array.from(
+      section.querySelectorAll<HTMLElement>(":scope > article"),
+    );
+    if (!articles.length) {
+      // Section without any article = pure header/footer chrome page.
+      // Treat as blank.
+      section.parentElement?.removeChild(section);
+      continue;
+    }
+    let hasContent = false;
+    for (const article of articles) {
+      const text = (article.textContent ?? "").replace(/\s+/g, "");
+      const hasMedia =
+        article.querySelector("img, svg, table, canvas, video") !== null;
+      if (text.length > 0 || hasMedia) {
+        hasContent = true;
+        break;
+      }
+    }
+    if (!hasContent) {
+      section.parentElement?.removeChild(section);
+    }
+  }
+}
+
+export function safeRemoveBlankSections(host: HTMLElement): void {
+  try {
+    removeBlankSections(host);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("docx blank-section cleanup failed:", err);
+  }
+}
+
+/**
+ * Inspect the .docx archive and report whether any <w:sectPr> defines
+ * <w:pgBorders>. docx-preview parses page borders but never renders
+ * them — when this returns true, the caller can apply CSS borders to
+ * each rendered section to match the original document.
+ */
+export async function docxHasPageBorders(
+  arrayBuffer: ArrayBuffer,
+): Promise<boolean> {
+  try {
+    // jszip is already a transitive dependency of docx-preview.
+    const JSZipMod = await import("jszip");
+    const JSZip = JSZipMod.default ?? JSZipMod;
+    // The constructor lives on whichever shape we get back.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const zip = await (JSZip as any).loadAsync(arrayBuffer);
+    const docFile = zip.file("word/document.xml");
+    if (!docFile) return false;
+    const xml: string = await docFile.async("string");
+    return /<w:pgBorders\b/.test(xml);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("docx pgBorders detection failed:", err);
+    return false;
+  }
+}

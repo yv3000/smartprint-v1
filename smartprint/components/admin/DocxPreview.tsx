@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
-import { safeSplitOverflowingSections } from "@/lib/docxPaginate";
+import {
+  safeSplitOverflowingSections,
+  safeRemoveBlankSections,
+  docxHasPageBorders,
+} from "@/lib/docxPaginate";
 
 interface DocxPreviewProps {
   /** Pre-signed URL to fetch the .docx file from. */
@@ -55,6 +59,17 @@ export default function DocxPreview({
         const arrayBuffer = await response.arrayBuffer();
         if (cancelled || !containerRef.current) return;
 
+        // Detect <w:pgBorders> in the source XML so we can draw matching
+        // CSS borders on each rendered section (docx-preview parses but
+        // never renders pgBorders).
+        const hasBorders = await docxHasPageBorders(arrayBuffer);
+        if (cancelled || !containerRef.current) return;
+        if (hasBorders) {
+          containerRef.current.dataset.pageBorders = "1";
+        } else {
+          delete containerRef.current.dataset.pageBorders;
+        }
+
         const { renderAsync } = await import("docx-preview");
         await renderAsync(arrayBuffer, containerRef.current, undefined, {
           className: "docx-admin",
@@ -84,6 +99,10 @@ export default function DocxPreview({
         // Split sections that overflow their declared page height — fixes
         // documents lacking lastRenderedPageBreak markers.
         safeSplitOverflowingSections(containerRef.current);
+
+        // Strip blank section pages produced by paragraph-level sectPr
+        // boundaries (forced pagination side-effect).
+        safeRemoveBlankSections(containerRef.current);
 
         if (!cancelled) setLoading(false);
       } catch (e) {
@@ -171,6 +190,17 @@ export default function DocxPreview({
           margin: 0 !important;
           color-scheme: light;
           color: #1a1a1a;
+        }
+
+        /* docx-preview parses <w:pgBorders> but does not render them.
+           When the source document defines page borders, we draw a
+           matching inset border on each section. We use box-shadow inset
+           rather than border/outline so it doesn't disturb the layout
+           that docx-preview already set on the section box. */
+        .docx-admin-host[data-page-borders="1"] section.docx-admin {
+          box-shadow:
+            0 2px 8px rgba(0, 0, 0, 0.15),
+            inset 0 0 0 1.2pt #000 !important;
         }
 
         /* Theme isolation: keep paper light in dark-mode body. */

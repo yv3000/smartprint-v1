@@ -308,8 +308,10 @@ export default function JobViewer({
             renderEndnotes: true,
           });
 
-          const { safeSplitOverflowingSections } = await import('@/lib/docxPaginate');
+          const { safeSplitOverflowingSections, safeRemoveBlankSections, docxHasPageBorders } = await import('@/lib/docxPaginate');
           safeSplitOverflowingSections(renderHost);
+          safeRemoveBlankSections(renderHost);
+          const hasPageBorders = await docxHasPageBorders(arrayBuffer);
 
           const renderedHtml = renderHost.innerHTML;
           const extractedStyles = styleContainer.innerHTML;
@@ -349,6 +351,13 @@ export default function JobViewer({
               page-break-after: avoid !important;
               break-after: auto !important;
             }
+            ${hasPageBorders ? `
+            /* Source document defines <w:pgBorders>; draw a matching
+               inset border on every printed page. */
+            .docx-print-wrapper > section.docx-print {
+              box-shadow: inset 0 0 0 1.2pt #000 !important;
+            }
+            ` : ''}
           `;
 
           const docxStyle = printDoc.createElement('div');

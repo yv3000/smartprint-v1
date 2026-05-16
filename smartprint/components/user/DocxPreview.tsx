@@ -3,7 +3,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Loader2, FileText, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { getPaperAspectForOrientation } from "@/lib/printLayout";
-import { safeSplitOverflowingSections } from "@/lib/docxPaginate";
+import {
+  safeSplitOverflowingSections,
+  safeRemoveBlankSections,
+} from "@/lib/docxPaginate";
 
 interface DocxPreviewProps {
   file: File;
@@ -139,6 +142,9 @@ export default function DocxPreview({
         // height exceeds the declared page height (min-height), redistribute
         // its <article> flow children across cloned section pages.
         safeSplitOverflowingSections(host);
+        // Strip blank section pages from forced pagination
+        // (ignoreLastRenderedPageBreak: true) on this host.
+        safeRemoveBlankSections(host);
 
         // Each page is rendered as <section class="docx ...">
         const sections = Array.from(

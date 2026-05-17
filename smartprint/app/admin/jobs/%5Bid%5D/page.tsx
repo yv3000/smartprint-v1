@@ -23,10 +23,13 @@ import AdminSecurityLayer from "@/components/admin/AdminSecurityLayer";
 import CountdownTimer from "@/components/admin/CountdownTimer";
 import { JobResponse, PrintSettings } from "@/lib/types";
 
-// @eigenpal/docx-js-editor reaches into the DOM at import time and
-// breaks SSR — load it client-side only.
+// Same docx-preview component used in the dashboard JobViewer. Has
+// 5 rounds of fixes for the Aryan Dhakad.docx and similar files:
+// forced sectPr pagination, overflow split, blank-section cleanup,
+// jszip-based <w:pgBorders> detection. Kept client-side via dynamic
+// import to avoid SSR issues with jszip's binary code paths.
 const DocxViewer = dynamic(
-  () => import("@/components/admin/DocxViewer"),
+  () => import("@/components/admin/DocxPreview"),
   { ssr: false },
 );
 

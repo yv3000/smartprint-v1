@@ -5,7 +5,7 @@ import { isAdminOnline } from "@/lib/adminPresence";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { createId } from "@paralleldrive/cuid2";
-import { convertDocxToImages } from "@/lib/docxConvert";
+import { uploadToDrive } from "@/lib/googleDrive";
 
 // Increase body size limit for file uploads
 export const runtime = "nodejs";
@@ -86,14 +86,21 @@ export async function POST(req: NextRequest) {
       const filePath = join(storageDir, file.name);
       await writeFile(filePath, buffer);
 
-      // Fire-and-forget DOCX → PDF → JPEG preview pipeline. Skipped for
-      // encrypted jobs (we never decrypt server-side). Failure leaves
-      // no preview-*.jpg files; the preview API reports ready: false
-      // and the admin UI keeps polling.
+      // Drive upload for DOCX preview. Skipped for encrypted jobs (we
+      // never decrypt server-side, so we'd be uploading ciphertext that
+      // Drive can't render). Failure is logged but does not abort the
+      // upload — the admin preview will fall back to the unavailable
+      // state if driveViewUrl is null.
       if (!isEncrypted && /\.docx$/i.test(file.name)) {
-        convertDocxToImages(jobId, file.name).catch((err) =>
-          console.error("[Job Create] DOCX conversion failed:", err),
-        );
+        try {
+          const { fileId, previewUrl } = await uploadToDrive(buffer, file.name);
+          await prisma.job.update({
+            where: { id: jobId },
+            data: { driveFileId: fileId, driveViewUrl: previewUrl },
+          });
+        } catch (driveErr) {
+          console.error("[Job Create] Drive upload failed:", driveErr);
+        }
       }
     }
 

@@ -42,18 +42,6 @@ const PDFPreview = dynamic(() => import("@/components/user/PDFPreview"), {
   ),
 });
 
-const DocxPreview = dynamic(() => import("@/components/user/DocxPreview"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex flex-col items-center justify-center p-20 gap-3">
-      <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--up-accent)" }} />
-      <p className="up-section-label" style={{ fontSize: "0.92em" }}>
-        Loading Document Viewer
-      </p>
-    </div>
-  ),
-});
-
 /* ── Helpers ────────────────────────────────────────────── */
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -1137,23 +1125,15 @@ function UserPageContent() {
 
                             if (isDocx) {
                               return (
-                                <DocxPreview
-                                  file={currentFile.file}
-                                  paperSize={settings.paperSize}
-                                  margins={settings.margins}
-                                  customMarginTopBottom={settings.customMarginTopBottom}
-                                  customMarginLeftRight={settings.customMarginLeftRight}
-                                  orientation={settings.orientation}
-                                  baseColorMode={settings.colorMode}
-                                  pagesPerSheet={settings.pagesPerSheet}
-                                  pagesPerSheetFill={settings.pagesPerSheetFill}
-                                  pageSelection={settings.pageSelection}
-                                  customPageRange={settings.customPageRange || ""}
-                                  currentPage={currentPreviewPage}
-                                  onPageChange={setCurrentPreviewPage}
-                                  scaleMode={settings.scaleMode}
-                                  customScalePercentage={settings.customScalePercentage}
-                                />
+                                <div className="flex flex-col items-center justify-center p-20 gap-3 text-center">
+                                  <p className="up-section-label" style={{ fontSize: "0.92em" }}>
+                                    Live preview not available for .docx files
+                                  </p>
+                                  <p className="text-xs text-gray-500 max-w-xs leading-relaxed">
+                                    Your document will be rendered exactly in the
+                                    print shop&apos;s admin view via Google Drive.
+                                  </p>
+                                </div>
                               );
                             }
 

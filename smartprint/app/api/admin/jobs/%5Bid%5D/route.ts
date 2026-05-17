@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { join } from "path";
 import { readdirSync } from "fs";
+import { deleteFromDrive } from "@/lib/googleDrive";
 
 export async function GET(
   req: NextRequest,
@@ -112,6 +113,12 @@ export async function DELETE(
     where: { id: params.id },
     data: { status: "deleted" },
   });
+
+  // Best-effort delete of the Drive copy. Errors logged inside
+  // deleteFromDrive — we never block the local cleanup on Drive.
+  if (job.driveFileId) {
+    await deleteFromDrive(job.driveFileId);
+  }
 
   // Physically delete files from /tmp/
   const storageDir = join(process.cwd(), "tmp", "smartprint", params.id);

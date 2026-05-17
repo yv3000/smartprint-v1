@@ -57,6 +57,10 @@ export interface JobResponse {
   encryptionKeys?: string;
   fileInfos?: any[];
   remainingSeconds?: number;
+  /** Google Drive file id for the uploaded DOCX (null for non-docx jobs / encrypted jobs / Drive failure). */
+  driveFileId?: string | null;
+  /** Embeddable Drive preview URL — used by the admin iframe preview. */
+  driveViewUrl?: string | null;
 }
 
 export interface CreateJobResponse {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { 
@@ -22,16 +21,6 @@ import toast from "react-hot-toast";
 import AdminSecurityLayer from "@/components/admin/AdminSecurityLayer";
 import CountdownTimer from "@/components/admin/CountdownTimer";
 import { JobResponse, PrintSettings } from "@/lib/types";
-
-// Same docx-preview component used in the dashboard JobViewer. Has
-// 5 rounds of fixes for the Aryan Dhakad.docx and similar files:
-// forced sectPr pagination, overflow split, blank-section cleanup,
-// jszip-based <w:pgBorders> detection. Kept client-side via dynamic
-// import to avoid SSR issues with jszip's binary code paths.
-const DocxViewer = dynamic(
-  () => import("@/components/admin/DocxPreview"),
-  { ssr: false },
-);
 
 export default function JobDetail() {
   const { id } = useParams();
@@ -180,23 +169,20 @@ export default function JobDetail() {
                  </div>
               ) : (
                 <div className="w-full h-full flex flex-col overflow-hidden bg-[#525659]">
-                  {(() => {
-                    const docxIndex =
-                      job.fileNames?.findIndex((n: string) =>
-                        n.toLowerCase().endsWith(".docx"),
-                      ) ?? -1;
-                    const docxUrl =
-                      docxIndex >= 0 ? job.fileUrls?.[docxIndex] : null;
-                    return docxUrl ? (
-                      <DocxViewer fileUrl={docxUrl} />
-                    ) : (
-                      <div className="flex-1 flex items-center justify-center text-white/40">
-                        <p className="font-bold text-sm uppercase tracking-widest">
-                          No DOCX file found
-                        </p>
-                      </div>
-                    );
-                  })()}
+                  {job.driveViewUrl ? (
+                    <iframe
+                      src={job.driveViewUrl}
+                      className="w-full h-full"
+                      style={{ border: "none", minHeight: "80vh" }}
+                      title="Document Preview"
+                    />
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center text-white/40 text-center px-8">
+                      <p className="font-bold text-sm uppercase tracking-widest">
+                        Preview unavailable
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
               

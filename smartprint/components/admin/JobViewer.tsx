@@ -8,7 +8,6 @@ import toast from "react-hot-toast";
 import { getMarginMm } from "@/lib/printLayout";
 
 const PDFPreview = dynamic(() => import("@/components/user/PDFPreview"), { ssr: false });
-const DocxPreview = dynamic(() => import("@/components/admin/DocxPreview"), { ssr: false });
 
 interface JobViewerProps {
   job: JobResponse;
@@ -308,14 +307,14 @@ export default function JobViewer({
             renderEndnotes: true,
           });
 
-          const { safeSplitOverflowingSections, safeRemoveBlankSections, docxHasPageBorders } = await import('@/lib/docxPaginate');
-          safeSplitOverflowingSections(renderHost);
-          safeRemoveBlankSections(renderHost);
-          const hasPageBorders = await docxHasPageBorders(arrayBuffer);
+          // Raw docx-preview render — no post-process pagination split or
+          // page-border detection (lib/docxPaginate was removed when the
+          // preview path moved to Google Drive iframe). Print will use
+          // whatever page boundaries docx-preview produces natively.
+          const hasPageBorders = false;
 
           const renderedHtml = renderHost.innerHTML;
           const extractedStyles = styleContainer.innerHTML;
-
           document.body.removeChild(renderHost);
           document.head.removeChild(styleContainer);
 
@@ -791,12 +790,18 @@ export default function JobViewer({
                           </div>
                         ) : isPdfFile(name) && previewUrls[index] ? (
                           <iframe src={`${previewUrls[index]}#toolbar=0`} style={{ width: '100%', height: '800px', border: 'none' }} title={name} />
-                        ) : isDocxFile(name) && previewUrls[index] ? (
+                        ) : isDocxFile(name) && jobData.driveViewUrl ? (
                           <div className="w-full h-[80vh] max-h-[900px] bg-[#EFEFEF] rounded-b-lg overflow-hidden">
-                            <DocxPreview
-                              fileUrl={previewUrls[index]}
-                              grayscale={jobData.settings?.colorMode === "Black & White"}
+                            <iframe
+                              src={jobData.driveViewUrl}
+                              className="w-full h-full"
+                              style={{ border: "none" }}
+                              title={name}
                             />
+                          </div>
+                        ) : isDocxFile(name) ? (
+                          <div className="p-12 text-center text-secondary">
+                            Preview unavailable
                           </div>
                         ) : (
                           <div className="p-12 text-center text-secondary">

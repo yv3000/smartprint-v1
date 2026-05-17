@@ -81,6 +81,11 @@ model Job {
   printedAt   DateTime?
   expiredAt   DateTime?
   printCount  Int      @default(0) 
+
+  // Google Drive integration for DOCX preview. Populated when a docx
+  // is uploaded; cleared on job delete (best effort — see deleteFromDrive).
+  driveFileId  String?
+  driveViewUrl String?
 }
 
 model Counter {

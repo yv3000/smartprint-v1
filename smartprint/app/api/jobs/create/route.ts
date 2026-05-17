@@ -87,7 +87,21 @@ export async function POST(req: NextRequest) {
     let driveViewUrl: string | null = null;
     let driveError: string | null = null;
 
-    for (const file of files) {
+    // The user-side step-2 live preview eagerly uploads each .docx to
+    // Drive via /api/preview/docx and forwards the resulting Drive id
+    // here as `existingDriveFileId_<index>` (and matching previewUrl)
+    // so we don't double-upload on submit. Indices align with the
+    // `files` array so the i-th file is matched to the i-th existing
+    // Drive id, if any.
+    const existingIds: (string | null)[] = files.map((_, i) =>
+      (formData.get(`existingDriveFileId_${i}`) as string | null) || null,
+    );
+    const existingUrls: (string | null)[] = files.map((_, i) =>
+      (formData.get(`existingDriveViewUrl_${i}`) as string | null) || null,
+    );
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
       const buffer = Buffer.from(await file.arrayBuffer());
       const filePath = join(storageDir, file.name);
       await writeFile(filePath, buffer);
@@ -98,21 +112,33 @@ export async function POST(req: NextRequest) {
       // upload — the admin preview will fall back to the unavailable
       // state if driveViewUrl is null.
       if (!isEncrypted && /\.docx$/i.test(file.name)) {
-        try {
-          const { fileId, previewUrl } = await uploadToDrive(buffer, file.name);
-          driveViewUrl = previewUrl;
+        const reuseId = existingIds[i];
+        const reuseUrl = existingUrls[i];
+        if (reuseId && reuseUrl) {
+          // Already uploaded by the live-preview path. Reuse so we
+          // don't pay the Drive round-trip twice.
+          driveViewUrl = reuseUrl;
           await prisma.job.update({
             where: { id: jobId },
-            data: { driveFileId: fileId, driveViewUrl: previewUrl },
+            data: { driveFileId: reuseId, driveViewUrl: reuseUrl },
           });
-        } catch (driveErr: any) {
-          console.error("[Job Create] Drive upload failed:", driveErr);
-          // Surface a short message to the client so SuccessScreen can
-          // render a useful error instead of silently hiding the iframe.
-          driveError =
-            driveErr?.message ||
-            driveErr?.errors?.[0]?.message ||
-            "Drive upload failed";
+        } else {
+          try {
+            const { fileId, previewUrl } = await uploadToDrive(buffer, file.name);
+            driveViewUrl = previewUrl;
+            await prisma.job.update({
+              where: { id: jobId },
+              data: { driveFileId: fileId, driveViewUrl: previewUrl },
+            });
+          } catch (driveErr: any) {
+            console.error("[Job Create] Drive upload failed:", driveErr);
+            // Surface a short message to the client so SuccessScreen can
+            // render a useful error instead of silently hiding the iframe.
+            driveError =
+              driveErr?.message ||
+              driveErr?.errors?.[0]?.message ||
+              "Drive upload failed";
+          }
         }
       }
     }

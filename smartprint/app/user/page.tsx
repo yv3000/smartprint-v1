@@ -201,10 +201,140 @@ function UserPageContent() {
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
+  // ── Live DOCX preview via Google Drive (Option B in round 16) ──
+  // Per-File preview state. We eagerly POST each .docx the user selects
+  // to /api/preview/docx, store the resulting Drive previewUrl, and
+  // render it as an iframe in the step-2 preview slot. On file swap,
+  // encryption toggle, or unmount we DELETE any orphan Drive copies.
+  // On submit we forward the already-uploaded Drive ids to /api/jobs/create
+  // so the server reuses them instead of double-uploading.
+  type DocxPreviewStatus = "idle" | "uploading" | "ready" | "error";
+  interface DocxPreviewEntry {
+    status: DocxPreviewStatus;
+    fileId?: string;
+    previewUrl?: string;
+    error?: string;
+    abortController?: AbortController;
+  }
+  // Ref so effects can read the current map without dep loops; bump
+  // `previewTick` whenever we mutate, to force a re-render.
+  const docxPreviewsRef = useRef<Map<File, DocxPreviewEntry>>(new Map());
+  const [, setPreviewTick] = useState(0);
+  const bumpPreviewTick = () => setPreviewTick((n) => n + 1);
+
+  const setDocxPreview = (file: File, partial: Partial<DocxPreviewEntry>) => {
+    const cur = docxPreviewsRef.current.get(file) ?? { status: "idle" as const };
+    docxPreviewsRef.current.set(file, { ...cur, ...partial });
+    bumpPreviewTick();
+  };
+  const removeDocxPreview = (file: File) => {
+    docxPreviewsRef.current.delete(file);
+    bumpPreviewTick();
+  };
+  const getDocxPreview = (file: File | undefined): DocxPreviewEntry | undefined =>
+    file ? docxPreviewsRef.current.get(file) : undefined;
+
+  /** Best-effort DELETE of an orphan Drive copy. `keepalive` lets the
+   *  request survive page unmount / navigation. */
+  const deleteDocxPreviewRemote = (fileId: string) => {
+    fetch(`/api/preview/docx?id=${encodeURIComponent(fileId)}`, {
+      method: "DELETE",
+      keepalive: true,
+    }).catch(() => { /* ignore — best effort */ });
+  };
+
+  const cleanupDocxPreview = (file: File) => {
+    const entry = docxPreviewsRef.current.get(file);
+    if (!entry) return;
+    if (entry.abortController) entry.abortController.abort();
+    if (entry.fileId) deleteDocxPreviewRemote(entry.fileId);
+    removeDocxPreview(file);
+  };
+
+  const uploadDocxPreview = async (file: File) => {
+    const ctrl = new AbortController();
+    setDocxPreview(file, { status: "uploading", abortController: ctrl, error: undefined });
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/preview/docx", {
+        method: "POST",
+        body: fd,
+        signal: ctrl.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      // If the user already swapped/removed this file while we were
+      // uploading, the entry was wiped — abort path will have hit;
+      // double-check anyway.
+      if (!docxPreviewsRef.current.has(file)) {
+        if (data?.fileId) deleteDocxPreviewRemote(data.fileId);
+        return;
+      }
+      setDocxPreview(file, {
+        status: "ready",
+        fileId: data.fileId,
+        previewUrl: data.previewUrl,
+        abortController: undefined,
+        error: undefined,
+      });
+    } catch (err: any) {
+      if (err?.name === "AbortError") return;
+      setDocxPreview(file, {
+        status: "error",
+        error: err?.message || "Preview upload failed",
+        abortController: undefined,
+      });
+    }
+  };
+
   // Load recent shops
   useEffect(() => {
     const recent = Cookies.get("sp_recent");
     if (recent) setRecentShops(JSON.parse(recent));
+  }, []);
+
+  // ── Orchestrate Drive previews for the current `files` list ──
+  // - Encrypt ON  → cleanup all previews (we never upload ciphertext).
+  // - Otherwise  → upload any docx file that doesn't already have an
+  //                entry; delete entries whose File is no longer in the
+  //                list (user removed/swapped it).
+  useEffect(() => {
+    if (isEncrypted) {
+      Array.from(docxPreviewsRef.current.keys()).forEach(cleanupDocxPreview);
+      return;
+    }
+    const docxFiles = files
+      .map((e: any) => e?.file)
+      .filter((f: any): f is File =>
+        !!f && typeof f.name === "string" && f.name.toLowerCase().endsWith(".docx"),
+      );
+    // 1. Cleanup orphans (file no longer present).
+    const live = new Set(docxFiles);
+    Array.from(docxPreviewsRef.current.keys()).forEach((prev) => {
+      if (!live.has(prev)) cleanupDocxPreview(prev);
+    });
+    // 2. Start uploads for new docx files.
+    for (const f of docxFiles) {
+      if (!docxPreviewsRef.current.has(f)) {
+        uploadDocxPreview(f);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files, isEncrypted]);
+
+  // ── Best-effort cleanup on component unmount ──
+  // Page navigated away / user closed tab. Fire DELETEs with keepalive
+  // so they survive teardown. Also cancel any in-flight uploads.
+  useEffect(() => {
+    return () => {
+      Array.from(docxPreviewsRef.current.entries()).forEach(([, entry]) => {
+        if (entry.abortController) entry.abortController.abort();
+        if (entry.fileId) deleteDocxPreviewRemote(entry.fileId);
+      });
+      docxPreviewsRef.current.clear();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Verify shop token
@@ -1562,8 +1692,6 @@ function UserPageContent() {
               jobId={jobResult.jobId}
               userToken={jobResult.userToken}
               isEncrypted={isEncrypted}
-              driveViewUrl={jobResult.driveViewUrl}
-              driveError={jobResult.driveError}
             />
           )}
         </AnimatePresence>

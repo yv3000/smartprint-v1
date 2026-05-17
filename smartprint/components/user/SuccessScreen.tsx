@@ -11,6 +11,11 @@ interface SuccessScreenProps {
   /** Drive preview URL when a .docx was uploaded. Embedded as an
    *  iframe so the user can confirm exactly what the print shop will see. */
   driveViewUrl?: string | null;
+  /** Server-side Drive upload error (e.g. storageQuotaExceeded). When
+   *  set + driveViewUrl is null, SuccessScreen surfaces this so the
+   *  end user knows the preview is missing for a real reason and the
+   *  developer can debug from the browser without scraping server logs. */
+  driveError?: string | null;
 }
 
 /* Animated SVG checkmark — circle draws in, then check draws */
@@ -66,6 +71,7 @@ export default function SuccessScreen({
   userToken,
   isEncrypted,
   driveViewUrl,
+  driveError,
 }: SuccessScreenProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -191,6 +197,63 @@ export default function SuccessScreen({
               display: "block",
             }}
           />
+        </div>
+      )}
+
+      {/* Drive upload failed — show actionable diagnostic instead of
+          silently hiding the preview. Only shown when there's a real
+          error AND no preview URL. Encrypted jobs intentionally skip
+          Drive so don't display anything for them. */}
+      {!driveViewUrl && driveError && !isEncrypted && (
+        <div
+          className="up-card"
+          style={{
+            padding: 16,
+            marginBottom: 24,
+            textAlign: "left",
+            background: "rgba(255,149,0,0.06)",
+            border: "0.5px solid rgba(255,149,0,0.30)",
+          }}
+        >
+          <div
+            className="flex items-center gap-2"
+            style={{ marginBottom: 6 }}
+          >
+            <AlertCircle
+              size={14}
+              strokeWidth={1.8}
+              style={{ color: "#FF9500" }}
+            />
+            <span
+              style={{
+                fontSize: "1em",
+                fontWeight: 500,
+                color: "var(--up-text)",
+              }}
+            >
+              Preview unavailable
+            </span>
+          </div>
+          <div
+            style={{
+              fontSize: "0.92em",
+              color: "var(--up-text-2)",
+              lineHeight: 1.45,
+              wordBreak: "break-word",
+            }}
+          >
+            {driveError}
+          </div>
+          <div
+            style={{
+              fontSize: "0.85em",
+              color: "var(--up-text-2)",
+              marginTop: 8,
+              opacity: 0.7,
+            }}
+          >
+            Your file was still sent to the shop and will print fine.
+          </div>
         </div>
       )}
 

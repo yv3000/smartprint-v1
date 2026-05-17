@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
     // SuccessScreen can embed the Drive iframe immediately without an
     // extra round-trip to /api/jobs/[id] (which has side-effects).
     let driveViewUrl: string | null = null;
+    let driveError: string | null = null;
 
     for (const file of files) {
       const buffer = Buffer.from(await file.arrayBuffer());
@@ -104,8 +105,14 @@ export async function POST(req: NextRequest) {
             where: { id: jobId },
             data: { driveFileId: fileId, driveViewUrl: previewUrl },
           });
-        } catch (driveErr) {
+        } catch (driveErr: any) {
           console.error("[Job Create] Drive upload failed:", driveErr);
+          // Surface a short message to the client so SuccessScreen can
+          // render a useful error instead of silently hiding the iframe.
+          driveError =
+            driveErr?.message ||
+            driveErr?.errors?.[0]?.message ||
+            "Drive upload failed";
         }
       }
     }
@@ -115,6 +122,7 @@ export async function POST(req: NextRequest) {
       userId,
       userToken,
       driveViewUrl,
+      driveError,
     }, { status: 201 });
   } catch (err: any) {
     console.error("Job Creation Error:", err);

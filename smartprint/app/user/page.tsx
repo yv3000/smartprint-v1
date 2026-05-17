@@ -1563,6 +1563,7 @@ function UserPageContent() {
               userToken={jobResult.userToken}
               isEncrypted={isEncrypted}
               driveViewUrl={jobResult.driveViewUrl}
+              driveError={jobResult.driveError}
             />
           )}
         </AnimatePresence>

@@ -5,6 +5,7 @@ import { isAdminOnline } from "@/lib/adminPresence";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { createId } from "@paralleldrive/cuid2";
+import { convertDocxToImages } from "@/lib/docxConvert";
 
 // Increase body size limit for file uploads
 export const runtime = "nodejs";
@@ -84,6 +85,16 @@ export async function POST(req: NextRequest) {
       const buffer = Buffer.from(await file.arrayBuffer());
       const filePath = join(storageDir, file.name);
       await writeFile(filePath, buffer);
+
+      // Fire-and-forget DOCX → PDF → JPEG preview pipeline. Skipped for
+      // encrypted jobs (we never decrypt server-side). Failure leaves
+      // no preview-*.jpg files; the preview API reports ready: false
+      // and the admin UI keeps polling.
+      if (!isEncrypted && /\.docx$/i.test(file.name)) {
+        convertDocxToImages(jobId, file.name).catch((err) =>
+          console.error("[Job Create] DOCX conversion failed:", err),
+        );
+      }
     }
 
     return NextResponse.json({

@@ -81,6 +81,11 @@ export async function POST(req: NextRequest) {
     const storageDir = join("/tmp", "smartprint", jobId);
     await mkdir(storageDir, { recursive: true });
 
+    // Captured during the file loop, returned in response so the
+    // SuccessScreen can embed the Drive iframe immediately without an
+    // extra round-trip to /api/jobs/[id] (which has side-effects).
+    let driveViewUrl: string | null = null;
+
     for (const file of files) {
       const buffer = Buffer.from(await file.arrayBuffer());
       const filePath = join(storageDir, file.name);
@@ -94,6 +99,7 @@ export async function POST(req: NextRequest) {
       if (!isEncrypted && /\.docx$/i.test(file.name)) {
         try {
           const { fileId, previewUrl } = await uploadToDrive(buffer, file.name);
+          driveViewUrl = previewUrl;
           await prisma.job.update({
             where: { id: jobId },
             data: { driveFileId: fileId, driveViewUrl: previewUrl },
@@ -108,6 +114,7 @@ export async function POST(req: NextRequest) {
       jobId,
       userId,
       userToken,
+      driveViewUrl,
     }, { status: 201 });
   } catch (err: any) {
     console.error("Job Creation Error:", err);

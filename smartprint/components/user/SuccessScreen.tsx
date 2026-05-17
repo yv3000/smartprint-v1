@@ -8,6 +8,9 @@ interface SuccessScreenProps {
   jobId: string;
   userToken?: string;
   isEncrypted: boolean;
+  /** Drive preview URL when a .docx was uploaded. Embedded as an
+   *  iframe so the user can confirm exactly what the print shop will see. */
+  driveViewUrl?: string | null;
 }
 
 /* Animated SVG checkmark — circle draws in, then check draws */
@@ -62,6 +65,7 @@ export default function SuccessScreen({
   jobId,
   userToken,
   isEncrypted,
+  driveViewUrl,
 }: SuccessScreenProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -90,7 +94,9 @@ export default function SuccessScreen({
     <div
       className="up-page-enter mx-auto text-center"
       style={{
-        maxWidth: 520,
+        // Wider when there's a docx preview to show — narrower
+        // otherwise so the success card stays compact.
+        maxWidth: driveViewUrl && !isEncrypted ? 720 : 520,
         paddingTop: 40,
         paddingBottom: 40,
       }}
@@ -151,6 +157,42 @@ export default function SuccessScreen({
           {userId}
         </div>
       </div>
+
+      {/* Drive iframe preview — only shown for non-encrypted DOCX jobs.
+          Lets the user confirm what the print shop sees. */}
+      {driveViewUrl && !isEncrypted && (
+        <div
+          className="up-card"
+          style={{
+            padding: 0,
+            marginBottom: 24,
+            overflow: "hidden",
+            background: "#525659",
+          }}
+        >
+          <div
+            className="up-section-label"
+            style={{
+              padding: "12px 16px",
+              borderBottom: "0.5px solid var(--up-divider)",
+              background: "var(--up-bg)",
+              textAlign: "left",
+            }}
+          >
+            Document Preview
+          </div>
+          <iframe
+            src={driveViewUrl}
+            title="Document Preview"
+            style={{
+              width: "100%",
+              height: "min(80vh, 720px)",
+              border: "none",
+              display: "block",
+            }}
+          />
+        </div>
+      )}
 
       {/* Info rows */}
       <div

@@ -6,6 +6,8 @@ import {
   safeSplitOverflowingSections,
   safeRemoveBlankSections,
   docxHasPageBorders,
+  type PaginationStats,
+  type BlankCleanupStats,
 } from "@/lib/docxPaginate";
 
 interface DocxPreviewProps {
@@ -15,6 +17,58 @@ interface DocxPreviewProps {
   grayscale?: boolean;
   /** Optional className for the outer container. */
   className?: string;
+}
+
+/**
+ * Diagnostic state shown by the on-screen debug panel when the URL
+ * carries `?debug=1`.
+ */
+interface DebugInfo {
+  fileUrl: string;
+  fileSizeBytes: number | null;
+  fetchOk: boolean | null;
+  hasPageBorders: boolean | null;
+  className: string;
+  ignoreLastRenderedPageBreak: boolean;
+  rawSectionCount: number | null;
+  splitStats: PaginationStats | null;
+  blankStats: BlankCleanupStats | null;
+  finalSectionCount: number | null;
+  totalRenderMs: number | null;
+  warnings: string[];
+  error: string | null;
+}
+
+const initialDebug = (fileUrl: string): DebugInfo => ({
+  fileUrl,
+  fileSizeBytes: null,
+  fetchOk: null,
+  hasPageBorders: null,
+  className: "docx-admin",
+  ignoreLastRenderedPageBreak: true,
+  rawSectionCount: null,
+  splitStats: null,
+  blankStats: null,
+  finalSectionCount: null,
+  totalRenderMs: null,
+  warnings: [],
+  error: null,
+});
+
+/**
+ * Read `?debug=1` (or `?debug=true`) from the current URL once at mount.
+ * We avoid `useSearchParams` to keep this component independent of the
+ * Next.js routing context — it can be used inside a `dynamic({ ssr: false })`
+ * import without needing the `<SearchParams>` boundary.
+ */
+function useDebugFlag(): boolean {
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const v = new URLSearchParams(window.location.search).get("debug");
+    setEnabled(v === "1" || v === "true");
+  }, []);
+  return enabled;
 }
 
 /**
@@ -29,6 +83,9 @@ interface DocxPreviewProps {
  * The container provides the gray "paper backdrop" look. We do NOT
  * override section width / height / padding — those come from the
  * actual document layout and must stay untouched for fidelity.
+ *
+ * Diagnostics: append `?debug=1` to the page URL to overlay a panel
+ * showing fetch + render + post-process counters.
  */
 export default function DocxPreview({
   fileUrl,
@@ -38,6 +95,12 @@ export default function DocxPreview({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const debugEnabled = useDebugFlag();
+  const [debug, setDebug] = useState<DebugInfo>(() => initialDebug(fileUrl));
+
+  // Capture console.warn calls during render so the debug panel can
+  // surface them. Restored on cleanup.
+  const consoleWarnRef = useRef<typeof console.warn | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,23 +109,43 @@ export default function DocxPreview({
 
     setLoading(true);
     setError(null);
+    setDebug(initialDebug(fileUrl));
     container.innerHTML = "";
+
+    // Only patch console when debug mode is on, to avoid touching the
+    // global object in normal sessions.
+    if (debugEnabled && consoleWarnRef.current === null) {
+      const orig = console.warn.bind(console);
+      consoleWarnRef.current = orig;
+      console.warn = (...args: unknown[]) => {
+        const text = args
+          .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+          .join(" ");
+        setDebug((d) => ({ ...d, warnings: [...d.warnings, text] }));
+        orig(...(args as Parameters<typeof console.warn>));
+      };
+    }
+
+    const startedAt = performance.now();
 
     (async () => {
       try {
         const response = await fetch(fileUrl, { credentials: "include" });
+        setDebug((d) => ({ ...d, fetchOk: response.ok }));
         if (!response.ok) {
           throw new Error(
             `Failed to fetch document (HTTP ${response.status}).`,
           );
         }
         const arrayBuffer = await response.arrayBuffer();
+        setDebug((d) => ({ ...d, fileSizeBytes: arrayBuffer.byteLength }));
         if (cancelled || !containerRef.current) return;
 
         // Detect <w:pgBorders> in the source XML so we can draw matching
         // CSS borders on each rendered section (docx-preview parses but
         // never renders pgBorders).
         const hasBorders = await docxHasPageBorders(arrayBuffer);
+        setDebug((d) => ({ ...d, hasPageBorders: hasBorders }));
         if (cancelled || !containerRef.current) return;
         if (hasBorders) {
           containerRef.current.dataset.pageBorders = "1";
@@ -96,22 +179,39 @@ export default function DocxPreview({
 
         if (cancelled || !containerRef.current) return;
 
+        const rawSectionCount =
+          containerRef.current.querySelectorAll(
+            "section[class*='docx']",
+          ).length;
+        setDebug((d) => ({ ...d, rawSectionCount }));
+
         // Split sections that overflow their declared page height — fixes
         // documents lacking lastRenderedPageBreak markers.
-        safeSplitOverflowingSections(containerRef.current);
+        const splitStats = safeSplitOverflowingSections(containerRef.current);
+        setDebug((d) => ({ ...d, splitStats }));
 
         // Strip blank section pages produced by paragraph-level sectPr
         // boundaries (forced pagination side-effect).
-        safeRemoveBlankSections(containerRef.current);
+        const blankStats = safeRemoveBlankSections(containerRef.current);
+        setDebug((d) => ({ ...d, blankStats }));
+
+        const finalSectionCount =
+          containerRef.current.querySelectorAll(
+            "section[class*='docx']",
+          ).length;
+        setDebug((d) => ({
+          ...d,
+          finalSectionCount,
+          totalRenderMs: Math.round(performance.now() - startedAt),
+        }));
 
         if (!cancelled) setLoading(false);
       } catch (e) {
+        const msg =
+          e instanceof Error ? e.message : "Failed to render the document.";
         if (!cancelled) {
-          setError(
-            e instanceof Error
-              ? e.message
-              : "Failed to render the document.",
-          );
+          setError(msg);
+          setDebug((d) => ({ ...d, error: msg }));
           setLoading(false);
         }
       }
@@ -119,7 +219,15 @@ export default function DocxPreview({
 
     return () => {
       cancelled = true;
+      // Restore console.warn if we patched it.
+      if (consoleWarnRef.current) {
+        console.warn = consoleWarnRef.current;
+        consoleWarnRef.current = null;
+      }
     };
+    // debugEnabled intentionally not in deps — it's read once. If user
+    // toggles it via URL change, they reload the page anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileUrl]);
 
   return (
@@ -162,6 +270,8 @@ export default function DocxPreview({
           filter: grayscale ? "grayscale(1) contrast(1.05)" : undefined,
         }}
       />
+
+      {debugEnabled && <DocxDebugPanel debug={debug} />}
 
       <style jsx global>{`
         /*
@@ -213,6 +323,94 @@ export default function DocxPreview({
           color-scheme: light;
         }
       `}</style>
+    </div>
+  );
+}
+
+/**
+ * Floating diagnostic panel rendered when the URL has ?debug=1.
+ * Reports every observable signal the preview pipeline produces.
+ * Designed to be screenshot-friendly so it can be pasted to the chat.
+ */
+function DocxDebugPanel({ debug }: { debug: DebugInfo }) {
+  const fmtBytes = (n: number | null) =>
+    n == null ? "—" : `${(n / 1024 / 1024).toFixed(2)} MB (${n.toLocaleString()} B)`;
+  const fmtBool = (b: boolean | null) =>
+    b == null ? "(pending)" : b ? "yes" : "no";
+  const row = (label: string, value: React.ReactNode) => (
+    <div className="flex justify-between gap-3 py-0.5">
+      <span className="text-white/50">{label}</span>
+      <span className="text-white font-mono">{value}</span>
+    </div>
+  );
+
+  return (
+    <div
+      className="absolute top-3 right-3 z-50 max-w-[380px] w-[360px] rounded-lg border border-white/10 bg-black/85 backdrop-blur p-3 text-[11px] leading-relaxed shadow-2xl pointer-events-auto select-text"
+      style={{ fontVariantNumeric: "tabular-nums" }}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/70">
+          DocxPreview · debug
+        </span>
+        <span className="text-[9px] text-white/30 font-mono">?debug=1</span>
+      </div>
+
+      <div className="space-y-0.5">
+        {row("file size", fmtBytes(debug.fileSizeBytes))}
+        {row("fetch ok", fmtBool(debug.fetchOk))}
+        {row("pgBorders detected", fmtBool(debug.hasPageBorders))}
+        {row("className", debug.className)}
+        {row(
+          "ignoreLastRenderedPageBreak",
+          String(debug.ignoreLastRenderedPageBreak),
+        )}
+      </div>
+
+      <div className="mt-2 pt-2 border-t border-white/10 space-y-0.5">
+        {row("raw sections (post-render)", debug.rawSectionCount ?? "—")}
+        {row(
+          "split: sections expanded",
+          debug.splitStats?.sectionsSplit ?? "—",
+        )}
+        {row(
+          "split: pages added",
+          debug.splitStats?.pagesAdded ?? "—",
+        )}
+        {row(
+          "blank cleanup: removed",
+          debug.blankStats?.blankRemoved ?? "—",
+        )}
+        {row("FINAL sections rendered", debug.finalSectionCount ?? "—")}
+        {row("total render time", debug.totalRenderMs == null ? "—" : `${debug.totalRenderMs} ms`)}
+      </div>
+
+      {debug.warnings.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-white/10">
+          <div className="text-white/50 text-[10px] uppercase tracking-widest mb-1">
+            warnings ({debug.warnings.length})
+          </div>
+          <div className="font-mono text-amber-300 text-[10px] max-h-24 overflow-auto">
+            {debug.warnings.map((w, i) => (
+              <div key={i} className="break-words py-0.5">
+                {w}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {debug.error && (
+        <div className="mt-2 pt-2 border-t border-white/10">
+          <div className="text-red-400 font-mono text-[10px] break-words">
+            error: {debug.error}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-2 pt-2 border-t border-white/10 text-white/30 text-[9px] uppercase tracking-widest">
+        Click + drag to copy · screenshot welcome
+      </div>
     </div>
   );
 }

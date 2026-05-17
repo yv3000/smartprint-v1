@@ -15,12 +15,32 @@
  * Must be called while the host is still attached to the DOM, otherwise
  * heights cannot be measured.
  */
-export function splitOverflowingSections(host: HTMLElement): void {
+export interface PaginationStats {
+  /** Number of top-level section elements found before this pass. */
+  sectionsBefore: number;
+  /** Number of top-level section elements after this pass. */
+  sectionsAfter: number;
+  /** Sections that were detected as overflowing and got expanded into multiple pages. */
+  sectionsSplit: number;
+  /** Total new pages created from splits (sectionsAfter - sectionsBefore + sectionsSplit, roughly). */
+  pagesAdded: number;
+}
+
+const countTopLevelSections = (host: HTMLElement): number =>
+  host.querySelectorAll("section[class*='docx']").length;
+
+export function splitOverflowingSections(host: HTMLElement): PaginationStats {
+  const sectionsBefore = countTopLevelSections(host);
   const topLevel = Array.from(
     host.querySelectorAll<HTMLElement>("section.docx, section[class*='docx']"),
   ).filter((el) => el.parentElement === host || el.parentElement?.parentElement === host);
 
-  if (!topLevel.length) return;
+  if (!topLevel.length) {
+    return { sectionsBefore, sectionsAfter: sectionsBefore, sectionsSplit: 0, pagesAdded: 0 };
+  }
+
+  let sectionsSplit = 0;
+  let pagesAdded = 0;
 
   for (const section of topLevel) {
     const cs = window.getComputedStyle(section);
@@ -98,20 +118,35 @@ export function splitOverflowingSections(host: HTMLElement): void {
 
     // Remove original oversized section.
     section.parentElement?.removeChild(section);
+    sectionsSplit += 1;
+    // Each oversized section becomes `built.length` pages, replacing
+    // 1 original — net new pages = built.length - 1.
+    pagesAdded += Math.max(0, built.length - 1);
   }
+
+  const sectionsAfter = countTopLevelSections(host);
+  return { sectionsBefore, sectionsAfter, sectionsSplit, pagesAdded };
 }
 
 /**
  * Best-effort wrapper that swallows DOM errors. Pagination is purely
  * cosmetic — we never want it to crash the surrounding preview.
  */
-export function safeSplitOverflowingSections(host: HTMLElement): void {
+export function safeSplitOverflowingSections(host: HTMLElement): PaginationStats {
   try {
-    splitOverflowingSections(host);
+    return splitOverflowingSections(host);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn("docx pagination split failed:", err);
+    const sectionsBefore = countTopLevelSections(host);
+    return { sectionsBefore, sectionsAfter: sectionsBefore, sectionsSplit: 0, pagesAdded: 0 };
   }
+}
+
+export interface BlankCleanupStats {
+  sectionsBefore: number;
+  sectionsAfter: number;
+  blankRemoved: number;
 }
 
 /**
@@ -128,10 +163,12 @@ export function safeSplitOverflowingSections(host: HTMLElement): void {
  * empty paragraphs (which retain their min-height: 1em via the default
  * docx-preview style) or any other rendered-but-textless content.
  */
-export function removeBlankSections(host: HTMLElement): void {
+export function removeBlankSections(host: HTMLElement): BlankCleanupStats {
+  const sectionsBefore = countTopLevelSections(host);
   const sections = Array.from(
     host.querySelectorAll<HTMLElement>("section[class*='docx']"),
   );
+  let blankRemoved = 0;
   for (const section of sections) {
     const articles = Array.from(
       section.querySelectorAll<HTMLElement>(":scope > article"),
@@ -140,6 +177,7 @@ export function removeBlankSections(host: HTMLElement): void {
     // No article at all = pure header/footer chrome → blank.
     if (!articles.length) {
       section.parentElement?.removeChild(section);
+      blankRemoved += 1;
       continue;
     }
 
@@ -157,16 +195,21 @@ export function removeBlankSections(host: HTMLElement): void {
 
     if (!hasRenderedContent) {
       section.parentElement?.removeChild(section);
+      blankRemoved += 1;
     }
   }
+  const sectionsAfter = countTopLevelSections(host);
+  return { sectionsBefore, sectionsAfter, blankRemoved };
 }
 
-export function safeRemoveBlankSections(host: HTMLElement): void {
+export function safeRemoveBlankSections(host: HTMLElement): BlankCleanupStats {
   try {
-    removeBlankSections(host);
+    return removeBlankSections(host);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn("docx blank-section cleanup failed:", err);
+    const sectionsBefore = countTopLevelSections(host);
+    return { sectionsBefore, sectionsAfter: sectionsBefore, blankRemoved: 0 };
   }
 }
 

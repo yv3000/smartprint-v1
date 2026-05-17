@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { 
@@ -22,6 +23,13 @@ import AdminSecurityLayer from "@/components/admin/AdminSecurityLayer";
 import CountdownTimer from "@/components/admin/CountdownTimer";
 import { JobResponse, PrintSettings } from "@/lib/types";
 
+// @eigenpal/docx-js-editor reaches into the DOM at import time and
+// breaks SSR — load it client-side only.
+const DocxViewer = dynamic(
+  () => import("@/components/admin/DocxViewer"),
+  { ssr: false },
+);
+
 export default function JobDetail() {
   const { id } = useParams();
   const router = useRouter();
@@ -32,17 +40,6 @@ export default function JobDetail() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Server-side DOCX preview state. Pages = signed image URLs returned
-  // by /api/jobs/[id]/preview. Polled until ready or timed out.
-  const [previewPages, setPreviewPages] = useState<string[]>([]);
-  const [previewStatus, setPreviewStatus] = useState<
-    "idle" | "converting" | "ready" | "unsupported" | "timeout"
-  >("idle");
-  const previewPollRef = useRef<{ active: boolean; attempts: number }>({
-    active: false,
-    attempts: 0,
-  });
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -69,70 +66,6 @@ export default function JobDetail() {
   useEffect(() => {
     fetchJob();
   }, [id]);
-
-  /**
-   * Poll the preview endpoint until conversion finishes (or we hit
-   * MAX_ATTEMPTS, ~30s @ 2s interval). Stored in a ref instead of
-   * useCallback closure to avoid stale-state bugs across re-renders.
-   *
-   * Encrypted jobs short-circuit on the server side and return
-   * status: "unsupported" — we stop polling and the UI falls back to
-   * the encrypted-doc placeholder.
-   */
-  useEffect(() => {
-    if (!job || job.isEncrypted) return;
-
-    const hasDocx =
-      job.fileNames?.some((n: string) => /\.docx$/i.test(n)) ?? false;
-    if (!hasDocx) return;
-
-    const ctrl = previewPollRef.current;
-    ctrl.active = true;
-    ctrl.attempts = 0;
-    const MAX_ATTEMPTS = 20; // 20 * 2s = 40s
-
-    const poll = async () => {
-      if (!ctrl.active) return;
-      ctrl.attempts += 1;
-      try {
-        const res = await fetch(`/api/jobs/${id}/preview`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data: {
-          ready: boolean;
-          pages: string[];
-          status: "converting" | "ready" | "unsupported";
-        } = await res.json();
-
-        if (data.status === "unsupported") {
-          setPreviewStatus("unsupported");
-          ctrl.active = false;
-          return;
-        }
-        if (data.ready && data.pages.length) {
-          setPreviewPages(data.pages);
-          setPreviewStatus("ready");
-          ctrl.active = false;
-          return;
-        }
-        setPreviewStatus("converting");
-      } catch (e) {
-        console.error("[preview] poll error:", e);
-      }
-
-      if (ctrl.active && ctrl.attempts < MAX_ATTEMPTS) {
-        setTimeout(poll, 2000);
-      } else if (ctrl.active) {
-        setPreviewStatus("timeout");
-        ctrl.active = false;
-      }
-    };
-
-    poll();
-
-    return () => {
-      ctrl.active = false;
-    };
-  }, [job, id]);
 
   const handlePrint = async () => {
     setIsPrinting(true);
@@ -243,98 +176,24 @@ export default function JobDetail() {
                     </div>
                  </div>
               ) : (
-                <div className="w-full h-full flex flex-col overflow-hidden bg-[#1A1A1A]">
-                  {/* Header bar */}
-                  <div className="flex items-center justify-between px-6 py-3 bg-[#111] border-b border-white/5">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          previewStatus === "ready"
-                            ? "bg-[#22C55E] animate-pulse"
-                            : previewStatus === "unsupported" ||
-                              previewStatus === "timeout"
-                            ? "bg-[#EF4444]"
-                            : "bg-[#F59E0B] animate-pulse"
-                        }`}
-                      />
-                      <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
-                        Live Document Pages
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
-                        {previewPages.length > 0
-                          ? `${previewPages.length} ${
-                              previewPages.length === 1 ? "page" : "pages"
-                            }`
-                          : "—"}
-                      </span>
-                      <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
-                        A4
-                      </span>
-                      <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
-                        Portrait
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Pages area */}
-                  <div className="flex-1 overflow-y-auto flex flex-col items-center gap-6 py-8 px-4">
-                    {previewStatus === "ready" && previewPages.length > 0 ? (
-                      <>
-                        {previewPages.map((pageUrl, i) => (
-                          <div
-                            key={i}
-                            className="relative shadow-2xl bg-white"
-                            style={{ width: "595px" }}
-                          >
-                            <div className="absolute -top-6 left-0 text-[10px] font-bold text-white/20 uppercase tracking-widest">
-                              Page {i + 1}
-                            </div>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={pageUrl}
-                              alt={`Page ${i + 1}`}
-                              className="w-full h-auto block"
-                              style={{ imageRendering: "auto" }}
-                              draggable={false}
-                              onDragStart={(e) => e.preventDefault()}
-                            />
-                          </div>
-                        ))}
-                        <div className="flex items-center gap-4 py-4">
-                          <span className="text-xs font-bold text-white/30 uppercase tracking-widest">
-                            {previewPages.length} pages total
-                          </span>
-                        </div>
-                      </>
-                    ) : previewStatus === "timeout" ||
-                      previewStatus === "unsupported" ? (
-                      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-white/40 max-w-md text-center">
-                        <AlertCircle className="w-10 h-10 text-[#EF4444]" />
-                        <p className="text-sm font-bold uppercase tracking-widest">
-                          Preview Unavailable
-                        </p>
-                        <p className="text-xs text-white/30 leading-relaxed">
-                          {previewStatus === "timeout"
-                            ? "Document conversion is taking longer than expected. The original file is still printable."
-                            : "This file type cannot be previewed but it can still be printed."}
-                        </p>
-                      </div>
+                <div className="w-full h-full flex flex-col overflow-hidden bg-[#525659]">
+                  {(() => {
+                    const docxIndex =
+                      job.fileNames?.findIndex((n: string) =>
+                        n.toLowerCase().endsWith(".docx"),
+                      ) ?? -1;
+                    const docxUrl =
+                      docxIndex >= 0 ? job.fileUrls?.[docxIndex] : null;
+                    return docxUrl ? (
+                      <DocxViewer fileUrl={docxUrl} />
                     ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center gap-4 text-white/30">
-                        <Loader2 className="w-8 h-8 animate-spin" />
-                        <p className="text-sm font-bold uppercase tracking-widest">
-                          {previewStatus === "converting"
-                            ? "Converting document…"
-                            : "Preparing preview…"}
-                        </p>
-                        <p className="text-xs text-white/20">
-                          This takes 5–15 seconds
+                      <div className="flex-1 flex items-center justify-center text-white/40">
+                        <p className="font-bold text-sm uppercase tracking-widest">
+                          No DOCX file found
                         </p>
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </div>
               )}
               

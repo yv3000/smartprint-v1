@@ -597,6 +597,15 @@ function UserPageContent() {
         updatedSettings.fileInfos = fileInfos;
       } else {
         finalFiles.forEach((f) => formData.append("files", f));
+        // Forward already-uploaded Drive ids so /api/jobs/create reuses
+        // them instead of double-uploading. Indices align with `finalFiles`.
+        finalFiles.forEach((f, i) => {
+          const preview = getDocxPreview(f);
+          if (preview?.status === "ready" && preview.fileId && preview.previewUrl) {
+            formData.append(`existingDriveFileId_${i}`, preview.fileId);
+            formData.append(`existingDriveViewUrl_${i}`, preview.previewUrl);
+          }
+        });
       }
 
       formData.append("shopToken", shopToken);
@@ -632,6 +641,10 @@ function UserPageContent() {
 
       const data = await res.json();
       setJobResult(data);
+      // Drive previews have now been transferred to the job (via
+      // existingDriveFileId_*) — clear our ref so the unmount cleanup
+      // doesn't DELETE files that the job now owns.
+      docxPreviewsRef.current.clear();
       setStep(3);
       toast.success("Files sent successfully");
     } catch (error: any) {
@@ -1254,14 +1267,60 @@ function UserPageContent() {
                             }
 
                             if (isDocx) {
+                              const docxFile: File = currentFile.file;
+                              const preview = getDocxPreview(docxFile);
+                              const status = preview?.status ?? "idle";
+
+                              if (status === "ready" && preview?.previewUrl) {
+                                return (
+                                  <div
+                                    className="w-full h-full flex flex-col"
+                                    style={{ background: "#525659", minHeight: 600 }}
+                                  >
+                                    <iframe
+                                      src={preview.previewUrl}
+                                      title="Document Preview"
+                                      style={{
+                                        width: "100%",
+                                        flex: 1,
+                                        minHeight: 600,
+                                        border: "none",
+                                        display: "block",
+                                      }}
+                                    />
+                                  </div>
+                                );
+                              }
+
+                              if (status === "error") {
+                                return (
+                                  <div className="flex flex-col items-center justify-center p-20 gap-3 text-center">
+                                    <p className="up-section-label" style={{ fontSize: "0.92em" }}>
+                                      Preview unavailable
+                                    </p>
+                                    <p className="text-xs text-gray-500 max-w-xs leading-relaxed break-words">
+                                      {preview?.error || "Failed to upload preview"}
+                                    </p>
+                                    <p className="text-[10px] text-gray-500/70 max-w-xs leading-relaxed">
+                                      Your file will still be sent to the shop.
+                                    </p>
+                                  </div>
+                                );
+                              }
+
                               return (
                                 <div className="flex flex-col items-center justify-center p-20 gap-3 text-center">
+                                  <Loader2
+                                    className="w-6 h-6 animate-spin"
+                                    style={{ color: "var(--up-accent)" }}
+                                  />
                                   <p className="up-section-label" style={{ fontSize: "0.92em" }}>
-                                    Live preview not available for .docx files
+                                    {isEncrypted ? "Encrypted — preview disabled" : "Preparing preview…"}
                                   </p>
                                   <p className="text-xs text-gray-500 max-w-xs leading-relaxed">
-                                    Your document will be rendered exactly in the
-                                    print shop&apos;s admin view via Google Drive.
+                                    {isEncrypted
+                                      ? "Encrypted files are sent directly without preview."
+                                      : "Uploading your document for preview via Google Drive."}
                                   </p>
                                 </div>
                               );

@@ -79,38 +79,67 @@ export async function uploadToDrive(
 ): Promise<DriveUploadResult> {
   const drive = getDrive();
 
-  // ── DEBUG (round 21) ────────────────────────────────────────────────
-  // Tracking why GOOGLE_DRIVE_FOLDER_ID is undefined at runtime even
-  // though it's present in .env.local. Compare logged value with what's
-  // hit by /api/debug-env.
+  // ── DEBUG (round 21+22) ────────────────────────────────────────────
+  // Tracking why uploads fail with "Service Accounts do not have
+  // storage quota". This error is misleading — it means Google fell
+  // back to the service account's own drive (zero quota) because it
+  // couldn't honour `parents`. Most likely cause: service account
+  // can't actually read the parent folder (share broken / wrong id).
+  //
+  // Pre-flight: try to GET the folder. If 404 / 403 returns, the
+  // service account doesn't see it; the share didn't take effect.
+  const HARDCODED_FOLDER = "15OoqJUwol4uqhvmcng0aEgys0yzUz1oR";
   // eslint-disable-next-line no-console
   console.log(
     "[Drive] FOLDER_ID env var:",
     process.env.GOOGLE_DRIVE_FOLDER_ID ?? "(undefined)",
+    "| using:",
+    HARDCODED_FOLDER,
   );
 
-  // TEMPORARY: hardcoded parent folder so uploads work while we
-  // diagnose the env-loading issue. **REVERT** to env-only resolution
-  // (the commented line below) before committing to a shared branch:
-  //   const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || undefined;
-  const folderId =
-    process.env.GOOGLE_DRIVE_FOLDER_ID ||
-    "15OoqJUwol4uqhvmcng0aEgys0yzUz1oR";
+  try {
+    const probe = await drive.files.get({
+      fileId: HARDCODED_FOLDER,
+      fields: "id, name, mimeType, capabilities/canAddChildren",
+      supportsAllDrives: true,
+    });
+    // eslint-disable-next-line no-console
+    console.log(
+      "[Drive] folder probe OK:",
+      JSON.stringify({
+        id: probe.data.id,
+        name: probe.data.name,
+        canAddChildren: probe.data.capabilities?.canAddChildren,
+      }),
+    );
+  } catch (probeErr: any) {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[Drive] folder probe FAILED — service account cannot access folder:",
+      probeErr?.code ?? probeErr?.status,
+      probeErr?.message,
+    );
+    // Re-throw with a clearer message so the API surfaces the root cause
+    // to the user instead of the misleading 'storage quota' string.
+    throw new Error(
+      `Service account cannot access Drive folder ${HARDCODED_FOLDER}. ` +
+        `Re-share the folder with secure-print-drive-upload@secure-print-drive.iam.gserviceaccount.com as Editor. ` +
+        `(${probeErr?.message || "unknown error"})`,
+    );
+  }
 
   const created = await drive.files.create({
+    supportsAllDrives: true,
     requestBody: {
       name: fileName,
       mimeType: DOCX_MIME,
-      parents: folderId ? [folderId] : undefined,
+      parents: [HARDCODED_FOLDER],
     },
     media: {
       mimeType: DOCX_MIME,
       body: Readable.from(buffer),
     },
     fields: "id",
-    // If the parent folder lives inside a Workspace shared drive, the
-    // upload requires this acknowledgement. Harmless for personal Drive.
-    supportsAllDrives: true,
   });
 
   const fileId = created.data.id;

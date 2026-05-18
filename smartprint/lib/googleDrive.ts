@@ -78,7 +78,24 @@ export async function uploadToDrive(
   fileName: string,
 ): Promise<DriveUploadResult> {
   const drive = getDrive();
-  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || undefined;
+
+  // ── DEBUG (round 21) ────────────────────────────────────────────────
+  // Tracking why GOOGLE_DRIVE_FOLDER_ID is undefined at runtime even
+  // though it's present in .env.local. Compare logged value with what's
+  // hit by /api/debug-env.
+  // eslint-disable-next-line no-console
+  console.log(
+    "[Drive] FOLDER_ID env var:",
+    process.env.GOOGLE_DRIVE_FOLDER_ID ?? "(undefined)",
+  );
+
+  // TEMPORARY: hardcoded parent folder so uploads work while we
+  // diagnose the env-loading issue. **REVERT** to env-only resolution
+  // (the commented line below) before committing to a shared branch:
+  //   const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || undefined;
+  const folderId =
+    process.env.GOOGLE_DRIVE_FOLDER_ID ||
+    "15OoqJUwol4uqhvmcng0aEgys0yzUz1oR";
 
   const created = await drive.files.create({
     requestBody: {

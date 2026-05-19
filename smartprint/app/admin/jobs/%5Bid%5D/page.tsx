@@ -169,20 +169,25 @@ export default function JobDetail() {
                  </div>
               ) : (
                 <div className="w-full h-full flex flex-col overflow-hidden bg-[#525659]">
-                  {job.driveViewUrl ? (
-                    <iframe
-                      src={job.driveViewUrl}
-                      className="w-full h-full"
-                      style={{ border: "none", minHeight: "80vh" }}
-                      title="Document Preview"
-                    />
-                  ) : (
-                    <div className="flex-1 flex items-center justify-center text-white/40 text-center px-8">
-                      <p className="font-bold text-sm uppercase tracking-widest">
-                        Preview unavailable
-                      </p>
-                    </div>
-                  )}
+                  {(() => {
+                    // Pick the first file the admin can preview — for
+                    // most jobs that's the only file. For multi-file
+                    // jobs we'll need a tabbed picker later.
+                    const firstName = job.fileNames?.[0];
+                    const firstUrl = job.fileUrls?.[0];
+                    if (!firstName || !firstUrl) {
+                      return (
+                        <div className="flex-1 flex items-center justify-center text-white/40 text-center px-8">
+                          <p className="font-bold text-sm uppercase tracking-widest">
+                            No file to preview
+                          </p>
+                        </div>
+                      );
+                    }
+                    return (
+                      <FilePreview fileUrl={firstUrl} fileName={firstName} />
+                    );
+                  })()}
                 </div>
               )}
               

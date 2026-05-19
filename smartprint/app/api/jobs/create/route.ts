@@ -5,7 +5,6 @@ import { isAdminOnline } from "@/lib/adminPresence";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { createId } from "@paralleldrive/cuid2";
-import { uploadToDrive } from "@/lib/googleDrive";
 
 // Increase body size limit for file uploads
 export const runtime = "nodejs";
@@ -81,74 +80,16 @@ export async function POST(req: NextRequest) {
     const storageDir = join("/tmp", "smartprint", jobId);
     await mkdir(storageDir, { recursive: true });
 
-    // Captured during the file loop, returned in response so the
-    // SuccessScreen can embed the Drive iframe immediately without an
-    // extra round-trip to /api/jobs/[id] (which has side-effects).
-    let driveViewUrl: string | null = null;
-    let driveError: string | null = null;
-
-    // The user-side step-2 live preview eagerly uploads each .docx to
-    // Drive via /api/preview/docx and forwards the resulting Drive id
-    // here as `existingDriveFileId_<index>` (and matching previewUrl)
-    // so we don't double-upload on submit. Indices align with the
-    // `files` array so the i-th file is matched to the i-th existing
-    // Drive id, if any.
-    const existingIds: (string | null)[] = files.map((_, i) =>
-      (formData.get(`existingDriveFileId_${i}`) as string | null) || null,
-    );
-    const existingUrls: (string | null)[] = files.map((_, i) =>
-      (formData.get(`existingDriveViewUrl_${i}`) as string | null) || null,
-    );
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    for (const file of files) {
       const buffer = Buffer.from(await file.arrayBuffer());
       const filePath = join(storageDir, file.name);
       await writeFile(filePath, buffer);
-
-      // Drive upload for DOCX preview. Skipped for encrypted jobs (we
-      // never decrypt server-side, so we'd be uploading ciphertext that
-      // Drive can't render). Failure is logged but does not abort the
-      // upload — the admin preview will fall back to the unavailable
-      // state if driveViewUrl is null.
-      if (!isEncrypted && /\.docx$/i.test(file.name)) {
-        const reuseId = existingIds[i];
-        const reuseUrl = existingUrls[i];
-        if (reuseId && reuseUrl) {
-          // Already uploaded by the live-preview path. Reuse so we
-          // don't pay the Drive round-trip twice.
-          driveViewUrl = reuseUrl;
-          await prisma.job.update({
-            where: { id: jobId },
-            data: { driveFileId: reuseId, driveViewUrl: reuseUrl },
-          });
-        } else {
-          try {
-            const { fileId, previewUrl } = await uploadToDrive(buffer, file.name);
-            driveViewUrl = previewUrl;
-            await prisma.job.update({
-              where: { id: jobId },
-              data: { driveFileId: fileId, driveViewUrl: previewUrl },
-            });
-          } catch (driveErr: any) {
-            console.error("[Job Create] Drive upload failed:", driveErr);
-            // Surface a short message to the client so SuccessScreen can
-            // render a useful error instead of silently hiding the iframe.
-            driveError =
-              driveErr?.message ||
-              driveErr?.errors?.[0]?.message ||
-              "Drive upload failed";
-          }
-        }
-      }
     }
 
     return NextResponse.json({
       jobId,
       userId,
       userToken,
-      driveViewUrl,
-      driveError,
     }, { status: 201 });
   } catch (err: any) {
     console.error("Job Creation Error:", err);

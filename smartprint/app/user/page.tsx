@@ -42,6 +42,11 @@ const PDFPreview = dynamic(() => import("@/components/user/PDFPreview"), {
   ),
 });
 
+const FilePreview = dynamic(
+  () => import("@/components/user/FilePreview"),
+  { ssr: false },
+);
+
 /* ── Helpers ────────────────────────────────────────────── */
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -201,140 +206,15 @@ function UserPageContent() {
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  // ── Live DOCX preview via Google Drive (Option B in round 16) ──
-  // Per-File preview state. We eagerly POST each .docx the user selects
-  // to /api/preview/docx, store the resulting Drive previewUrl, and
-  // render it as an iframe in the step-2 preview slot. On file swap,
-  // encryption toggle, or unmount we DELETE any orphan Drive copies.
-  // On submit we forward the already-uploaded Drive ids to /api/jobs/create
-  // so the server reuses them instead of double-uploading.
-  type DocxPreviewStatus = "idle" | "uploading" | "ready" | "error";
-  interface DocxPreviewEntry {
-    status: DocxPreviewStatus;
-    fileId?: string;
-    previewUrl?: string;
-    error?: string;
-    abortController?: AbortController;
-  }
-  // Ref so effects can read the current map without dep loops; bump
-  // `previewTick` whenever we mutate, to force a re-render.
-  const docxPreviewsRef = useRef<Map<File, DocxPreviewEntry>>(new Map());
-  const [, setPreviewTick] = useState(0);
-  const bumpPreviewTick = () => setPreviewTick((n) => n + 1);
-
-  const setDocxPreview = (file: File, partial: Partial<DocxPreviewEntry>) => {
-    const cur = docxPreviewsRef.current.get(file) ?? { status: "idle" as const };
-    docxPreviewsRef.current.set(file, { ...cur, ...partial });
-    bumpPreviewTick();
-  };
-  const removeDocxPreview = (file: File) => {
-    docxPreviewsRef.current.delete(file);
-    bumpPreviewTick();
-  };
-  const getDocxPreview = (file: File | undefined): DocxPreviewEntry | undefined =>
-    file ? docxPreviewsRef.current.get(file) : undefined;
-
-  /** Best-effort DELETE of an orphan Drive copy. `keepalive` lets the
-   *  request survive page unmount / navigation. */
-  const deleteDocxPreviewRemote = (fileId: string) => {
-    fetch(`/api/preview/docx?id=${encodeURIComponent(fileId)}`, {
-      method: "DELETE",
-      keepalive: true,
-    }).catch(() => { /* ignore — best effort */ });
-  };
-
-  const cleanupDocxPreview = (file: File) => {
-    const entry = docxPreviewsRef.current.get(file);
-    if (!entry) return;
-    if (entry.abortController) entry.abortController.abort();
-    if (entry.fileId) deleteDocxPreviewRemote(entry.fileId);
-    removeDocxPreview(file);
-  };
-
-  const uploadDocxPreview = async (file: File) => {
-    const ctrl = new AbortController();
-    setDocxPreview(file, { status: "uploading", abortController: ctrl, error: undefined });
-    const fd = new FormData();
-    fd.append("file", file);
-    try {
-      const res = await fetch("/api/preview/docx", {
-        method: "POST",
-        body: fd,
-        signal: ctrl.signal,
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      // If the user already swapped/removed this file while we were
-      // uploading, the entry was wiped — abort path will have hit;
-      // double-check anyway.
-      if (!docxPreviewsRef.current.has(file)) {
-        if (data?.fileId) deleteDocxPreviewRemote(data.fileId);
-        return;
-      }
-      setDocxPreview(file, {
-        status: "ready",
-        fileId: data.fileId,
-        previewUrl: data.previewUrl,
-        abortController: undefined,
-        error: undefined,
-      });
-    } catch (err: any) {
-      if (err?.name === "AbortError") return;
-      setDocxPreview(file, {
-        status: "error",
-        error: err?.message || "Preview upload failed",
-        abortController: undefined,
-      });
-    }
-  };
+  // Live DOCX preview is now handled by <DocxToPdfPreview> which calls
+  // /api/preview/convert on demand. No state machine needed here — the
+  // wrapper component owns its own loading/error state and revokes
+  // its blob URL on unmount.
 
   // Load recent shops
   useEffect(() => {
     const recent = Cookies.get("sp_recent");
     if (recent) setRecentShops(JSON.parse(recent));
-  }, []);
-
-  // ── Orchestrate Drive previews for the current `files` list ──
-  // - Encrypt ON  → cleanup all previews (we never upload ciphertext).
-  // - Otherwise  → upload any docx file that doesn't already have an
-  //                entry; delete entries whose File is no longer in the
-  //                list (user removed/swapped it).
-  useEffect(() => {
-    if (isEncrypted) {
-      Array.from(docxPreviewsRef.current.keys()).forEach(cleanupDocxPreview);
-      return;
-    }
-    const docxFiles = files
-      .map((e: any) => e?.file)
-      .filter((f: any): f is File =>
-        !!f && typeof f.name === "string" && f.name.toLowerCase().endsWith(".docx"),
-      );
-    // 1. Cleanup orphans (file no longer present).
-    const live = new Set(docxFiles);
-    Array.from(docxPreviewsRef.current.keys()).forEach((prev) => {
-      if (!live.has(prev)) cleanupDocxPreview(prev);
-    });
-    // 2. Start uploads for new docx files.
-    for (const f of docxFiles) {
-      if (!docxPreviewsRef.current.has(f)) {
-        uploadDocxPreview(f);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [files, isEncrypted]);
-
-  // ── Best-effort cleanup on component unmount ──
-  // Page navigated away / user closed tab. Fire DELETEs with keepalive
-  // so they survive teardown. Also cancel any in-flight uploads.
-  useEffect(() => {
-    return () => {
-      Array.from(docxPreviewsRef.current.entries()).forEach(([, entry]) => {
-        if (entry.abortController) entry.abortController.abort();
-        if (entry.fileId) deleteDocxPreviewRemote(entry.fileId);
-      });
-      docxPreviewsRef.current.clear();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Verify shop token
@@ -597,15 +477,6 @@ function UserPageContent() {
         updatedSettings.fileInfos = fileInfos;
       } else {
         finalFiles.forEach((f) => formData.append("files", f));
-        // Forward already-uploaded Drive ids so /api/jobs/create reuses
-        // them instead of double-uploading. Indices align with `finalFiles`.
-        finalFiles.forEach((f, i) => {
-          const preview = getDocxPreview(f);
-          if (preview?.status === "ready" && preview.fileId && preview.previewUrl) {
-            formData.append(`existingDriveFileId_${i}`, preview.fileId);
-            formData.append(`existingDriveViewUrl_${i}`, preview.previewUrl);
-          }
-        });
       }
 
       formData.append("shopToken", shopToken);
@@ -641,10 +512,6 @@ function UserPageContent() {
 
       const data = await res.json();
       setJobResult(data);
-      // Drive previews have now been transferred to the job (via
-      // existingDriveFileId_*) — clear our ref so the unmount cleanup
-      // doesn't DELETE files that the job now owns.
-      docxPreviewsRef.current.clear();
       setStep(3);
       toast.success("Files sent successfully");
     } catch (error: any) {
@@ -1267,63 +1134,19 @@ function UserPageContent() {
                             }
 
                             if (isDocx) {
-                              const docxFile: File = currentFile.file;
-                              const preview = getDocxPreview(docxFile);
-                              const status = preview?.status ?? "idle";
-
-                              if (status === "ready" && preview?.previewUrl) {
-                                return (
-                                  <div
-                                    className="w-full h-full flex flex-col"
-                                    style={{ background: "#525659", minHeight: 600 }}
-                                  >
-                                    <iframe
-                                      src={preview.previewUrl}
-                                      title="Document Preview"
-                                      style={{
-                                        width: "100%",
-                                        flex: 1,
-                                        minHeight: 600,
-                                        border: "none",
-                                        display: "block",
-                                      }}
-                                    />
-                                  </div>
-                                );
-                              }
-
-                              if (status === "error") {
+                              if (isEncrypted) {
                                 return (
                                   <div className="flex flex-col items-center justify-center p-20 gap-3 text-center">
                                     <p className="up-section-label" style={{ fontSize: "0.92em" }}>
-                                      Preview unavailable
+                                      Encrypted — preview disabled
                                     </p>
-                                    <p className="text-xs text-gray-500 max-w-xs leading-relaxed break-words">
-                                      {preview?.error || "Failed to upload preview"}
-                                    </p>
-                                    <p className="text-[10px] text-gray-500/70 max-w-xs leading-relaxed">
-                                      Your file will still be sent to the shop.
+                                    <p className="text-xs text-gray-500 max-w-xs leading-relaxed">
+                                      Encrypted files are sent directly without preview.
                                     </p>
                                   </div>
                                 );
                               }
-
-                              return (
-                                <div className="flex flex-col items-center justify-center p-20 gap-3 text-center">
-                                  <Loader2
-                                    className="w-6 h-6 animate-spin"
-                                    style={{ color: "var(--up-accent)" }}
-                                  />
-                                  <p className="up-section-label" style={{ fontSize: "0.92em" }}>
-                                    {isEncrypted ? "Encrypted — preview disabled" : "Preparing preview…"}
-                                  </p>
-                                  <p className="text-xs text-gray-500 max-w-xs leading-relaxed">
-                                    {isEncrypted
-                                      ? "Encrypted files are sent directly without preview."
-                                      : "Uploading your document for preview via Google Drive."}
-                                  </p>
-                                </div>
-                              );
+                              return <FilePreview file={currentFile.file} />;
                             }
 
                             if (isPptx) {

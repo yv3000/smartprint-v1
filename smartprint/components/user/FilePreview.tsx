@@ -275,14 +275,11 @@ function FilePreviewInner({ file, appBaseUrl }: { file: File; appBaseUrl?: strin
       `https://view.officeapps.live.com/op/embed.aspx?src=` +
       encodeURIComponent(fileUrl);
 
-    return (
-      <iframe
-        src={msViewerUrl}
-        className="w-full h-full"
-        style={{ border: "none", minHeight: 600 }}
-        title={`Preview: ${file.name}`}
-      />
-    );
+    // Wrap iframe in an overlay spinner so the user never sees
+    // Microsoft's loading splash (the big "Microsoft" logo). We hide
+    // the iframe via opacity until `onLoad` fires, and render our own
+    // spinner on top.
+    return <MsOfficeFrame src={msViewerUrl} title={`Preview: ${file.name}`} />;
   }
 
   return (
@@ -320,6 +317,47 @@ function PreviewError({ message }: { message: string }) {
       <p className="text-[11px] text-white/30 max-w-md leading-relaxed break-words">
         {message}
       </p>
+    </div>
+  );
+}
+
+/**
+ * Microsoft Office Online viewer wrapper.
+ *
+ * The MS viewer shows a big "Microsoft" splash while it fetches the
+ * source URL — distracting and off-brand. We render the iframe with
+ * opacity 0 + an overlay spinner on top, then fade the iframe in once
+ * its `onLoad` event fires (Microsoft has finished its first paint by
+ * then, splash gone).
+ *
+ * Note: `onLoad` fires per-iframe-load. If the viewer redirects
+ * internally (rare) the spinner won't re-appear, but that's fine — the
+ * doc is already visible.
+ */
+function MsOfficeFrame({ src, title }: { src: string; title: string }) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <div className="relative w-full h-full" style={{ minHeight: "min(85vh, 900px)" }}>
+      {!loaded && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#1f1f23] text-white/40">
+          <Loader2 className="w-7 h-7 animate-spin" />
+          <p className="text-xs font-bold uppercase tracking-widest animate-pulse">
+            Rendering document…
+          </p>
+        </div>
+      )}
+      <iframe
+        src={src}
+        className="w-full h-full"
+        style={{
+          border: "none",
+          opacity: loaded ? 1 : 0,
+          transition: "opacity 0.25s ease",
+        }}
+        title={title}
+        onLoad={() => setLoaded(true)}
+      />
     </div>
   );
 }

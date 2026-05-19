@@ -26,6 +26,8 @@ import { join, extname } from "path";
 import { randomBytes, createHmac } from "crypto";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 const PREVIEW_DIR = "/tmp/smartprint-preview";
 const TTL_MS = 5 * 60 * 1000; // 5 minutes

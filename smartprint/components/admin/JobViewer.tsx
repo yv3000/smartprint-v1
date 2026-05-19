@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import { getMarginMm } from "@/lib/printLayout";
 
 const PDFPreview = dynamic(() => import("@/components/user/PDFPreview"), { ssr: false });
+const FilePreview = dynamic(() => import("@/components/user/FilePreview"), { ssr: false });
 
 interface JobViewerProps {
   job: JobResponse;
@@ -790,14 +791,9 @@ export default function JobViewer({
                           </div>
                         ) : isPdfFile(name) && previewUrls[index] ? (
                           <iframe src={`${previewUrls[index]}#toolbar=0`} style={{ width: '100%', height: '800px', border: 'none' }} title={name} />
-                        ) : isDocxFile(name) && jobData.driveViewUrl ? (
-                          <div className="w-full h-[80vh] max-h-[900px] bg-[#EFEFEF] rounded-b-lg overflow-hidden">
-                            <iframe
-                              src={jobData.driveViewUrl}
-                              className="w-full h-full"
-                              style={{ border: "none" }}
-                              title={name}
-                            />
+                        ) : isDocxFile(name) && previewUrls[index] ? (
+                          <div className="w-full h-[80vh] max-h-[900px] bg-[#525659] rounded-b-lg overflow-hidden">
+                            <FilePreview fileUrl={previewUrls[index]} fileName={name} />
                           </div>
                         ) : isDocxFile(name) ? (
                           <div className="p-12 text-center text-secondary">

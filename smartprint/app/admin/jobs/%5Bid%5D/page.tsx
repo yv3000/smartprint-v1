@@ -1,6 +1,8 @@
 "use client";
+"use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { 
@@ -21,6 +23,11 @@ import toast from "react-hot-toast";
 import AdminSecurityLayer from "@/components/admin/AdminSecurityLayer";
 import CountdownTimer from "@/components/admin/CountdownTimer";
 import { JobResponse, PrintSettings } from "@/lib/types";
+
+const FilePreview = dynamic(
+  () => import("@/components/user/FilePreview"),
+  { ssr: false },
+);
 
 export default function JobDetail() {
   const { id } = useParams();

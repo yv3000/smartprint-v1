@@ -53,6 +53,30 @@ const IMAGE_EXTENSIONS = new Set([
 ]);
 const TEXT_EXTENSIONS = new Set(["txt", "csv"]);
 
+const DOC_EXTS = new Set(["doc", "docx", "odt", "rtf"]);
+const SHEET_EXTS = new Set(["xls", "xlsx", "ods"]);
+const SLIDE_EXTS = new Set(["ppt", "pptx", "odp"]);
+
+/**
+ * Per-file-type preview viewport size.
+ *
+ * - Documents (docx/doc/odt/rtf) and PDFs are tall: 85vh.
+ * - Spreadsheets are wide and shorter: 70vh.
+ * - Slides have 16:9 ratio so much shorter: 60vh.
+ * - Plain text: 60vh.
+ * - Images: handled separately (auto height + max-height: 70vh).
+ */
+function previewSizeForExt(
+  ext: string,
+): { height: string; minHeight: number } {
+  if (DOC_EXTS.has(ext)) return { height: "85vh", minHeight: 600 };
+  if (SHEET_EXTS.has(ext)) return { height: "70vh", minHeight: 500 };
+  if (SLIDE_EXTS.has(ext)) return { height: "60vh", minHeight: 420 };
+  if (ext === "pdf") return { height: "85vh", minHeight: 600 };
+  if (TEXT_EXTENSIONS.has(ext)) return { height: "60vh", minHeight: 400 };
+  return { height: "70vh", minHeight: 500 };
+}
+
 type Status = "idle" | "uploading" | "ready" | "error";
 
 const isLocalHost = (url: string) =>
@@ -206,13 +230,24 @@ function FilePreviewInner({ file, appBaseUrl }: { file: File; appBaseUrl?: strin
 
   /* ─── Render ─── */
 
+  const size = previewSizeForExt(ext);
+
   if (isImage) {
+    // Images: natural height up to 70vh, contain. No fixed height so
+    // small images don't get stretched into a giant box.
     return blobUrl ? (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={blobUrl}
         alt={file.name}
-        className="w-full h-full object-contain bg-black/40"
+        style={{
+          width: "100%",
+          height: "auto",
+          maxHeight: "70vh",
+          objectFit: "contain",
+          background: "rgba(0,0,0,0.25)",
+          display: "block",
+        }}
         onDragStart={(e) => e.preventDefault()}
       />
     ) : (
@@ -222,12 +257,17 @@ function FilePreviewInner({ file, appBaseUrl }: { file: File; appBaseUrl?: strin
 
   if (isPdf) {
     return blobUrl ? (
-      <iframe
-        src={blobUrl}
-        className="w-full h-full"
-        style={{ border: "none", minHeight: 600 }}
-        title={file.name}
-      />
+      <div
+        className="relative w-full"
+        style={{ height: size.height, minHeight: size.minHeight }}
+      >
+        <iframe
+          src={blobUrl}
+          className="w-full h-full"
+          style={{ border: "none" }}
+          title={file.name}
+        />
+      </div>
     ) : (
       <PreviewSpinner label="Loading PDF…" />
     );
@@ -237,7 +277,10 @@ function FilePreviewInner({ file, appBaseUrl }: { file: File; appBaseUrl?: strin
     if (textContent === null) return <PreviewSpinner label="Reading file…" />;
     if (error) return <PreviewError message={error} />;
     return (
-      <pre className="w-full h-full overflow-auto p-4 text-xs text-white/70 font-mono whitespace-pre-wrap">
+      <pre
+        className="w-full overflow-auto p-4 text-xs text-white/70 font-mono whitespace-pre-wrap"
+        style={{ height: size.height, minHeight: size.minHeight }}
+      >
         {textContent}
       </pre>
     );
@@ -245,7 +288,14 @@ function FilePreviewInner({ file, appBaseUrl }: { file: File; appBaseUrl?: strin
 
   if (isMsOffice) {
     if (status === "uploading" || status === "idle") {
-      return <PreviewSpinner label="Preparing preview…" />;
+      return (
+        <div
+          className="w-full"
+          style={{ height: size.height, minHeight: size.minHeight }}
+        >
+          <PreviewSpinner label="Preparing preview…" />
+        </div>
+      );
     }
     if (status === "error" || !token) {
       return <PreviewError message={error || "Preview unavailable"} />;
@@ -279,7 +329,14 @@ function FilePreviewInner({ file, appBaseUrl }: { file: File; appBaseUrl?: strin
     // Microsoft's loading splash (the big "Microsoft" logo). We hide
     // the iframe via opacity until `onLoad` fires, and render our own
     // spinner on top.
-    return <MsOfficeFrame src={msViewerUrl} title={`Preview: ${file.name}`} />;
+    return (
+      <MsOfficeFrame
+        src={msViewerUrl}
+        title={`Preview: ${file.name}`}
+        height={size.height}
+        minHeight={size.minHeight}
+      />
+    );
   }
 
   return (
@@ -331,26 +388,42 @@ function PreviewError({ message }: { message: string }) {
  * iframe at that moment, so we delay revealing the iframe by an extra
  * grace period to let MS finish its splash + first document paint.
  *
+ * We also mask off the bottom ~40px of the iframe with a solid bar
+ * to hide MS's own bottom toolbar (page count, zoom, Word icon,
+ * fullscreen). It's not removable from inside the iframe (cross-
+ * origin) so we cover it instead.
+ *
  * Note: cross-origin means we can't introspect the iframe doc — the
  * delay is the most reliable hide. If MS is slow, our spinner stays
  * up; if it's fast, the user just sees a slightly later fade-in. No
  * MS logo flash either way.
  */
-function MsOfficeFrame({ src, title }: { src: string; title: string }) {
+function MsOfficeFrame({
+  src,
+  title,
+  height,
+  minHeight,
+}: {
+  src: string;
+  title: string;
+  height: string;
+  minHeight: number;
+}) {
   const [loaded, setLoaded] = useState(false);
+
+  // Color of the bottom mask. Match the surrounding card so it blends
+  // seamlessly. The user-side preview card sits on the page background
+  // (#1f1f23) so default to that.
+  const maskBg = "#1f1f23";
+  const maskHeight = 40;
 
   return (
     <div
       className="relative w-full flex flex-col"
-      style={{
-        // Bigger preview so a typical full page is visible without
-        // having to scroll inside the MS viewer.
-        height: "min(92vh, 1300px)",
-        minHeight: 900,
-      }}
+      style={{ height, minHeight }}
     >
       {!loaded && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#1f1f23] text-white/40">
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-[#1f1f23] text-white/40">
           <Loader2 className="w-7 h-7 animate-spin" />
           <p className="text-xs font-bold uppercase tracking-widest animate-pulse">
             Rendering document…
@@ -364,7 +437,7 @@ function MsOfficeFrame({ src, title }: { src: string; title: string }) {
         style={{
           border: "none",
           flex: 1,
-          minHeight: 900,
+          minHeight,
           opacity: loaded ? 1 : 0,
           transition: "opacity 0.25s ease",
         }}
@@ -373,6 +446,20 @@ function MsOfficeFrame({ src, title }: { src: string; title: string }) {
           // the iframe before we fade it in. 1500ms is enough for
           // most docs without feeling slow.
           window.setTimeout(() => setLoaded(true), 1500);
+        }}
+      />
+      {/* Bottom bar mask — covers MS Office viewer's toolbar. */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: maskHeight,
+          background: maskBg,
+          zIndex: 10,
+          pointerEvents: "none",
         }}
       />
     </div>

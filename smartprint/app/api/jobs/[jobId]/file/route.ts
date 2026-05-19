@@ -12,11 +12,32 @@ import path from "path";
 
 // MIME type mapping for supported formats
 const MIME_TYPES: Record<string, string> = {
+  // PDF
   ".pdf": "application/pdf",
+  // Images
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".bmp": "image/bmp",
+  ".svg": "image/svg+xml",
+  // Documents
   ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".doc": "application/msword",
+  ".odt": "application/vnd.oasis.opendocument.text",
+  ".rtf": "application/rtf",
+  // Spreadsheets
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".xls": "application/vnd.ms-excel",
+  ".ods": "application/vnd.oasis.opendocument.spreadsheet",
+  ".csv": "text/csv",
+  // Presentations
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".ppt": "application/vnd.ms-powerpoint",
+  ".odp": "application/vnd.oasis.opendocument.presentation",
+  // Text
+  ".txt": "text/plain",
 };
 
 export async function GET(

@@ -55,11 +55,33 @@ export default function FileUpload({ files, onFilesAdded, onRemoveFile }: Props)
     onDropAccepted: () => setIsDragging(false),
     onDropRejected: () => setIsDragging(false),
     accept: {
+      // Documents
       "application/pdf": [".pdf"],
-      "image/*": [".jpg", ".jpeg", ".png"],
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+      "application/msword": [".doc"],
+      "application/vnd.oasis.opendocument.text": [".odt"],
+      "application/rtf": [".rtf"],
+      "text/rtf": [".rtf"],
+      // Spreadsheets
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+      "application/vnd.ms-excel": [".xls"],
+      "application/vnd.oasis.opendocument.spreadsheet": [".ods"],
+      "text/csv": [".csv"],
+      // Presentations
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
+      "application/vnd.ms-powerpoint": [".ppt"],
+      "application/vnd.oasis.opendocument.presentation": [".odp"],
+      // Images
+      "image/jpeg": [".jpg", ".jpeg"],
+      "image/png": [".png"],
+      "image/gif": [".gif"],
+      "image/webp": [".webp"],
+      "image/bmp": [".bmp"],
+      "image/svg+xml": [".svg"],
+      // Text
+      "text/plain": [".txt"],
     },
-    maxSize: 25 * 1024 * 1024,
+    maxSize: 50 * 1024 * 1024,
   });
 
   return (

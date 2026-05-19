@@ -1,15 +1,17 @@
 "use client";
 
 /**
- * Universal preview component (round 25).
+ * Universal preview component (round 26).
  *
  * Routes by file extension:
- *   - Office (docx/doc/odt/rtf/xls/xlsx/ods/pptx/ppt/odp)
- *       → uploaded to /api/preview/upload, embedded in
- *         https://view.officeapps.live.com/op/embed.aspx?src=<URL>
+ *   - Office docs   (docx/doc/odt/rtf)            → MS Word viewer
+ *   - Spreadsheets  (xlsx/xls/ods/csv)            → MS Excel viewer
+ *   - Presentations (pptx/ppt/odp)                → MS PowerPoint viewer
+ *       all three above are uploaded to /api/preview/upload, then
+ *       embedded in https://view.officeapps.live.com/op/embed.aspx
  *   - PDF  → object URL via blob, embedded in <iframe>
- *   - Image (jpg/png/gif/webp/bmp/svg) → object URL via blob in <img>
- *   - CSV / TXT  → read with file.text(), shown in <pre>
+ *   - Image (jpg/jpeg/png/gif/webp/bmp/svg) → object URL via blob in <img>
+ *   - TXT  → read with file.text(), shown in <pre>
  *
  * Privacy posture: Office files end up briefly on Microsoft's servers
  * because the MS viewer fetches the URL from public Microsoft infra.
@@ -43,25 +45,30 @@ interface FilePreviewProps {
   appBaseUrl?: string;
 }
 
-const MS_OFFICE_EXTENSIONS = new Set([
-  "docx", "doc", "odt", "rtf",
-  "xlsx", "xls", "ods",
-  "pptx", "ppt", "odp",
+// Per-bucket extension sets. CSV is treated as a spreadsheet
+// (rendered via the MS Excel viewer), not as plain text — Excel
+// formats CSV as a real grid which is much more useful than a raw
+// dump in <pre>.
+const DOC_EXTS = new Set(["doc", "docx", "odt", "rtf"]);
+const SHEET_EXTS = new Set(["xls", "xlsx", "ods", "csv"]);
+const SLIDE_EXTS = new Set(["ppt", "pptx", "odp"]);
+
+const MS_OFFICE_EXTENSIONS = new Set<string>([
+  ...DOC_EXTS,
+  ...SHEET_EXTS,
+  ...SLIDE_EXTS,
 ]);
 const IMAGE_EXTENSIONS = new Set([
   "jpg", "jpeg", "png", "gif", "webp", "bmp", "svg",
 ]);
-const TEXT_EXTENSIONS = new Set(["txt", "csv"]);
-
-const DOC_EXTS = new Set(["doc", "docx", "odt", "rtf"]);
-const SHEET_EXTS = new Set(["xls", "xlsx", "ods"]);
-const SLIDE_EXTS = new Set(["ppt", "pptx", "odp"]);
+const PDF_EXTENSIONS = new Set(["pdf"]);
+const TEXT_EXTENSIONS = new Set(["txt"]);
 
 /**
  * Per-file-type preview viewport size.
  *
  * - Documents (docx/doc/odt/rtf) and PDFs are tall: 85vh.
- * - Spreadsheets are wide and shorter: 70vh.
+ * - Spreadsheets (incl. csv) are wide and shorter: 70vh.
  * - Slides have 16:9 ratio so much shorter: 60vh.
  * - Plain text: 60vh.
  * - Images: handled separately (auto height + max-height: 70vh).
@@ -72,7 +79,7 @@ function previewSizeForExt(
   if (DOC_EXTS.has(ext)) return { height: "85vh", minHeight: 600 };
   if (SHEET_EXTS.has(ext)) return { height: "70vh", minHeight: 500 };
   if (SLIDE_EXTS.has(ext)) return { height: "60vh", minHeight: 420 };
-  if (ext === "pdf") return { height: "85vh", minHeight: 600 };
+  if (PDF_EXTENSIONS.has(ext)) return { height: "85vh", minHeight: 600 };
   if (TEXT_EXTENSIONS.has(ext)) return { height: "60vh", minHeight: 400 };
   return { height: "70vh", minHeight: 500 };
 }
@@ -135,7 +142,7 @@ function FilePreviewInner({ file, appBaseUrl }: { file: File; appBaseUrl?: strin
   );
   const isMsOffice = MS_OFFICE_EXTENSIONS.has(ext);
   const isImage = IMAGE_EXTENSIONS.has(ext);
-  const isPdf = ext === "pdf";
+  const isPdf = PDF_EXTENSIONS.has(ext);
   const isText = TEXT_EXTENSIONS.has(ext);
 
   const [token, setToken] = useState<string | null>(null);

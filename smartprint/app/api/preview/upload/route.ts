@@ -22,19 +22,73 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { mkdir, writeFile } from "fs/promises";
-import { join } from "path";
+import { join, extname } from "path";
 import { randomBytes, createHmac } from "crypto";
 
 export const runtime = "nodejs";
 
 const PREVIEW_DIR = "/tmp/smartprint-preview";
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
-const MAX_BYTES = 25 * 1024 * 1024;
+const MAX_BYTES = 50 * 1024 * 1024; // 50 MB — slides can get big
 const SECRET =
   process.env.PREVIEW_TOKEN_SECRET ||
   process.env.AUTH_SECRET ||
   process.env.ADMIN_ID ||
   "smartprint_preview_default_secret";
+
+// MIME types we accept. Mirrors the FilePreview component's ext sets.
+// Browsers report MIME inconsistently for some types (.rtf, .csv, .odt
+// often come through as `application/octet-stream` on Windows), so we
+// also accept-by-extension below as a fallback.
+const ALLOWED_TYPES = new Set<string>([
+  // Documents
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword",
+  "application/vnd.oasis.opendocument.text",
+  "application/rtf",
+  "text/rtf",
+  // Spreadsheets
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+  "application/vnd.oasis.opendocument.spreadsheet",
+  "text/csv",
+  // Presentations
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.oasis.opendocument.presentation",
+  // PDF
+  "application/pdf",
+  // Images
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/bmp",
+  "image/svg+xml",
+  // Text
+  "text/plain",
+]);
+
+const ALLOWED_EXTENSIONS = new Set<string>([
+  // Documents
+  "doc", "docx", "odt", "rtf",
+  // Spreadsheets
+  "xls", "xlsx", "ods", "csv",
+  // Presentations
+  "ppt", "pptx", "odp",
+  // PDF
+  "pdf",
+  // Images
+  "jpg", "jpeg", "png", "gif", "webp", "bmp", "svg",
+  // Text
+  "txt",
+]);
+
+function isAllowed(file: File): boolean {
+  if (file.type && ALLOWED_TYPES.has(file.type)) return true;
+  const ext = extname(file.name).replace(/^\./, "").toLowerCase();
+  return ALLOWED_EXTENSIONS.has(ext);
+}
 
 function signToken(payload: object): string {
   const json = JSON.stringify(payload);
@@ -66,6 +120,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: `File too large (max ${MAX_BYTES / 1024 / 1024} MB)` },
       { status: 413 },
+    );
+  }
+
+  if (!isAllowed(file)) {
+    return NextResponse.json(
+      {
+        error: `Unsupported file type${file.type ? ` (${file.type})` : ""}`,
+      },
+      { status: 415 },
     );
   }
 

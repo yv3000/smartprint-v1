@@ -338,7 +338,16 @@ function MsOfficeFrame({ src, title }: { src: string; title: string }) {
   const [loaded, setLoaded] = useState(false);
 
   return (
-    <div className="relative w-full h-full" style={{ minHeight: "min(85vh, 900px)" }}>
+    <div
+      className="relative w-full flex flex-col"
+      style={{
+        // Both `height` and `minHeight` so the iframe's `h-full`
+        // resolves to a real pixel value. Using only minHeight leaves
+        // children's `h-full` at 0.
+        height: "min(85vh, 900px)",
+        minHeight: 700,
+      }}
+    >
       {!loaded && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#1f1f23] text-white/40">
           <Loader2 className="w-7 h-7 animate-spin" />
@@ -349,13 +358,15 @@ function MsOfficeFrame({ src, title }: { src: string; title: string }) {
       )}
       <iframe
         src={src}
-        className="w-full h-full"
+        title={title}
+        className="w-full"
         style={{
           border: "none",
+          flex: 1,
+          minHeight: 700,
           opacity: loaded ? 1 : 0,
           transition: "opacity 0.25s ease",
         }}
-        title={title}
         onLoad={() => setLoaded(true)}
       />
     </div>

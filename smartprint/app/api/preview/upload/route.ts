@@ -101,7 +101,8 @@ export async function POST(req: NextRequest) {
   let formData: FormData;
   try {
     formData = await req.formData();
-  } catch {
+  } catch (err) {
+    console.error("[preview/upload] failed to parse multipart body", err);
     return NextResponse.json(
       { error: "Invalid multipart body" },
       { status: 400 },
@@ -110,13 +111,21 @@ export async function POST(req: NextRequest) {
 
   const file = formData.get("file");
   if (!(file instanceof File)) {
+    console.warn("[preview/upload] missing `file` field");
     return NextResponse.json(
       { error: "Missing `file` field" },
       { status: 400 },
     );
   }
 
+  console.log(
+    `[preview/upload] received name=${file.name} type=${file.type || "(none)"} size=${file.size}`,
+  );
+
   if (file.size > MAX_BYTES) {
+    console.warn(
+      `[preview/upload] reject too-large name=${file.name} size=${file.size}`,
+    );
     return NextResponse.json(
       { error: `File too large (max ${MAX_BYTES / 1024 / 1024} MB)` },
       { status: 413 },
@@ -124,6 +133,9 @@ export async function POST(req: NextRequest) {
   }
 
   if (!isAllowed(file)) {
+    console.warn(
+      `[preview/upload] reject unsupported name=${file.name} type=${file.type}`,
+    );
     return NextResponse.json(
       {
         error: `Unsupported file type${file.type ? ` (${file.type})` : ""}`,
@@ -150,6 +162,10 @@ export async function POST(req: NextRequest) {
     f: safeOriginalName, // original filename (for Content-Disposition)
     e: Date.now() + TTL_MS, // expiry epoch ms
   });
+
+  console.log(
+    `[preview/upload] ok name=${safeOriginalName} disk=${diskName} bytes=${file.size}`,
+  );
 
   return NextResponse.json(
     { token, expiresInMs: TTL_MS },

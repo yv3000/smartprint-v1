@@ -1094,19 +1094,24 @@ function UserPageContent() {
                       {files[selectedFileIndex]?.preview
                         ? (() => {
                             const currentFile = files[selectedFileIndex];
+                            const lowerName = currentFile.file.name.toLowerCase();
+                            const ext = lowerName.split(".").pop() || "";
                             const isImage = currentFile.file.type.startsWith("image/");
                             const isPDF =
                               currentFile.file.type === "application/pdf" ||
-                              currentFile.file.name.toLowerCase().endsWith(".pdf");
-                            const isDocx =
-                              currentFile.file.name.toLowerCase().endsWith(".docx") ||
-                              currentFile.file.type ===
-                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-                            const isPptx =
-                              currentFile.file.name.toLowerCase().endsWith(".pptx") ||
-                              currentFile.file.name.toLowerCase().endsWith(".ppt") ||
-                              currentFile.file.type ===
-                                "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+                              lowerName.endsWith(".pdf");
+                            // All MS-Office-viewer-backed types + plain text
+                            // are previewed through <FilePreview>. PDF and
+                            // images keep their custom flows below because
+                            // they need page-by-page navigation / image
+                            // crop logic respectively.
+                            const FILE_PREVIEW_EXTS = new Set([
+                              "doc", "docx", "odt", "rtf",
+                              "xls", "xlsx", "ods", "csv",
+                              "ppt", "pptx", "odp",
+                              "txt",
+                            ]);
+                            const usesFilePreview = FILE_PREVIEW_EXTS.has(ext);
 
                             if (isPDF) {
                               return (
@@ -1133,7 +1138,7 @@ function UserPageContent() {
                               );
                             }
 
-                            if (isDocx) {
+                            if (usesFilePreview) {
                               if (isEncrypted) {
                                 return (
                                   <div className="flex flex-col items-center justify-center p-20 gap-3 text-center">
@@ -1147,81 +1152,6 @@ function UserPageContent() {
                                 );
                               }
                               return <FilePreview file={currentFile.file} />;
-                            }
-
-                            if (isPptx) {
-                              const pptAspect = getPaperAspectForOrientation(
-                                settings.paperSize,
-                                settings.orientation
-                              );
-                              const pptCols =
-                                settings.pagesPerSheet >= 16
-                                  ? 4
-                                  : settings.pagesPerSheet >= 9
-                                  ? 3
-                                  : settings.pagesPerSheet >= 4
-                                  ? 2
-                                  : settings.pagesPerSheet >= 2
-                                  ? 2
-                                  : 1;
-                              return (
-                                <div className="w-full h-full flex items-center justify-center p-4">
-                                  <div
-                                    className="w-full"
-                                    style={{
-                                      maxWidth: 520,
-                                      background: "#fff",
-                                      borderRadius: 8,
-                                      boxShadow:
-                                        "0 10px 40px rgba(0,0,0,0.10), 0 0 0 0.5px rgba(0,0,0,0.06)",
-                                      padding: 12,
-                                      aspectRatio: `${pptAspect.w} / ${pptAspect.h}`,
-                                    }}
-                                  >
-                                    <div
-                                      className="w-full h-full grid gap-1.5"
-                                      style={{
-                                        gridTemplateColumns: `repeat(${pptCols}, minmax(0, 1fr))`,
-                                      }}
-                                    >
-                                      {Array.from({
-                                        length: Math.max(1, settings.pagesPerSheet),
-                                      }).map((_, idx) => {
-                                        const showSlide =
-                                          settings.pagesPerSheetFill === "repeat" || idx === 0;
-                                        return (
-                                          <div
-                                            key={idx}
-                                            className="rounded flex items-center justify-center"
-                                            style={{
-                                              border: "0.5px solid rgba(0,0,0,0.06)",
-                                              background: "rgba(0,0,0,0.02)",
-                                              minHeight: 0,
-                                            }}
-                                          >
-                                            {showSlide ? (
-                                              <FileText
-                                                size={14}
-                                                strokeWidth={1.5}
-                                                style={{ color: "#FF9F0A" }}
-                                              />
-                                            ) : (
-                                              <div
-                                                style={{
-                                                  width: "70%",
-                                                  height: "70%",
-                                                  border: "0.5px dashed rgba(0,0,0,0.10)",
-                                                  borderRadius: 2,
-                                                }}
-                                              />
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
                             }
 
                             if (!isImage) {

@@ -88,12 +88,14 @@ export async function GET(
 
   const payload = verifyToken(token);
   if (!payload) {
+    console.warn("[preview/file] invalid token");
     return NextResponse.json(
       { error: "Invalid token" },
       { status: 403 },
     );
   }
   if (Date.now() > payload.e) {
+    console.warn(`[preview/file] expired name=${payload.f}`);
     return NextResponse.json(
       { error: "Token expired" },
       { status: 410 },
@@ -106,6 +108,9 @@ export async function GET(
   const filePath = join(PREVIEW_DIR, safe);
 
   if (!existsSync(filePath)) {
+    console.warn(
+      `[preview/file] missing on disk name=${payload.f} disk=${safe}`,
+    );
     return NextResponse.json(
       { error: "Preview file no longer available" },
       { status: 404 },
@@ -116,6 +121,10 @@ export async function GET(
   const contentType = MIME[ext] || "application/octet-stream";
 
   const buffer = await readFile(filePath);
+
+  console.log(
+    `[preview/file] serve name=${payload.f} ct=${contentType} bytes=${buffer.length}`,
+  );
 
   return new NextResponse(buffer, {
     status: 200,

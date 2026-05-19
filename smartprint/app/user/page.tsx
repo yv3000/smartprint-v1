@@ -1083,7 +1083,7 @@ function UserPageContent() {
                       style={{
                         background: "rgba(0,0,0,0.04)",
                         borderRadius: 12,
-                        minHeight: "clamp(380px, 70vh, 760px)",
+                        minHeight: "clamp(520px, 90vh, 1200px)",
                         overflow: "hidden",
                       }}
                       transition={{

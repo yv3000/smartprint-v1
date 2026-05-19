@@ -326,13 +326,15 @@ function PreviewError({ message }: { message: string }) {
  *
  * The MS viewer shows a big "Microsoft" splash while it fetches the
  * source URL — distracting and off-brand. We render the iframe with
- * opacity 0 + an overlay spinner on top, then fade the iframe in once
- * its `onLoad` event fires (Microsoft has finished its first paint by
- * then, splash gone).
+ * opacity 0 + an overlay spinner on top. `onLoad` fires when the host
+ * page finishes loading, but the splash is still visible inside the
+ * iframe at that moment, so we delay revealing the iframe by an extra
+ * grace period to let MS finish its splash + first document paint.
  *
- * Note: `onLoad` fires per-iframe-load. If the viewer redirects
- * internally (rare) the spinner won't re-appear, but that's fine — the
- * doc is already visible.
+ * Note: cross-origin means we can't introspect the iframe doc — the
+ * delay is the most reliable hide. If MS is slow, our spinner stays
+ * up; if it's fast, the user just sees a slightly later fade-in. No
+ * MS logo flash either way.
  */
 function MsOfficeFrame({ src, title }: { src: string; title: string }) {
   const [loaded, setLoaded] = useState(false);
@@ -341,11 +343,10 @@ function MsOfficeFrame({ src, title }: { src: string; title: string }) {
     <div
       className="relative w-full flex flex-col"
       style={{
-        // Both `height` and `minHeight` so the iframe's `h-full`
-        // resolves to a real pixel value. Using only minHeight leaves
-        // children's `h-full` at 0.
-        height: "min(85vh, 900px)",
-        minHeight: 700,
+        // Bigger preview so a typical full page is visible without
+        // having to scroll inside the MS viewer.
+        height: "min(92vh, 1300px)",
+        minHeight: 900,
       }}
     >
       {!loaded && (
@@ -363,11 +364,16 @@ function MsOfficeFrame({ src, title }: { src: string; title: string }) {
         style={{
           border: "none",
           flex: 1,
-          minHeight: 700,
+          minHeight: 900,
           opacity: loaded ? 1 : 0,
           transition: "opacity 0.25s ease",
         }}
-        onLoad={() => setLoaded(true)}
+        onLoad={() => {
+          // Delay reveal so MS's "Microsoft" splash finishes inside
+          // the iframe before we fade it in. 1500ms is enough for
+          // most docs without feeling slow.
+          window.setTimeout(() => setLoaded(true), 1500);
+        }}
       />
     </div>
   );

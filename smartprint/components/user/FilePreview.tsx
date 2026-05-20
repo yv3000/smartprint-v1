@@ -148,7 +148,6 @@ function FilePreviewInner({ file, appBaseUrl }: { file: File; appBaseUrl?: strin
   const isImage = IMAGE_EXTENSIONS.has(ext);
   const isPdf = PDF_EXTENSIONS.has(ext);
   const isText = TEXT_EXTENSIONS.has(ext);
-  const isSheet = SHEET_EXTS.has(ext);
 
   const [token, setToken] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("idle");
@@ -335,19 +334,17 @@ function FilePreviewInner({ file, appBaseUrl }: { file: File; appBaseUrl?: strin
 
     // Build the MS Office Online embed URL.
     //
-    // For spreadsheets we pass extra query params documented by MS:
-    //   wdHideGridlines=True   — hide empty grid lines
-    //   wdHideHeaders=True     — hide row (1,2,3) and column (A,B,C) headers
-    //   wdDownloadButton=False — hide the "Download" button
-    // These only affect Excel; on Word/PowerPoint they're ignored.
-    const params = new URLSearchParams({ src: fileUrl });
-    if (isSheet) {
-      params.set("wdHideGridlines", "True");
-      params.set("wdHideHeaders", "True");
-      params.set("wdDownloadButton", "False");
-    }
+    // We previously added wdHideGridlines / wdHideHeaders /
+    // wdDownloadButton query params for sheets — those are documented
+    // for SharePoint/OneDrive Excel embeds, NOT for
+    // view.officeapps.live.com/op/embed.aspx. MS viewer silently
+    // rejects the URL and shows "File not found" for xlsx when those
+    // params are present. DOCX wasn't affected because we only added
+    // them for sheets. Reverted to the bare `?src=` form which works
+    // for all Office types.
     const msViewerUrl =
-      `https://view.officeapps.live.com/op/embed.aspx?${params.toString()}`;
+      `https://view.officeapps.live.com/op/embed.aspx?src=` +
+      encodeURIComponent(fileUrl);
 
     // Wrap iframe in an overlay spinner so the user never sees
     // Microsoft's loading splash (the big "Microsoft" logo). We hide

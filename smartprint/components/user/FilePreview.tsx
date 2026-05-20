@@ -263,12 +263,13 @@ function FilePreviewInner({ file, appBaseUrl }: { file: File; appBaseUrl?: strin
 
     (async () => {
       try {
-        const [XLSX, jsPDFMod] = await Promise.all([
+        const [XLSX, jsPDFMod, autoTableMod] = await Promise.all([
           import("xlsx"),
           import("jspdf"),
           import("jspdf-autotable"),
         ]);
-        const jsPDF = jsPDFMod.default;
+        const jsPDF = jsPDFMod.jsPDF ?? jsPDFMod.default;
+        const autoTable = autoTableMod.default;
 
         const buf = await file.arrayBuffer();
         if (cancelled) return;
@@ -309,10 +310,11 @@ function FilePreviewInner({ file, appBaseUrl }: { file: File; appBaseUrl?: strin
           pdf.setFont("helvetica", "bold");
           pdf.text(sheetName, 14, 10);
 
-          // jspdf-autotable monkey-patches jsPDF — call via cast.
-          (pdf as unknown as {
-            autoTable: (opts: Record<string, unknown>) => void;
-          }).autoTable({
+          // Use the functional autoTable API. jspdf-autotable v5+ no
+          // longer monkey-patches jsPDF; the prototype `pdf.autoTable`
+          // method is removed → calling it throws "autoTable is not a
+          // function". `autoTable(pdf, opts)` works on all versions.
+          autoTable(pdf, {
             head: [data[0]],
             body: data.slice(1),
             startY: 15,

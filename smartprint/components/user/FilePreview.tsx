@@ -1,24 +1,26 @@
 "use client";
 
 /**
- * Universal preview component (round 28).
+ * Universal preview component (round 29).
  *
  * Routes by file extension:
  *   - Office docs   (docx/doc/odt/rtf)            → MS Word viewer
- *   - Spreadsheets  (xlsx/xls/ods/csv)            → MS Excel viewer
+ *   - Spreadsheets  (xlsx/xls/ods/csv)            → client-side
+ *       converted to PDF via SheetJS + jsPDF/autoTable, embedded as
+ *       a blob-URL <iframe>. No upload, no MS viewer dependency.
+ *       Fixes "File not found" from view.officeapps.live.com on
+ *       xlsx — MS rejects unknown query params and /tmp is per-
+ *       instance on Vercel anyway. Empty rows are skipped, each
+ *       sheet gets its own page with a header row.
  *   - Presentations (pptx/ppt/odp)                → MS PowerPoint viewer
- *       all three above are uploaded to /api/preview/upload, then
+ *       MS viewer types are uploaded to /api/preview/upload, then
  *       embedded in https://view.officeapps.live.com/op/embed.aspx
- *       with extra query params that hide gridlines, row/column
- *       headers, and the download button (per MS Office Online docs).
  *   - PDF  → object URL via blob, embedded in <iframe>
  *   - Image (jpg/jpeg/png/gif/webp/bmp/svg) → object URL via blob in <img>
  *   - TXT  → read with file.text(), shown in <pre>
  *
- * Privacy posture: Office files end up briefly on Microsoft's servers
- * because the MS viewer fetches the URL from public Microsoft infra.
- * 5-minute token expiry limits the window. PDF / image / txt never
- * leave the browser.
+ * Privacy posture: only docs / slides ever leave the browser (to MS).
+ * Spreadsheets, PDFs, images, txt — all fully local.
  *
  * IMPORTANT: Microsoft's viewer cannot reach `localhost:3000` from
  * its public servers, so this component only embeds the iframe in
@@ -47,18 +49,20 @@ interface FilePreviewProps {
   appBaseUrl?: string;
 }
 
-// Per-bucket extension sets. CSV is treated as a spreadsheet
-// (rendered via the MS Excel viewer) — Excel formats CSV as a real
-// grid, much more useful than a raw <pre> dump. xlsx/xls/ods/csv all
-// go through the MS Excel viewer, no client-side conversion.
+// Per-bucket extension sets. Spreadsheets (incl. CSV) are converted
+// client-side to PDF — we don't rely on MS Excel viewer because it
+// 404s xlsx via view.officeapps.live.com on Vercel /tmp paths. CSV
+// goes through the same SheetJS pipeline.
 const DOC_EXTS = new Set(["doc", "docx", "odt", "rtf"]);
 const SHEET_EXTS = new Set(["xls", "xlsx", "ods", "csv"]);
 const SLIDE_EXTS = new Set(["ppt", "pptx", "odp"]);
 
+/** Spreadsheets we convert to PDF in the browser (no server). */
+const EXCEL_PDF_EXTS = new Set(["xls", "xlsx", "ods", "csv"]);
+
 /** Types that go through /api/preview/upload + MS Office Online. */
 const MS_OFFICE_EXTENSIONS = new Set<string>([
   ...DOC_EXTS,
-  ...SHEET_EXTS,
   ...SLIDE_EXTS,
 ]);
 
@@ -148,13 +152,16 @@ function FilePreviewInner({ file, appBaseUrl }: { file: File; appBaseUrl?: strin
   const isImage = IMAGE_EXTENSIONS.has(ext);
   const isPdf = PDF_EXTENSIONS.has(ext);
   const isText = TEXT_EXTENSIONS.has(ext);
+  const isExcelPdf = EXCEL_PDF_EXTS.has(ext);
 
   const [token, setToken] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [textContent, setTextContent] = useState<string | null>(null);
+  const [excelPdfUrl, setExcelPdfUrl] = useState<string | null>(null);
   const blobUrlRef = useRef<string | null>(null);
+  const excelPdfUrlRef = useRef<string | null>(null);
 
   // Resolve the base URL once. Falls back to window.location.origin on
   // the client when env var isn't set.
@@ -239,6 +246,119 @@ function FilePreviewInner({ file, appBaseUrl }: { file: File; appBaseUrl?: strin
     };
   }, [file, isMsOffice]);
 
+  /* ─── Effect 4: client-side Excel/CSV → PDF ───
+   *
+   * SheetJS reads the workbook (xlsx/xls/ods/csv), jsPDF +
+   * jspdf-autotable render each sheet on its own A4 landscape page.
+   * Empty rows are skipped so the output is dense, not full of blank
+   * grid. PDF held as in-memory blob URL, embedded in <iframe>.
+   * Heavy libs are dynamically imported.
+   */
+  useEffect(() => {
+    if (!isExcelPdf) return;
+    let cancelled = false;
+
+    setExcelPdfUrl(null);
+    setError(null);
+
+    (async () => {
+      try {
+        const [XLSX, jsPDFMod] = await Promise.all([
+          import("xlsx"),
+          import("jspdf"),
+          import("jspdf-autotable"),
+        ]);
+        const jsPDF = jsPDFMod.default;
+
+        const buf = await file.arrayBuffer();
+        if (cancelled) return;
+
+        const wb = XLSX.read(buf, { type: "array" });
+        const pdf = new jsPDF({
+          orientation: "landscape",
+          unit: "mm",
+          format: "a4",
+        });
+
+        wb.SheetNames.forEach((sheetName, idx) => {
+          if (idx > 0) pdf.addPage();
+
+          const sheet = wb.Sheets[sheetName];
+          const ref = sheet["!ref"];
+          if (!ref) return;
+          const range = XLSX.utils.decode_range(ref);
+
+          // Walk the sheet by cell address so we honour the actual
+          // used range, then drop completely empty rows.
+          const data: string[][] = [];
+          for (let r = range.s.r; r <= range.e.r; r++) {
+            const row: string[] = [];
+            let hasData = false;
+            for (let c = range.s.c; c <= range.e.c; c++) {
+              const cell = sheet[XLSX.utils.encode_cell({ r, c })];
+              const val = cell ? String(cell.v ?? "") : "";
+              if (val.trim()) hasData = true;
+              row.push(val);
+            }
+            if (hasData) data.push(row);
+          }
+
+          if (data.length === 0) return;
+
+          pdf.setFontSize(10);
+          pdf.setFont("helvetica", "bold");
+          pdf.text(sheetName, 14, 10);
+
+          // jspdf-autotable monkey-patches jsPDF — call via cast.
+          (pdf as unknown as {
+            autoTable: (opts: Record<string, unknown>) => void;
+          }).autoTable({
+            head: [data[0]],
+            body: data.slice(1),
+            startY: 15,
+            styles: {
+              fontSize: 7,
+              cellPadding: 2,
+              overflow: "linebreak",
+              halign: "left",
+            },
+            headStyles: {
+              fillColor: [41, 128, 185],
+              textColor: 255,
+              fontStyle: "bold",
+            },
+            alternateRowStyles: { fillColor: [245, 245, 245] },
+            margin: { left: 10, right: 10 },
+            tableWidth: "auto",
+          });
+        });
+
+        const url = pdf.output("bloburl") as unknown as string;
+        if (cancelled) {
+          try { URL.revokeObjectURL(url); } catch { /* noop */ }
+          return;
+        }
+        excelPdfUrlRef.current = url;
+        setExcelPdfUrl(url);
+      } catch (e) {
+        if (cancelled) return;
+        const msg = (e as Error)?.message || "Excel preview failed";
+        console.error("[FilePreview] excel→pdf failed", e);
+        setError(msg);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      const u = excelPdfUrlRef.current;
+      if (u) {
+        try { URL.revokeObjectURL(u); } catch { /* noop */ }
+        excelPdfUrlRef.current = null;
+      }
+      setExcelPdfUrl(null);
+    };
+  }, [file, isExcelPdf]);
+
   /* ─── Render ─── */
 
   const size = previewSizeForExt(ext);
@@ -294,6 +414,33 @@ function FilePreviewInner({ file, appBaseUrl }: { file: File; appBaseUrl?: strin
       >
         {textContent}
       </pre>
+    );
+  }
+
+  if (isExcelPdf) {
+    if (error) return <PreviewError message={error} />;
+    if (!excelPdfUrl) {
+      return (
+        <div
+          className="w-full"
+          style={{ height: size.height, minHeight: size.minHeight }}
+        >
+          <PreviewSpinner label="Converting spreadsheet…" />
+        </div>
+      );
+    }
+    return (
+      <div
+        className="relative w-full"
+        style={{ height: size.height, minHeight: size.minHeight }}
+      >
+        <iframe
+          src={excelPdfUrl}
+          className="w-full h-full"
+          style={{ border: "none" }}
+          title={file.name}
+        />
+      </div>
     );
   }
 

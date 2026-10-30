@@ -56,7 +56,7 @@ export default function NearbyMap({ userLat: initialLat, userLng: initialLng, sh
         refreshShops(latitude, longitude);
       },
       (err) => console.error(err),
-      { enableHighAccuracy: true }
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, [refreshShops]);
@@ -71,7 +71,9 @@ export default function NearbyMap({ userLat: initialLat, userLng: initialLng, sh
     }).setView([initialLat, initialLng], 16);
     mapRef.current = map;
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
     L.control.zoom({ position: 'topleft' }).addTo(map);
 
     // User Marker

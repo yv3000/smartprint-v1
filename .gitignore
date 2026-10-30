@@ -1,0 +1,59 @@
+# Black Book & Documentation (Academic report - kept local)
+blackbook/
+blackbook.zip
+*.docx
+*.pdf
+
+# Python Virtual Environment & Cache
+.venv/
+__pycache__/
+*.pyc
+
+# Dependencies
+node_modules/
+smartprint/node_modules/
+smartprint/electron-admin/node_modules/
+.pnp
+.pnp.js
+
+# Testing & Coverage
+/coverage
+
+# Next.js Build Output
+.next/
+smartprint/.next/
+out/
+build/
+dist/
+dist-electron/
+smartprint/electron-admin/dist/
+.vercel
+
+# Environment variables & secrets
+.env
+.env.local
+.env*.local
+smartprint/.env
+smartprint/.env.local
+smartprint/.env*.local
+!*.env.example
+
+# Database & SQLite files
+*.db
+*.db-journal
+dev.db
+smartprint/prisma/*.db
+smartprint/prisma/*.db-journal
+
+# Temporary uploads
+/tmp/
+/data/
+smartprint/public/uploads/*
+!smartprint/public/uploads/.gitkeep
+
+# IDE & OS files
+.DS_Store
+Thumbs.db
+.agents/
+*.tsbuildinfo
+next-env.d.ts

@@ -35,35 +35,56 @@ export default function HomePage() {
 
   const handleNearbyClick = useCallback(() => {
     setLoadingNearby(true);
+
+    const defaultLat = 19.1990847;
+    const defaultLng = 72.8668068;
+
+    const fetchAndOpen = async (lat: number, lng: number) => {
+      setUserLocation({ lat, lng });
+      try {
+        const res = await fetch(`/api/shops/nearby?lat=${lat}&lng=${lng}`);
+        const data = await res.json();
+        setNearbyShops(Array.isArray(data) ? data : []);
+        setShowMap(true);
+      } catch (error) {
+        console.error("Error fetching nearby shops:", error);
+        setShowMap(true);
+      } finally {
+        setLoadingNearby(false);
+      }
+    };
+
+    let resolved = false;
+    const fallbackTimer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        fetchAndOpen(defaultLat, defaultLng);
+      }
+    }, 3500);
+
     if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser");
-      setLoadingNearby(false);
+      clearTimeout(fallbackTimer);
+      fetchAndOpen(defaultLat, defaultLng);
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        setUserLocation({ lat: latitude, lng: longitude });
-
-        try {
-          const res = await fetch(`/api/shops/nearby?lat=${latitude}&lng=${longitude}`);
-          const data = await res.json();
-          setNearbyShops(Array.isArray(data) ? data : []);
-          setShowMap(true);
-        } catch (error) {
-          console.error("Error fetching nearby shops:", error);
-          alert("Could not fetch nearby shops. Please try again.");
-        } finally {
-          setLoadingNearby(false);
+      (position) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(fallbackTimer);
+          fetchAndOpen(position.coords.latitude, position.coords.longitude);
         }
       },
       (error) => {
-        console.error("Error getting location:", error);
-        alert("Please allow location access to find nearby shops.");
-        setLoadingNearby(false);
+        console.warn("Geolocation prompt or access failed, using default location:", error);
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(fallbackTimer);
+          fetchAndOpen(defaultLat, defaultLng);
+        }
       },
-      { enableHighAccuracy: true }
+      { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
     );
   }, []);
 

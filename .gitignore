@@ -57,3 +57,4 @@ Thumbs.db
 .agents/
 *.tsbuildinfo
 next-env.d.ts
+

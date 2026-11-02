@@ -1,40 +1,59 @@
-# SmartPrint — Privacy-First Printing Platform
+# 🖨️ SmartPrint — Web Application & Core Services
 
-SmartPrint is a premium, secure, and privacy-first document printing platform built for hackathons. It eliminates the need for sharing personal documents via WhatsApp or email by providing an end-to-end encrypted, auto-destructing printing flow.
+> Core Next.js 14 Web Application, Prisma ORM, and Companion Electron Desktop Client for the SmartPrint Privacy-First Printing Platform.
 
-## 🚀 Quick Start (under 5 commands)
+Please refer to the main repository [README.md](../README.md) for full architectural documentation, sequence diagrams, and threat models.
+
+---
+
+## ⚡ Quick Start
 
 ```bash
-cd smartprint
+# 1. Install dependencies
 npm install --legacy-peer-deps
-# Update .env with your DATABASE_URL and Google OAuth keys
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your DATABASE_URL, AUTH_SECRET, and Google OAuth credentials
+
+# 3. Synchronize database schema and seed demo shop
+npx prisma generate
 npx prisma db push
 node prisma/seed.js
+
+# 4. Start Next.js development server
 npm run dev
 ```
 
-## 🛠 Tech Stack
-- **Framework**: Next.js 14 (App Router)
-- **Database**: PostgreSQL (Prisma ORM)
-- **Auth**: NextAuth.js v5 (Google OAuth)
-- **Encryption**: AES-GCM 256-bit (Client-side Web Crypto API)
-- **Animations**: Framer Motion
-- **Icons**: Lucide React
+Visit [http://localhost:3000](http://localhost:3000) for the user portal or [http://localhost:3000/admin/dashboard](http://localhost:3000/admin/dashboard) for the shopkeeper admin dashboard.
 
-## 🔐 Security Features
-- **Auto-Destruct**: Files are physically deleted from the server 100 seconds after the shop opens them.
-- **Client-side Encryption**: "Secure It" mode encrypts files before upload; keys never reach the server.
-- **Screen Protection**: Admin portal blurs content if the window loses focus or DevTools are opened.
-- **Privacy Guards**: Right-click, copy, and standard print shortcuts are disabled in the admin job viewer.
-- **Friendly IDs**: Jobs are identified by memorable IDs like "BlueFox391" instead of complex UUIDs.
+---
 
-## 📱 User Portal
-- **Scan QR**: Instantly connect to a shop.
-- **Find Nearby**: Use geolocation to find the closest SmartPrinters.
-- **Recent Shops**: Remembers your last 3 visited shops (stored in secure cookies).
-- **Two-Layer Settings**: Simple basics + advanced configuration accordion.
+## 🖥️ Electron Companion App
 
-## 💼 Admin Portal
-- **Real-time Dashboard**: Jobs appear automatically as customers send them.
-- **Privacy Timer**: A circular countdown visualizes the remaining life of the document.
-- **Google Onboarding**: Easy setup with reverse geocoding for shop location.
+For the native desktop hardware print application:
+
+```bash
+cd electron-admin
+npm install
+npm start
+```
+
+For production builds:
+```bash
+npm run pack   # Unpacked build in dist/
+npm run build  # Windows NSIS installer / portable exe
+```
+
+---
+
+## 🛠️ Tech Stack & Key Libraries
+
+- **Framework**: Next.js 14 (App Router) & React 18
+- **Database**: PostgreSQL (Neon connection pooling) & Prisma ORM
+- **Auth**: NextAuth.js v5 (Google OAuth with database session strategy)
+- **Encryption**: AES-GCM 256-bit (Web Crypto API)
+- **Styling & Motion**: Tailwind CSS & Framer Motion
+- **Document Handling**: `pdf-lib`, `react-pdf`, `mammoth`, `docx-preview`, `xlsx`, `jspdf`, `jspdf-autotable`
+- **Image Editing**: `cropperjs`, `react-cropper`, `konva` (1, 2, 4, 9, 35 passport photo grid)
+- **Hardware Integration**: Electron 33 with native silent print pipeline (`webContents.print`)

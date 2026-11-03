@@ -12,29 +12,25 @@ interface UserNavProps {
 export default function UserNav({ activeTab, onTabChange }: UserNavProps) {
   return (
     <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-48px)] max-w-md">
-      <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-full p-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)] flex items-center justify-between gap-1 transition-colors">
+      <div className="bg-white/70 backdrop-blur-xl border border-white/50 rounded-full p-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.06)] flex items-center justify-between gap-1">
         <button
           onClick={() => onTabChange("scan")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-full text-xs font-semibold tracking-wide transition-all duration-200 active:scale-[0.98] ${
-            activeTab === "scan"
-              ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 shadow-md"
-              : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/60"
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-full text-[13px] font-semibold transition-all duration-300 ${
+            activeTab === "scan" ? "bg-[#1A1A1A] text-white shadow-lg" : "text-[#1A1A1A]/40 hover:bg-[#1A1A1A]/5"
           }`}
         >
           <QrCode className="w-4 h-4" />
-          <span>Scan Counter QR</span>
+          <span>Scan QR</span>
         </button>
 
         <button
           onClick={() => onTabChange("recent")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-full text-xs font-semibold tracking-wide transition-all duration-200 active:scale-[0.98] ${
-            activeTab === "recent"
-              ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 shadow-md"
-              : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/60"
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-full text-[13px] font-semibold transition-all duration-300 ${
+            activeTab === "recent" ? "bg-[#1A1A1A] text-white shadow-lg" : "text-[#1A1A1A]/40 hover:bg-[#1A1A1A]/5"
           }`}
         >
           <Clock className="w-4 h-4" />
-          <span>Recent Shops</span>
+          <span>Recent</span>
         </button>
       </div>
     </div>

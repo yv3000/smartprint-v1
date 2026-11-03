@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -10,18 +10,34 @@ import {
   ShieldCheck,
   Lock,
   Clock,
-  Eye,
-  Upload,
-  Settings2,
   Printer,
+  Sparkles,
+  ArrowRight,
+  CheckCircle2,
+  Scan,
+  Layers,
+  FileSpreadsheet,
+  FileText,
+  Image as ImageIcon,
+  Key,
+  Trash2,
+  AlertTriangle,
+  QrCode,
+  ShieldAlert,
+  Zap,
 } from "lucide-react";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 
 const NearbyMap = dynamic(() => import("@/components/user/NearbyMap"), {
   ssr: false,
   loading: () => (
-    <div className="fixed inset-0 z-[100] bg-black/30 backdrop-blur-md flex items-center justify-center">
-      <Loader2 className="w-8 h-8 animate-spin text-white" />
+    <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-md flex items-center justify-center">
+      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-3">
+        <Loader2 className="w-7 h-7 animate-spin text-indigo-600 dark:text-indigo-400" />
+        <span className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
+          Locating nearby SmartPrint stations...
+        </span>
+      </div>
     </div>
   ),
 });
@@ -32,6 +48,23 @@ export default function HomePage() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [nearbyShops, setNearbyShops] = useState<any[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
+
+  // Interactive Hero Simulator States
+  const [simEncrypted, setSimEncrypted] = useState(true);
+  const [simCountdown, setSimCountdown] = useState(3540); // 59m 00s
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSimCountdown((prev) => (prev > 0 ? prev - 1 : 3600));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatCountdown = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}m ${s < 10 ? "0" : ""}${s}s`;
+  };
 
   const handleNearbyClick = useCallback(() => {
     setLoadingNearby(true);
@@ -89,455 +122,565 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="user-portal min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-[#FAFAFA] dark:bg-[#0A0A0C] text-neutral-900 dark:text-neutral-100 transition-colors selection:bg-indigo-500/20 selection:text-indigo-600 dark:selection:text-indigo-300">
       {/* ── Topbar ───────────────────────────────────────────── */}
-      <nav className="up-topbar">
-        <div
-          className="mx-auto h-full flex items-center justify-between px-6"
-          style={{ maxWidth: 1200 }}
-        >
-          <div className="flex items-center gap-2">
-            <div
-              className="w-7 h-7 rounded-[8px] flex items-center justify-center"
-              style={{ background: "var(--up-text)", color: "var(--up-bg)" }}
-            >
-              <Printer size={14} strokeWidth={2} />
-            </div>
-            <span style={{ fontSize: "1.17em", fontWeight: 600, letterSpacing: "-0.01em" }}>
-              SmartPrint
-            </span>
-          </div>
+      <header className="sticky top-0 z-40 w-full border-b border-neutral-200/80 dark:border-neutral-800/80 bg-white/80 dark:bg-[#0A0A0C]/80 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-neutral-900 to-neutral-700 dark:from-white dark:to-neutral-300 text-white dark:text-neutral-950 flex items-center justify-center shadow-sm">
+              <Printer className="w-5 h-5" strokeWidth={2.2} />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-bold text-lg tracking-tight leading-none text-neutral-900 dark:text-white font-syne">
+                SmartPrint
+              </span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mt-0.5">
+                Zero-Retention Protocol
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-4">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>RAM Spool Active • 0 Disks Touched</span>
+            </div>
+
             <ThemeToggle size="sm" />
+
             <button
               onClick={() => router.push("/user")}
-              className="up-btn-text"
-              style={{ fontSize: "1em", fontWeight: 500 }}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all duration-200 active:scale-[0.98] shadow-sm"
             >
-              Start Printing
-              <ChevronRight size={14} strokeWidth={1.8} />
+              <span>Start Printing</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
-      </nav>
+      </header>
 
-      {/* ── Main ─────────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col">
-        {/* Hero */}
-        <section
-          className="flex-1 flex items-center justify-center px-6"
-          style={{
-            paddingTop: "clamp(40px, 10vh, 96px)",
-            paddingBottom: "clamp(40px, 10vh, 96px)",
-            minHeight: "85vh",
-          }}
-        >
-          <div className="text-center up-page-enter" style={{ maxWidth: 560 }}>
-            {/* Pill label */}
-            <div
-              className="up-chip up-chip-accent up-stagger-1"
-              style={{ fontSize: "0.92em", fontWeight: 600, marginBottom: 24 }}
-            >
-              <ShieldCheck size={12} strokeWidth={1.8} />
-              Privacy-First Printing
-            </div>
+      {/* ── Main Content ─────────────────────────────────────── */}
+      <main className="flex-1">
+        {/* ── Hero Section ───────────────────────────────────── */}
+        <section className="relative pt-12 pb-20 lg:pt-20 lg:pb-28 overflow-hidden">
+          {/* Subtle Ambient Background Gradients */}
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-indigo-500/10 dark:bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none" />
+          <div className="absolute top-1/3 right-10 w-[400px] h-[300px] bg-emerald-500/10 dark:bg-emerald-500/5 blur-[100px] rounded-full pointer-events-none" />
 
-            {/* Headline */}
-            <h1 className="up-hero up-stagger-2" style={{ marginBottom: 24 }}>
-              Print without sharing.
-              <br />
-              <span style={{ color: "var(--up-text-2)" }}>Ever.</span>
-            </h1>
-
-            {/* Subheadline */}
-            <p
-              className="up-sub up-stagger-3 mx-auto"
-              style={{ maxWidth: 420, marginBottom: 40 }}
-            >
-              Upload your documents, configure settings, and send securely.
-              Files auto-delete in 1 hour.
-            </p>
-
-            {/* CTAs */}
-            <div
-              className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 up-stagger-3"
-              style={{ marginBottom: 16 }}
-            >
-              <button
-                onClick={() => router.push("/user")}
-                className="up-btn-primary w-full sm:w-auto"
-                style={{ minWidth: 180, height: 44 }}
-              >
-                Start Printing
-              </button>
-              <button
-                onClick={() =>
-                  document
-                    .getElementById("how-it-works")
-                    ?.scrollIntoView({ behavior: "smooth" })
-                }
-                className="up-btn-text"
-                style={{ fontSize: "1.1em" }}
-              >
-                See how it works
-                <ChevronRight size={14} strokeWidth={1.8} />
-              </button>
-            </div>
-
-            {/* Nearby option (preserved feature) */}
-            <button
-              onClick={handleNearbyClick}
-              disabled={loadingNearby}
-              className="up-btn-ghost mx-auto"
-              style={{ marginTop: 24, height: 40 }}
-            >
-              {loadingNearby ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <MapPin size={14} strokeWidth={1.8} />
-              )}
-              Find nearby shops
-            </button>
-          </div>
-        </section>
-
-        {/* ── Features ─────────────────────────────────────── */}
-        <section
-          className="px-6"
-          style={{
-            paddingTop: "clamp(40px, 8vh, 64px)",
-            paddingBottom: "clamp(40px, 8vh, 64px)",
-            background: "var(--up-bg)",
-          }}
-        >
-          <div className="mx-auto" style={{ maxWidth: 1040 }}>
-            <div
-              className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-3"
-              style={{ marginInline: "auto" }}
-            >
-              {[
-                {
-                  icon: <Lock size={18} strokeWidth={1.6} />,
-                  bg: "rgba(0,113,227,0.08)",
-                  fg: "var(--up-accent)",
-                  title: "Encrypted on your device",
-                  desc:
-                    "Optional AES-256 encryption before upload. The shop can print but never preview your files.",
-                },
-                {
-                  icon: <Clock size={18} strokeWidth={1.6} />,
-                  bg: "rgba(52,199,89,0.10)",
-                  fg: "#1A8038",
-                  title: "Auto-delete in 1 hour",
-                  desc:
-                    "Every file vanishes within an hour. Nothing is stored permanently — that's the default.",
-                },
-                {
-                  icon: <Eye size={18} strokeWidth={1.6} />,
-                  bg: "rgba(255,59,48,0.10)",
-                  fg: "var(--up-danger)",
-                  title: "No accounts, no tracking",
-                  desc:
-                    "Skip the login. Skip the WhatsApp. Just a simple Print ID for each session.",
-                },
-              ].map((f, i) => (
-                <div
-                  key={i}
-                  className={`up-card up-card-hover up-stagger-${(i % 3) + 1}`}
-                  style={{ padding: 24 }}
-                >
-                  <div
-                    className="flex items-center justify-center"
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 12,
-                      background: f.bg,
-                      color: f.fg,
-                      marginBottom: 16,
-                    }}
-                  >
-                    {f.icon}
-                  </div>
-                  <h3
-                    style={{
-                      fontSize: "1.25em",
-                      fontWeight: 600,
-                      marginBottom: 6,
-                      letterSpacing: "-0.01em",
-                    }}
-                  >
-                    {f.title}
-                  </h3>
-                  <p
-                    style={{
-                      fontSize: "1.08em",
-                      color: "var(--up-text-2)",
-                      lineHeight: 1.55,
-                    }}
-                  >
-                    {f.desc}
-                  </p>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div className="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+              {/* Left Column: Headline & Value Proposition */}
+              <div className="lg:col-span-7 flex flex-col items-start text-left">
+                {/* Security Tag */}
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700/60 text-neutral-700 dark:text-neutral-300 text-xs font-semibold mb-6 shadow-sm">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" strokeWidth={2} />
+                  <span>Private Physical Printing for Sensitive Documents</span>
                 </div>
-              ))}
+
+                {/* Main Headline */}
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-neutral-900 dark:text-white leading-[1.08] mb-6 font-syne">
+                  The zero-leakage handoff for physical printing.
+                </h1>
+
+                {/* Punchy Subhead */}
+                <p className="text-base sm:text-lg text-neutral-600 dark:text-neutral-400 leading-relaxed mb-8 max-w-xl font-normal">
+                  Stop forwarding Aadhaar cards, tax returns, and confidential documents to cyber café WhatsApp chats. SmartPrint encrypts files right on your device, generates a 6-digit counter token, and permanently purges everything after printing.
+                </p>
+
+                {/* Primary Action Buttons */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto mb-10">
+                  <button
+                    onClick={() => router.push("/user")}
+                    className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 active:scale-[0.98] transition-all duration-200 group"
+                  >
+                    <span>Send Documents to Print</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+
+                  <button
+                    onClick={handleNearbyClick}
+                    disabled={loadingNearby}
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-semibold bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800/80 active:scale-[0.98] transition-all duration-200 shadow-sm"
+                  >
+                    {loadingNearby ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                    ) : (
+                      <MapPin className="w-4 h-4 text-rose-500" />
+                    )}
+                    <span>Find Nearby Print Shops</span>
+                  </button>
+                </div>
+
+                {/* Architectural Floor Proofs */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-neutral-200/80 dark:border-neutral-800/80 w-full">
+                  <div>
+                    <div className="text-xs font-semibold text-neutral-900 dark:text-white">AES-256 GCM</div>
+                    <div className="text-[11px] text-neutral-500 dark:text-neutral-400">Client-Side Seal</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-neutral-900 dark:text-white">RAM Spool</div>
+                    <div className="text-[11px] text-neutral-500 dark:text-neutral-400">0 Hard Disk Writes</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-neutral-900 dark:text-white">60-Min TTL</div>
+                    <div className="text-[11px] text-neutral-500 dark:text-neutral-400">Auto File Shred</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-neutral-900 dark:text-white">Zero Accounts</div>
+                    <div className="text-[11px] text-neutral-500 dark:text-neutral-400">No Mobile Required</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Live Interactive Dispatch Terminal Simulator */}
+              <div className="lg:col-span-5">
+                <div className="relative rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 p-6 shadow-xl shadow-neutral-900/5 dark:shadow-black/40">
+                  {/* Terminal Header */}
+                  <div className="flex items-center justify-between pb-4 mb-5 border-b border-neutral-100 dark:border-neutral-800">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                        Live Dispatch Simulator
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-[11px] font-mono font-medium text-neutral-600 dark:text-neutral-400">
+                      <Clock className="w-3 h-3 text-indigo-500" />
+                      <span>TTL: {formatCountdown(simCountdown)}</span>
+                    </div>
+                  </div>
+
+                  {/* Mock Document Card */}
+                  <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950/60 border border-neutral-200/60 dark:border-neutral-800 mb-4 transition-all">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-neutral-900 dark:text-white truncate max-w-[170px]">
+                            Aadhaar_Passport_Docs.pdf
+                          </div>
+                          <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                            3 Pages • Color (Split) • Duplex
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1.5 transition-colors ${
+                          simEncrypted
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                        }`}
+                      >
+                        {simEncrypted ? (
+                          <>
+                            <Lock className="w-3 h-3" />
+                            <span>AES-256 Sealed</span>
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-3 h-3" />
+                            <span>Direct Spool</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Interactive Zero-Knowledge Toggle */}
+                    <div className="mt-4 pt-3 border-t border-neutral-200/50 dark:border-neutral-800/60 flex items-center justify-between text-xs">
+                      <span className="text-neutral-600 dark:text-neutral-400 font-medium">
+                        Zero-Knowledge Screen Mask:
+                      </span>
+                      <button
+                        onClick={() => setSimEncrypted(!simEncrypted)}
+                        className={`px-3 py-1 rounded-lg font-semibold text-[11px] transition-all ${
+                          simEncrypted
+                            ? "bg-indigo-600 text-white"
+                            : "bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                        }`}
+                      >
+                        {simEncrypted ? "Enabled (Shop screen masked)" : "Disabled (Standard)"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Token & Pickup Code Preview */}
+                  <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 text-center mb-5">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-1">
+                      Shop Counter Pickup Token
+                    </div>
+                    <div className="text-3xl font-extrabold tracking-widest font-mono text-neutral-900 dark:text-white my-1">
+                      SP-8942
+                    </div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                      Show or say this 6-digit code at the printer counter
+                    </div>
+                  </div>
+
+                  {/* Hardware Spool Execution Flow */}
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center gap-2.5 text-neutral-700 dark:text-neutral-300">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span>Encrypted inside your browser memory (Web Crypto API)</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-neutral-700 dark:text-neutral-300">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span>Transmitted directly via authenticated WebSocket/HTTPS</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-neutral-700 dark:text-neutral-300">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span>Printer driver decodes in RAM — deleted upon paper ejection</span>
+                    </div>
+                  </div>
+
+                  {/* CTA inside Terminal */}
+                  <button
+                    onClick={() => router.push("/user")}
+                    className="mt-5 w-full py-2.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-100 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span>Launch Real Print Session</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ── How it Works ─────────────────────────────────── */}
-        <section
-          id="how-it-works"
-          className="px-6"
-          style={{
-            paddingTop: "clamp(40px, 8vh, 64px)",
-            paddingBottom: "clamp(40px, 8vh, 64px)",
-            borderTop: "0.5px solid var(--up-divider)",
-          }}
-        >
-          <div className="mx-auto" style={{ maxWidth: 1040 }}>
-            <div className="text-center" style={{ marginBottom: 56 }}>
-              <h2
-                style={{
-                  fontSize: "2.6em",
-                  fontWeight: 600,
-                  letterSpacing: "-0.02em",
-                  marginBottom: 8,
-                }}
-              >
-                Three simple steps.
+        {/* ── Problem vs Solution: The WhatsApp Trap ─────────── */}
+        <section className="py-16 sm:py-20 bg-neutral-100/60 dark:bg-neutral-950/40 border-y border-neutral-200/80 dark:border-neutral-800/80">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center max-w-2xl mx-auto mb-14">
+              <span className="text-xs font-bold uppercase tracking-wider text-rose-500 dark:text-rose-400">
+                The Security Hazard
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white mt-2 font-syne">
+                Why printing via WhatsApp is dangerous.
               </h2>
-              <p className="up-sub" style={{ fontSize: "1.2em" }}>
-                No accounts. No passwords. No data stored.
+              <p className="text-neutral-600 dark:text-neutral-400 text-sm sm:text-base mt-3">
+                Every time you WhatsApp or email your confidential documents to a local print shop, you leave irreversible digital footprints.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6 relative">
-              {/* Connecting line on desktop */}
-              <div
-                className="hidden md:block absolute"
-                style={{
-                  top: 38,
-                  left: "16%",
-                  right: "16%",
-                  height: 0.5,
-                  background: "var(--up-divider)",
-                  zIndex: 0,
-                }}
-              />
-              {[
-                {
-                  n: "01",
-                  icon: <Upload size={20} strokeWidth={1.5} />,
-                  title: "Upload",
-                  desc:
-                    "Drag and drop. PDF, JPG, PNG, DOCX — up to 50MB per session.",
-                },
-                {
-                  n: "02",
-                  icon: <Settings2 size={20} strokeWidth={1.5} />,
-                  title: "Configure",
-                  desc:
-                    "Paper, color, copies, margins. Optionally enable end-to-end encryption.",
-                },
-                {
-                  n: "03",
-                  icon: <Printer size={20} strokeWidth={1.5} />,
-                  title: "Print",
-                  desc:
-                    "Tell the shop your Print ID. Files auto-delete after one hour.",
-                },
-              ].map((s, i) => (
-                <div
-                  key={i}
-                  className="text-center relative"
-                  style={{ zIndex: 1 }}
-                >
-                  <div
-                    style={{
-                      fontSize: "5em",
-                      fontWeight: 600,
-                      color: "rgba(0,0,0,0.06)",
-                      lineHeight: 1,
-                      letterSpacing: "-0.02em",
-                      marginBottom: 8,
-                    }}
-                  >
-                    {s.n}
+            <div className="grid md:grid-cols-2 gap-6 lg:gap-8 max-w-5xl mx-auto">
+              {/* The Old Way (Danger) */}
+              <div className="rounded-3xl p-6 sm:p-8 bg-white dark:bg-neutral-900 border border-rose-200 dark:border-rose-950 shadow-sm relative overflow-hidden">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                    <ShieldAlert className="w-5 h-5" />
                   </div>
-                  <div
-                    className="mx-auto flex items-center justify-center"
-                    style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 12,
-                      background: "var(--up-surface)",
-                      boxShadow: "var(--up-shadow-rest)",
-                      color: "var(--up-text)",
-                      marginBottom: 16,
-                    }}
-                  >
-                    {s.icon}
+                  <div>
+                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
+                      The Traditional WhatsApp Flow
+                    </h3>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      Standard stationery & cyber café habit
+                    </p>
                   </div>
-                  <h3
-                    style={{
-                      fontSize: "1.45em",
-                      fontWeight: 600,
-                      letterSpacing: "-0.01em",
-                      marginBottom: 6,
-                    }}
-                  >
-                    {s.title}
+                </div>
+
+                <ul className="space-y-4 text-sm">
+                  <li className="flex items-start gap-3">
+                    <span className="text-rose-500 font-bold shrink-0 mt-0.5">✕</span>
+                    <span className="text-neutral-600 dark:text-neutral-300">
+                      <strong>Permanently saved in phone gallery:</strong> Your Aadhaar, salary slips, and medical records remain in the shopkeeper's personal WhatsApp media.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-rose-500 font-bold shrink-0 mt-0.5">✕</span>
+                    <span className="text-neutral-600 dark:text-neutral-300">
+                      <strong>Stored in public Downloads folder:</strong> Left unencrypted on shared Windows desktops accessible by any customer after you.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-rose-500 font-bold shrink-0 mt-0.5">✕</span>
+                    <span className="text-neutral-600 dark:text-neutral-300">
+                      <strong>Phone number exposure:</strong> You must message an unknown number, exposing your WhatsApp profile and contact.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-rose-500 font-bold shrink-0 mt-0.5">✕</span>
+                    <span className="text-neutral-600 dark:text-neutral-300">
+                      <strong>Cloud backup leakage:</strong> Files get automatically backed up to personal Google Drive or iCloud accounts.
+                    </span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* The SmartPrint Way (Secure) */}
+              <div className="rounded-3xl p-6 sm:p-8 bg-white dark:bg-neutral-900 border border-emerald-200 dark:border-emerald-950 shadow-sm relative overflow-hidden">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
+                      The SmartPrint Protocol
+                    </h3>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      Zero-knowledge ephemeral handoff
+                    </p>
+                  </div>
+                </div>
+
+                <ul className="space-y-4 text-sm">
+                  <li className="flex items-start gap-3">
+                    <span className="text-emerald-500 font-bold shrink-0 mt-0.5">✓</span>
+                    <span className="text-neutral-600 dark:text-neutral-300">
+                      <strong>Client-side encryption:</strong> When "Secure It" is enabled, files are encrypted with AES-256 GCM in your browser before upload.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-emerald-500 font-bold shrink-0 mt-0.5">✓</span>
+                    <span className="text-neutral-600 dark:text-neutral-300">
+                      <strong>Volatile RAM spooling:</strong> Files pipe directly to the hardware printer driver. Never saved to public download folders.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-emerald-500 font-bold shrink-0 mt-0.5">✓</span>
+                    <span className="text-neutral-600 dark:text-neutral-300">
+                      <strong>6-Digit PIN or QR pairing:</strong> Zero logins, zero phone numbers, and no WhatsApp contact exchange needed.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-emerald-500 font-bold shrink-0 mt-0.5">✓</span>
+                    <span className="text-neutral-600 dark:text-neutral-300">
+                      <strong>Guaranteed auto-shredding:</strong> Automatic background garbage collector permanently removes all traces in 60 minutes.
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Capabilities Bento Grid ────────────────────────── */}
+        <section className="py-20 lg:py-28">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center max-w-2xl mx-auto mb-16">
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                Engineered for High-Fidelity Printing
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white mt-2 font-syne">
+                Every print setting. Zero compromise.
+              </h2>
+              <p className="text-neutral-600 dark:text-neutral-400 text-sm sm:text-base mt-3">
+                Full layout control, intelligent cost splitting, and built-in studio tools built directly into the web client.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              {/* Bento 1: Dynamic Color / B&W Page Splitter */}
+              <div className="rounded-3xl p-7 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-5">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-2 font-syne">
+                    Color & B&W Page Splitter
                   </h3>
-                  <p
-                    style={{
-                      fontSize: "1.08em",
-                      color: "var(--up-text-2)",
-                      lineHeight: 1.55,
-                      maxWidth: 260,
-                      margin: "0 auto",
-                    }}
-                  >
-                    {s.desc}
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                    Why pay ₹10/page for a 60-page report when only 4 pages have color charts? SmartPrint parses page numbers and lets you print monochrome pages at ₹2 and color pages selectively.
                   </p>
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── Security ─────────────────────────────────────── */}
-        <section
-          className="px-6"
-          style={{
-            paddingTop: "clamp(40px, 8vh, 64px)",
-            paddingBottom: "clamp(40px, 8vh, 64px)",
-            borderTop: "0.5px solid var(--up-divider)",
-            background: "var(--up-surface)",
-          }}
-        >
-          <div
-            className="mx-auto text-center"
-            style={{ maxWidth: 680 }}
-          >
-            <div
-              className="mx-auto flex items-center justify-center"
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: 16,
-                background: "rgba(0,113,227,0.08)",
-                color: "var(--up-accent)",
-                marginBottom: 24,
-              }}
-            >
-              <ShieldCheck size={24} strokeWidth={1.5} />
-            </div>
-            <h2
-              style={{
-                fontSize: "2.4em",
-                fontWeight: 600,
-                letterSpacing: "-0.02em",
-                marginBottom: 12,
-              }}
-            >
-              Your documents, protected.
-            </h2>
-            <p className="up-sub" style={{ marginBottom: 32 }}>
-              Enable Secure It to encrypt your files before they leave your
-              device. The shop can print, but cannot view your documents.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
-              {[
-                {
-                  title: "Client-side encryption",
-                  desc: "AES-256 — encrypted before upload",
-                },
-                {
-                  title: "Auto-delete",
-                  desc: "Files vanish after the session expires",
-                },
-                {
-                  title: "No preview for secure files",
-                  desc: "Shop can only print, not view",
-                },
-                {
-                  title: "No permanent storage",
-                  desc: "Nothing is ever stored on disk",
-                },
-              ].map((it, i) => (
-                <div
-                  key={i}
-                  className="flex items-start"
-                  style={{
-                    gap: 12,
-                    padding: 16,
-                    borderRadius: 12,
-                    background: "var(--up-bg)",
-                    border: "0.5px solid var(--up-border)",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: 999,
-                      background: "var(--up-accent)",
-                      marginTop: 8,
-                      flex: "none",
-                    }}
-                  />
-                  <div>
-                    <div
-                      style={{
-                        fontSize: "1.08em",
-                        fontWeight: 500,
-                        marginBottom: 2,
-                      }}
-                    >
-                      {it.title}
-                    </div>
-                    <div style={{ fontSize: "1em", color: "var(--up-text-2)" }}>
-                      {it.desc}
-                    </div>
-                  </div>
+                <div className="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800 text-xs font-medium text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                  <span>Save up to 70% on college & office prints</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </div>
-              ))}
+              </div>
+
+              {/* Bento 2: Canvas Photo Studio & Passport Cropper */}
+              <div className="rounded-3xl p-7 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="w-11 h-11 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-5">
+                    <ImageIcon className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-2 font-syne">
+                    Passport Photo Studio
+                  </h3>
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                    Crop and rotate passport photos with exact 35x45mm guidelines. Automatically tile 4-up or 8-up on glossy 4x6 photo paper directly from your smartphone browser.
+                  </p>
+                </div>
+                <div className="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800 text-xs font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                  <span>Official visa & exam dimensions ready</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+
+              {/* Bento 3: Multi-Format Engine */}
+              <div className="rounded-3xl p-7 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-5">
+                    <FileSpreadsheet className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-2 font-syne">
+                    Universal Multi-Format Spooler
+                  </h3>
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                    Drop PDFs, Microsoft Word (.docx), Excel spreadsheets (.xlsx), text files, or raw photos. SmartPrint normalizes dimensions and generates high-DPI print bitmaps on the fly.
+                  </p>
+                </div>
+                <div className="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800 text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <span>PDF • DOCX • XLSX • JPG • PNG</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ── Footer ───────────────────────────────────────── */}
-        <footer
-          className="px-6"
-          style={{
-            paddingTop: 32,
-            paddingBottom: 32,
-            borderTop: "0.5px solid var(--up-divider)",
-          }}
-        >
-          <div
-            className="mx-auto flex flex-col sm:flex-row items-center justify-between gap-2"
-            style={{ maxWidth: 1040 }}
-          >
-            <div style={{ fontSize: "1em", color: "var(--up-text-2)" }}>
-              SmartPrint — Privacy-first printing
+        {/* ── Three Simple Steps ─────────────────────────────── */}
+        <section className="py-16 sm:py-24 bg-neutral-100/60 dark:bg-neutral-950/40 border-t border-neutral-200/80 dark:border-neutral-800/80">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center max-w-2xl mx-auto mb-16">
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                Zero Learning Curve
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white mt-2 font-syne">
+                Three steps from phone to printer tray.
+              </h2>
             </div>
-            <div style={{ fontSize: "0.92em", color: "var(--up-text-3)" }}>
-              Files are never permanently stored.
+
+            <div className="grid md:grid-cols-3 gap-8 relative">
+              {/* Step 1 */}
+              <div className="rounded-2xl p-6 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-8 h-8 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 text-xs font-bold flex items-center justify-center font-mono">
+                    01
+                  </div>
+                  <span className="text-xs text-neutral-400 dark:text-neutral-500 font-medium">On your device</span>
+                </div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-2">
+                  Drop & Configure
+                </h3>
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                  Select your documents, choose color mode, duplex printing, or crop your passport photos. Toggle client encryption on with a single switch.
+                </p>
+              </div>
+
+              {/* Step 2 */}
+              <div className="rounded-2xl p-6 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-8 h-8 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 text-xs font-bold flex items-center justify-center font-mono">
+                    02
+                  </div>
+                  <span className="text-xs text-neutral-400 dark:text-neutral-500 font-medium">Instant pairing</span>
+                </div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-2">
+                  Get 6-Digit Counter PIN
+                </h3>
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                  SmartPrint issues an ephemeral 6-digit pickup code or scan counter QR. Walk into the shop and provide the code. No typing email or sharing numbers.
+                </p>
+              </div>
+
+              {/* Step 3 */}
+              <div className="rounded-2xl p-6 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-8 h-8 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 text-xs font-bold flex items-center justify-center font-mono">
+                    03
+                  </div>
+                  <span className="text-xs text-neutral-400 dark:text-neutral-500 font-medium">Paper collection</span>
+                </div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-2">
+                  Collect from Tray & Auto-Purge
+                </h3>
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                  The printer feeds the pages directly from volatile memory. Once printed or after 60 minutes, all file blocks are permanently shredded.
+                </p>
+              </div>
             </div>
           </div>
-        </footer>
+        </section>
 
-        {showMap && userLocation && (
-          <NearbyMap
-            userLat={userLocation.lat}
-            userLng={userLocation.lng}
-            shops={nearbyShops}
-            onClose={() => setShowMap(false)}
-          />
-        )}
+        {/* ── Nearby Shop Radar Card ─────────────────────────── */}
+        <section className="py-16 sm:py-20">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="rounded-3xl p-8 sm:p-12 bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900 text-white border border-neutral-800 shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
+              {/* Radial glow */}
+              <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/20 rounded-full blur-[80px] pointer-events-none" />
+
+              <div className="relative z-10 max-w-lg">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-neutral-300 text-xs font-semibold mb-4">
+                  <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Real-Time Geolocation Radar</span>
+                </div>
+                <h3 className="text-2xl sm:text-3xl font-bold tracking-tight font-syne mb-3">
+                  Find active print shops around you.
+                </h3>
+                <p className="text-neutral-400 text-sm leading-relaxed">
+                  View verified SmartPrint certified printers within walking distance, check paper availability, live queues, and send print jobs in advance.
+                </p>
+              </div>
+
+              <div className="relative z-10 shrink-0">
+                <button
+                  onClick={handleNearbyClick}
+                  disabled={loadingNearby}
+                  className="px-6 py-3.5 rounded-full text-xs sm:text-sm font-semibold bg-white text-neutral-950 hover:bg-neutral-200 transition-all active:scale-[0.98] shadow-lg flex items-center gap-2.5"
+                >
+                  {loadingNearby ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-neutral-950" />
+                  ) : (
+                    <MapPin className="w-4 h-4 text-rose-500" />
+                  )}
+                  <span>Open Nearby Radar</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
+
+      {/* ── Polished Footer ─────────────────────────────────── */}
+      <footer className="border-t border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-[#0A0A0C] py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 flex items-center justify-center">
+                <Printer className="w-4 h-4" strokeWidth={2.2} />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-neutral-900 dark:text-white font-syne">
+                  SmartPrint
+                </div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                  Zero-Knowledge Document Transmission Protocol
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-6 text-xs text-neutral-500 dark:text-neutral-400 font-medium">
+              <span>Client-Side AES-256</span>
+              <span>•</span>
+              <span>No Disk Retention</span>
+              <span>•</span>
+              <span>Ephemeral 60m TTL</span>
+            </div>
+          </div>
+
+          <div className="mt-8 pt-8 border-t border-neutral-100 dark:border-neutral-800/60 text-center sm:text-left text-xs text-neutral-400 dark:text-neutral-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div>
+              Built for campus stationery shops, cyber cafés, and enterprise print stations.
+            </div>
+            <div>
+              SmartPrint © {new Date().getFullYear()} • Zero telemetry collected.
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      {/* Geolocation Nearby Map Modal */}
+      {showMap && userLocation && (
+        <NearbyMap
+          userLat={userLocation.lat}
+          userLng={userLocation.lng}
+          shops={nearbyShops}
+          onClose={() => setShowMap(false)}
+        />
+      )}
     </div>
   );
 }

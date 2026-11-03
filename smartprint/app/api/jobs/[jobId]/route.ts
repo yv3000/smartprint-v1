@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { generateFileToken, deleteJobFiles } from "@/lib/storage";
+import { generateFileToken, deleteJobFiles, listJobFiles } from "@/lib/storage";
+import { auth } from "@/auth";
 import type { JobResponse } from "@/lib/types";
 
 export async function GET(
@@ -9,6 +10,19 @@ export async function GET(
 ) {
   try {
     const { jobId } = await params;
+
+    // Verify authenticated admin session
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const admin = await prisma.admin.findUnique({
+      where: { userId: session.user.id }
+    });
+    if (!admin) {
+      return NextResponse.json({ error: "Admin profile not found" }, { status: 403 });
+    }
     
     const job = await prisma.job.findUnique({
       where: { id: jobId }
@@ -18,6 +32,14 @@ export async function GET(
       return NextResponse.json(
         { error: "Job not found" },
         { status: 404 }
+      );
+    }
+
+    // Ownership check — job must belong to current admin
+    if (job.adminId !== admin.id) {
+      return NextResponse.json(
+        { error: "Forbidden: Job does not belong to this terminal" },
+        { status: 403 }
       );
     }
 
@@ -41,8 +63,6 @@ export async function GET(
     }
 
     // Generate signed file URLs
-    // In Prisma, we don't store fileNames, so we list them from disk
-    const { listJobFiles } = await import("@/lib/storage");
     const fileNames = listJobFiles(jobId);
 
     const fileUrls = fileNames.map((name) => {
@@ -91,16 +111,29 @@ export async function DELETE(
     const userToken = searchParams.get("userToken");
     
     const job = await prisma.job.findUnique({
-      where: { id: jobId }
+      where: { id: jobId },
+      include: { admin: true }
     });
 
     if (!job) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
-    // If userToken is provided, verify it matches (user-side deletion)
-    if (userToken && job.userToken !== userToken) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // Check authorization:
+    // 1. User-side deletion requires matching userToken
+    const isUserAuthorized = Boolean(userToken && job.userToken === userToken);
+
+    // 2. Admin-side deletion requires active authenticated session belonging to the shop admin
+    let isAdminAuthorized = false;
+    if (!isUserAuthorized) {
+      const session = await auth();
+      if (session?.user?.id && job.admin?.userId === session.user.id) {
+        isAdminAuthorized = true;
+      }
+    }
+
+    if (!isUserAuthorized && !isAdminAuthorized) {
+      return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
     }
 
     deleteJobFiles(jobId);

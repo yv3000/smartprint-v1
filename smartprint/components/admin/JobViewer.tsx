@@ -3,9 +3,24 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import CountdownTimer from "./CountdownTimer";
-import type { JobResponse, PrintSettings } from "@/lib/types";
+import type { JobResponse } from "@/lib/types";
 import toast from "react-hot-toast";
 import { getMarginMm } from "@/lib/printLayout";
+import {
+  Printer,
+  Lock,
+  ArrowLeft,
+  CheckCircle2,
+  AlertTriangle,
+  Loader2,
+  FileText,
+  Image as ImageIcon,
+  Check,
+  ShieldCheck,
+  Clock,
+  Layers,
+  Settings2,
+} from "lucide-react";
 
 const PDFPreview = dynamic(() => import("@/components/user/PDFPreview"), { ssr: false });
 const FilePreview = dynamic(() => import("@/components/user/FilePreview"), { ssr: false });
@@ -81,10 +96,10 @@ export default function JobViewer({
   const isDocxFile = (name: string) => getFileType(name) === "docx";
 
   const getFileIcon = (name: string) => {
-    if (isImageFile(name)) return "🖼️";
-    if (isPdfFile(name)) return "📕";
-    if (isDocxFile(name)) return "📘";
-    return "📄";
+    if (isImageFile(name)) return <ImageIcon className="w-4 h-4 text-emerald-500" />;
+    if (isPdfFile(name)) return <FileText className="w-4 h-4 text-rose-500" />;
+    if (isDocxFile(name)) return <FileText className="w-4 h-4 text-indigo-500" />;
+    return <FileText className="w-4 h-4 text-neutral-400" />;
   };
 
   // Check if running in Electron
@@ -257,13 +272,6 @@ export default function JobViewer({
       fileType?.includes('wordprocessingml') ||
       fileType?.includes('officedocument')
     ) {
-      // DOCX: render with docx-preview here in the main window so we
-      // have full DOM access (for fonts/styles + post-render pagination
-      // split). Then transplant the rendered HTML + extracted styles
-      // into the print window. We avoid loading any third-party CDN.
-
-      // Sync: write a loading placeholder so the outer document.close()
-      // call below has a valid document to finalise.
       printWindow.document.write(`<!DOCTYPE html>
 <html>
 <head><title></title><style>
@@ -274,7 +282,6 @@ export default function JobViewer({
 
       (async () => {
         try {
-          // Offscreen render host inside the main page
           const renderHost = document.createElement('div');
           renderHost.style.position = 'fixed';
           renderHost.style.left = '-99999px';
@@ -295,9 +302,6 @@ export default function JobViewer({
             ignoreHeight: false,
             ignoreFonts: false,
             breakPages: true,
-            // Force pagination on every <w:sectPr> boundary so docs
-            // with section breaks but no lastRenderedPageBreak markers
-            // print one section per sheet.
             ignoreLastRenderedPageBreak: true,
             experimental: false,
             trimXmlDeclaration: true,
@@ -308,20 +312,12 @@ export default function JobViewer({
             renderEndnotes: true,
           });
 
-          // Raw docx-preview render — no post-process pagination split or
-          // page-border detection (lib/docxPaginate was removed when the
-          // preview path moved to Google Drive iframe). Print will use
-          // whatever page boundaries docx-preview produces natively.
           const hasPageBorders = false;
-
           const renderedHtml = renderHost.innerHTML;
           const extractedStyles = styleContainer.innerHTML;
           document.body.removeChild(renderHost);
           document.head.removeChild(styleContainer);
 
-          // Replace the loading placeholder with the real document.
-          // We let docx-preview control the page geometry; @page uses
-          // size:auto so the browser picks the right sheet.
           const printDoc = printWindow.document;
 
           const printStyle = printDoc.createElement('style');
@@ -331,9 +327,6 @@ export default function JobViewer({
             html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             body { margin: 0; padding: 0; background: white; ${isGrayscale ? 'filter: grayscale(100%);' : ''} }
 
-            /* Strip the on-screen wrapper chrome — flow real pages into
-               the printer, one per sheet. Do NOT touch section width /
-               min-height / padding. */
             .docx-print-wrapper {
               background: white !important;
               padding: 0 !important;
@@ -352,8 +345,6 @@ export default function JobViewer({
               break-after: auto !important;
             }
             ${hasPageBorders ? `
-            /* Source document defines <w:pgBorders>; draw a matching
-               inset border on every printed page. */
             .docx-print-wrapper > section.docx-print {
               box-shadow: inset 0 0 0 1.2pt #000 !important;
             }
@@ -365,13 +356,10 @@ export default function JobViewer({
 
           printDoc.head.innerHTML = '<title></title>';
           printDoc.head.appendChild(printStyle);
-          // Move every <style>/<link> emitted by docx-preview into the
-          // print window's <head>.
           Array.from(docxStyle.children).forEach((el) => printDoc.head.appendChild(el));
 
           printDoc.body.innerHTML = renderedHtml;
 
-          // Trigger print after layout settles.
           const trigger = () => {
             try {
               printWindow.focus();
@@ -394,7 +382,6 @@ export default function JobViewer({
         }
       })();
     } else {
-      // Unknown type — best-effort iframe fallback
       printWindow.document.write(`<!DOCTYPE html>
       <html>
       <head>
@@ -418,8 +405,6 @@ export default function JobViewer({
     }
     
     printWindow.document.close();
-    
-    // Cleanup blob URL after delay
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
   };
 
@@ -508,7 +493,7 @@ export default function JobViewer({
     } catch (error: any) {
       console.error('Print error:', error);
       toast.error(error.message || 'Printing failed. Please try again.');
-      throw error; // Re-throw to stop handlePrintAll
+      throw error;
     } finally {
       setIsPrinting(false);
       setPrintingIndex(null);
@@ -531,14 +516,12 @@ export default function JobViewer({
       setPrintProgress("");
       handleMarkPrinted();
     } catch (err) {
-      // Error already handled in handlePrintFile
       setPrintProgress("");
     }
   };
 
   const handleExpired = useCallback(async () => {
     setIsExpired(true);
-    // Trigger server-side cleanup when timer expires
     if (job?.id) {
       try {
         await fetch(`/api/jobs/${job.id}/print`, { method: "POST", credentials: "include" });
@@ -560,7 +543,6 @@ export default function JobViewer({
         if (saved) {
            setSelectedPrinterName(saved);
         } else {
-           // Proactively avoid virtual printers for the initial selection
            const virtualKeywords = ['pdf', 'xps', 'onenote', 'fax', 'microsoft print', 'send to'];
            const physicalPrinters = printers.filter(p => !virtualKeywords.some(k => p.name.toLowerCase().includes(k)));
            
@@ -587,18 +569,20 @@ export default function JobViewer({
 
   const renderSettings = (s: any) => {
     if (!s) return null;
-    const val = (k: string, v: any) => v || "Default";
+    const val = (v: any) => v || "Default";
     return (
-      <div className="space-y-5">
+      <div className="space-y-4">
         {/* Printer Selection */}
         {isElectron && availablePrinters.length > 0 && (
-          <div className="pb-4 border-b border-border">
-            <div className="text-[10px] text-secondary uppercase tracking-widest mb-2 font-bold">Target Printer</div>
+          <div className="pb-4 border-b border-neutral-100 dark:border-neutral-800">
+            <div className="text-[10px] text-neutral-400 dark:text-neutral-500 uppercase tracking-widest mb-1.5 font-bold">
+              Target Printer
+            </div>
             <select 
               value={selectedPrinterName}
               onChange={(e) => handlePrinterChange(e.target.value)}
-              className={`w-full bg-surface border rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 transition-all ${
-                isVirtualSelected ? 'border-amber-400 focus:ring-amber-500' : 'border-border focus:ring-black'
+              className={`w-full bg-neutral-50 dark:bg-neutral-850 border rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-2 transition-all ${
+                isVirtualSelected ? 'border-amber-400 focus:ring-amber-500' : 'border-neutral-200 dark:border-neutral-750 focus:ring-neutral-900 dark:focus:ring-white'
               }`}
             >
               {availablePrinters.map(p => (
@@ -608,32 +592,52 @@ export default function JobViewer({
               ))}
             </select>
             {isVirtualSelected ? (
-              <p className="text-[10px] text-amber-600 mt-1.5 leading-tight font-medium">
-                ⚠️ Virtual printer selected. Windows will ask where to save the file. Use a physical printer for direct printing.
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5 leading-tight font-medium flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3 shrink-0" />
+                Virtual printer selected. Windows will prompt to save file.
               </p>
             ) : (
-              <p className="text-[10px] text-secondary mt-1.5 leading-tight">Physical printer selected. Printing will be silent and direct.</p>
+              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-1.5 leading-tight">
+                Direct silent hardware printing active.
+              </p>
             )}
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 pb-3 border-b border-border">
-          <div><div className="text-[10px] text-secondary uppercase tracking-widest mb-0.5">Paper</div><div className="text-sm font-medium">{val('paper', s.paperSize)}</div></div>
-          <div><div className="text-[10px] text-secondary uppercase tracking-widest mb-0.5">Mode</div><div className="text-sm font-medium">{val('color', s.colorMode)}</div></div>
-          <div><div className="text-[10px] text-secondary uppercase tracking-widest mb-0.5">Margins</div><div className="text-sm font-medium">{val('margins', s.margins)}</div></div>
-          <div><div className="text-[10px] text-secondary uppercase tracking-widest mb-0.5">Copies</div><div className="text-sm font-medium">{s.copies || 1}</div></div>
-          <div className="col-span-2"><div className="text-[10px] text-secondary uppercase tracking-widest mb-0.5">Layout</div><div className="text-sm font-medium">{s.photosPerPage > 1 ? `${s.photosPerPage} Photos/Pg` : '1/Page'}</div></div>
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-100 dark:border-neutral-800">
+            <div className="text-[9px] text-neutral-400 dark:text-neutral-500 uppercase tracking-wider font-semibold">Paper</div>
+            <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-100 mt-0.5">{val(s.paperSize)}</div>
+          </div>
+          <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-100 dark:border-neutral-800">
+            <div className="text-[9px] text-neutral-400 dark:text-neutral-500 uppercase tracking-wider font-semibold">Mode</div>
+            <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-100 mt-0.5">{val(s.colorMode)}</div>
+          </div>
+          <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-100 dark:border-neutral-800">
+            <div className="text-[9px] text-neutral-400 dark:text-neutral-500 uppercase tracking-wider font-semibold">Margins</div>
+            <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-100 mt-0.5">{val(s.margins)}</div>
+          </div>
+          <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-100 dark:border-neutral-800">
+            <div className="text-[9px] text-neutral-400 dark:text-neutral-500 uppercase tracking-wider font-semibold">Copies</div>
+            <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-100 mt-0.5">{s.copies || 1}</div>
+          </div>
+          <div className="col-span-2 p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-100 dark:border-neutral-800">
+            <div className="text-[9px] text-neutral-400 dark:text-neutral-500 uppercase tracking-wider font-semibold">Layout</div>
+            <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-100 mt-0.5">
+              {s.photosPerPage > 1 ? `${s.photosPerPage} Photos per Page` : '1 Document / Page'}
+            </div>
+          </div>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-white">
+    <div className="fixed inset-0 z-[100] bg-neutral-50/95 dark:bg-[#09090b]/98 backdrop-blur-md text-neutral-900 dark:text-neutral-100 flex flex-col">
       <style dangerouslySetInnerHTML={{__html: `
         .job-detail-layout { display: flex; flex-direction: column; gap: 20px; align-items: stretch; }
         @media (min-width: 1024px) {
-          .job-detail-layout { display: grid; grid-template-columns: 1fr minmax(260px, 280px); gap: 24px; align-items: start; }
+          .job-detail-layout { display: grid; grid-template-columns: 1fr minmax(280px, 320px); gap: 24px; align-items: start; }
         }
         .files-column { display: flex; flex-direction: column; gap: 16px; min-height: 40vh; }
         .sidebar { position: static; }
@@ -642,30 +646,51 @@ export default function JobViewer({
         }
       `}} />
 
-        <div className="sticky top-0 z-[110] bg-white/90 backdrop-blur border-b border-border">
-        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
-          <button onClick={onClose} className="flex items-center gap-2 text-sm text-secondary hover:text-foreground transition-colors font-medium">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
-            Back
+      {/* Top Header */}
+      <div className="sticky top-0 z-[110] bg-white/90 dark:bg-[#09090b]/90 backdrop-blur-xl border-b border-neutral-200/80 dark:border-neutral-800">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
+          <button
+            onClick={onClose}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all active:scale-95"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Queue</span>
           </button>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             {!isExpired && jobData && (
               <>
-                <button onClick={handleMarkPrinted} className="px-4 py-2 border border-border rounded-xl text-sm font-medium hover:bg-surface transition-all no-print">
-                  Mark as Printed
+                <button
+                  onClick={handleMarkPrinted}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-neutral-200 dark:border-neutral-800 rounded-xl text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all active:scale-95 no-print"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Mark Done</span>
                 </button>
                 <button
                   onClick={handlePrintAll}
                   disabled={isPrinting || (jobData.isEncrypted && hasPrinted)}
-                  className={`px-5 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${jobData.isEncrypted && hasPrinted ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-black text-white hover:bg-gray-900 shadow-sm"}`}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm active:scale-95 ${
+                    jobData.isEncrypted && hasPrinted
+                      ? "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed"
+                      : "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:opacity-90 hover:shadow"
+                  }`}
                 >
                   {isPrinting ? (
-                    <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeDasharray="31.4 31.4" strokeLinecap="round"/></svg> {printProgress || "Printing…"}</>
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>{printProgress || "Printing..."}</span>
+                    </>
                   ) : jobData.isEncrypted && hasPrinted ? (
-                    "Already Printed"
+                    <>
+                      <Lock className="w-4 h-4" />
+                      <span>Printed & Purged</span>
+                    </>
                   ) : (
-                    <>🖨️ Print All</>
+                    <>
+                      <Printer className="w-4 h-4" />
+                      <span>Print All</span>
+                    </>
                   )}
                 </button>
               </>
@@ -674,86 +699,141 @@ export default function JobViewer({
         </div>
       </div>
 
-        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-4 sm:py-6 overflow-y-auto" style={{ height: 'calc(100vh - 64px)' }}>
+      {/* Main Body */}
+      <div className="flex-1 overflow-y-auto max-w-[1280px] w-full mx-auto px-4 sm:px-6 py-6 custom-scrollbar">
         {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin w-8 h-8 border-2 border-foreground/20 border-t-foreground rounded-full" />
+          <div className="flex flex-col items-center justify-center py-32 gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-neutral-500" />
+            <p className="text-xs uppercase font-bold tracking-widest text-neutral-400">Loading Job Packet...</p>
           </div>
         ) : isExpired || jobData?.status === "printed" ? (
-          <div className="text-center py-24 animate-fade-in">
-            <div className="w-24 h-24 rounded-[32px] bg-gray-50 border border-gray-100 flex items-center justify-center mx-auto mb-8 shadow-sm">
+          <div className="text-center py-24 animate-fade-in max-w-md mx-auto">
+            <div className="w-20 h-20 rounded-3xl bg-neutral-100 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center mx-auto mb-6 shadow-sm">
               {isExpired ? (
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                <Clock className="w-9 h-9 text-rose-500" />
               ) : (
-                <span className="text-4xl">🔒</span>
+                <ShieldCheck className="w-9 h-9 text-emerald-500" />
               )}
             </div>
-            <h2 className="text-2xl font-bold text-[#111827] tracking-tight mb-2">
-              {isExpired ? "Job Expired" : "Job Completed"}
+            <h2 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-white mb-2">
+              {isExpired ? "Job Automatically Expired" : "Print Job Completed & Purged"}
             </h2>
-            <p className="text-sm text-[#6B7280] max-w-xs mx-auto leading-relaxed">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed mb-6">
               {isExpired 
-                ? "This print job has automatically expired and the files have been purged from the server." 
-                : "This job was marked as printed. For security and privacy, the folder has been locked and files are no longer accessible."}
+                ? "This print job exceeded the 100-second window and all buffers have been permanently deleted from storage." 
+                : "This job was marked as printed. In compliance with the zero-knowledge policy, documents are sealed and deleted."}
             </p>
-            <button onClick={onClose} className="mt-8 px-6 py-2 bg-[#111827] text-white rounded-xl text-sm font-semibold hover:bg-black transition-all">
-              Return to Dashboard
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 rounded-xl text-xs font-bold hover:opacity-90 transition-all active:scale-95"
+            >
+              Return to Print Queue
             </button>
           </div>
         ) : jobData ? (
           <div className="animate-fade-in job-detail-layout">
             <div className="files-column" ref={printRef}>
-              <div className="mb-2">
-                <h1 className="text-2xl font-semibold tracking-tight font-mono">#{jobData.userId}</h1>
-                <p className="text-sm text-secondary mt-1">
-                  {jobData.fileCount} {jobData.fileCount === 1 ? "file" : "files"}
-                  {jobData.isEncrypted && " · Encrypted"}
-                </p>
+              {/* Job Header Bar */}
+              <div className="flex items-center justify-between pb-3 border-b border-neutral-200/80 dark:border-neutral-800">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl font-bold tracking-tight font-mono text-neutral-900 dark:text-white">
+                    #{jobData.userId}
+                  </span>
+                  {jobData.isEncrypted && (
+                    <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold">
+                      <Lock className="w-3 h-3" />
+                      Client-Encrypted (AES-256)
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+                  {jobData.fileCount} {jobData.fileCount === 1 ? "document" : "documents"}
+                </span>
               </div>
 
               {jobData.isEncrypted ? (
-                <div className="p-12 rounded-2xl border border-border bg-surface text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-white border border-border flex items-center justify-center mx-auto mb-6"><span className="text-3xl">🔐</span></div>
-                  <h3 className="text-lg font-semibold mb-2">Encrypted File</h3>
-                  <p className="text-sm text-secondary max-w-sm mx-auto">This file is encrypted. You can only print it — preview is not available.</p>
+                <div className="p-8 sm:p-12 rounded-3xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 text-center shadow-sm">
+                  <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-5 text-amber-500">
+                    <Lock className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-1.5">
+                    End-to-End Encrypted File
+                  </h3>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto leading-relaxed mb-6">
+                    This file is encrypted with AES-256 GCM on the user&apos;s device. Zero preview is available on disk or screen. When printed, it decrypts straight into memory.
+                  </p>
                   
-                  {jobData.fileNames.map((name: string, index: number) => (
-                    <div key={name} className="mt-6 flex justify-between items-center p-4 bg-white border border-border rounded-xl">
-                      <div className="flex items-center gap-3">
-                         <span className="text-xl">🔐</span>
-                         <span className="text-sm font-semibold">{name}</span>
-                      </div>
-                      <button
-                        disabled={isPrinting || hasPrinted || printingIndex === index}
-                        onClick={() => handlePrintFile(jobData, index)}
-                        className={`px-3 py-1.5 border border-border text-xs font-medium rounded-lg ${hasPrinted ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                  <div className="space-y-3 max-w-lg mx-auto">
+                    {jobData.fileNames.map((name: string, index: number) => (
+                      <div
+                        key={name}
+                        className="flex justify-between items-center p-3.5 bg-neutral-50 dark:bg-neutral-850/80 border border-neutral-200/80 dark:border-neutral-800 rounded-xl"
                       >
-                        {printingIndex === index ? '🖨️ Printing...' : '🖨️ Print'}
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-2.5 truncate pr-3">
+                          <Lock className="w-4 h-4 text-amber-500 shrink-0" />
+                          <span className="text-xs font-semibold truncate text-neutral-800 dark:text-neutral-200">
+                            {name}
+                          </span>
+                        </div>
+                        <button
+                          disabled={isPrinting || hasPrinted || printingIndex === index}
+                          onClick={() => handlePrintFile(jobData, index)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all active:scale-95 shrink-0 ${
+                            hasPrinted
+                              ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-400 border-neutral-200 dark:border-neutral-700 cursor-not-allowed"
+                              : "bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-900 dark:text-white border-neutral-200 dark:border-neutral-700 shadow-xs"
+                          }`}
+                        >
+                          {printingIndex === index ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Printing...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Printer className="w-3.5 h-3.5" />
+                              <span>Print</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <>
                   {jobData.fileNames.map((name: string, index: number) => (
-                    <div key={name} className="w-full border border-[#E5E7EB] rounded-[12px] bg-white overflow-hidden">
-                      <div className="flex justify-between items-center p-[12px_16px] border-b border-[#F3F4F6] bg-[#FAFAFA]">
-                        <div className="flex items-center gap-[10px]">
-                          <span className="text-lg">{getFileIcon(name)}</span>
-                          <span className="text-[15px] font-bold">{name}</span>
+                    <div
+                      key={name}
+                      className="w-full border border-neutral-200/80 dark:border-neutral-800 rounded-2xl bg-white dark:bg-neutral-900 overflow-hidden shadow-sm"
+                    >
+                      <div className="flex justify-between items-center px-4 py-3 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/90">
+                        <div className="flex items-center gap-2.5 truncate pr-3">
+                          <span className="shrink-0">{getFileIcon(name)}</span>
+                          <span className="text-xs font-bold text-neutral-900 dark:text-white truncate">{name}</span>
                         </div>
                         {jobData.fileNames.length > 1 && (
                           <button
                             onClick={() => handlePrintFile(jobData, index)}
                             disabled={isPrinting}
-                            className="px-3 py-1.5 border border-[#E5E7EB] hover:bg-[#F3F4F6] text-xs font-medium rounded transition-colors flex items-center gap-2"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 transition-all shrink-0 active:scale-95"
                           >
-                            {printingIndex === index ? '🖨️ Printing...' : '🖨️ Print'}
+                            {printingIndex === index ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span>Printing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Printer className="w-3 h-3" />
+                                <span>Print</span>
+                              </>
+                            )}
                           </button>
                         )}
                       </div>
 
-                      <div className="w-full bg-[#FaFaFa]">
+                      <div className="w-full bg-neutral-100/60 dark:bg-neutral-950 flex items-center justify-center">
                         {isImageFile(name) && previewUrls[index] ? (
                           /* eslint-disable-next-line @next/next/no-img-element */
                           <img
@@ -761,17 +841,17 @@ export default function JobViewer({
                             alt={name}
                             style={{
                               width: "100%",
-                              height: "auto",
+                              maxHeight: "720px",
                               display: "block",
                               objectFit: "contain",
                               filter: jobData.settings?.colorMode === "Black & White" ? "grayscale(1) contrast(1.05)" : undefined,
                               transition: "filter 0.25s ease",
                             }}
-                            className="bg-surface"
+                            className="p-4"
                             onDragStart={(e) => e.preventDefault()}
                           />
                         ) : isPdfFile(name) && previewUrls[index] && jobData.settings ? (
-                          <div className="w-full min-h-[min(70vh,720px)] bg-[#323639] rounded-b-lg overflow-hidden">
+                          <div className="w-full min-h-[min(70vh,720px)] bg-[#323639] overflow-hidden">
                             <PDFPreview
                               fileUrl={previewUrls[index]}
                               colorPagesRange=""
@@ -792,16 +872,16 @@ export default function JobViewer({
                         ) : isPdfFile(name) && previewUrls[index] ? (
                           <iframe src={`${previewUrls[index]}#toolbar=0`} style={{ width: '100%', height: '800px', border: 'none' }} title={name} />
                         ) : isDocxFile(name) && previewUrls[index] ? (
-                          <div className="w-full h-[80vh] max-h-[900px] bg-[#525659] rounded-b-lg overflow-hidden">
+                          <div className="w-full h-[80vh] max-h-[900px] bg-[#525659] overflow-hidden">
                             <FilePreview fileUrl={previewUrls[index]} fileName={name} />
                           </div>
                         ) : isDocxFile(name) ? (
-                          <div className="p-12 text-center text-secondary">
+                          <div className="p-12 text-center text-xs text-neutral-400">
                             Preview unavailable
                           </div>
                         ) : (
-                          <div className="p-12 text-center text-secondary">
-                             Loading preview...
+                          <div className="p-12 text-center text-xs text-neutral-400">
+                            Loading document preview...
                           </div>
                         )}
                       </div>
@@ -811,13 +891,19 @@ export default function JobViewer({
               )}
             </div>
 
-            <div className="sidebar space-y-6 no-print">
-              <div className="p-6 rounded-2xl border border-border text-center bg-white shadow-sm">
+            {/* Sidebar with Countdown & Settings */}
+            <div className="sidebar space-y-4 no-print">
+              <div className="p-5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 text-center bg-white dark:bg-neutral-900/90 shadow-sm">
                 <CountdownTimer totalSeconds={100} initialRemaining={jobData.remainingSeconds || 100} onExpired={handleExpired} />
               </div>
               {jobData.settings && (
-                <div className="p-5 rounded-2xl border border-border bg-white shadow-sm">
-                  <h3 className="text-sm font-semibold mb-4">Print Settings</h3>
+                <div className="p-5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900/90 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Settings2 className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
+                      Print Specifications
+                    </h3>
+                  </div>
                   {renderSettings(jobData.settings)}
                 </div>
               )}

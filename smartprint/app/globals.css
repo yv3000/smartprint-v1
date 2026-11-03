@@ -244,6 +244,11 @@ h1, h2, h3, h4, h5, h6 {
   transition: opacity 0.3s ease;
 }
 
+.dark .screen-protection-overlay {
+  background: rgba(9, 9, 11, 0.96);
+  color: #fff;
+}
+
 .blur-protection {
   filter: blur(20px);
   transition: filter 0.3s ease;

@@ -3,9 +3,11 @@
  * 
  * Marks the job as printed and immediately deletes the files.
  * This allows the admin to clean up before the 100s timer expires.
+ * Protected by NextAuth session to prevent unauthorized job destruction.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { deleteJobFiles } from "@/lib/storage";
 
@@ -14,9 +16,15 @@ export async function POST(
   { params }: { params: Promise<{ jobId: string }> }
 ) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { jobId } = await params;
     const job = await prisma.job.findUnique({
-      where: { id: jobId }
+      where: { id: jobId },
+      include: { admin: true }
     });
 
     if (!job) {
@@ -24,6 +32,11 @@ export async function POST(
         { error: "Job not found" },
         { status: 404 }
       );
+    }
+
+    // Verify admin ownership
+    if (job.admin?.userId !== session.user.id) {
+      return NextResponse.json({ error: "Unauthorized for this shop" }, { status: 403 });
     }
 
     if (job.status === "expired" || job.status === "deleted") {

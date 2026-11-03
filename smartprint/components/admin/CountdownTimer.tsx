@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 interface CountdownTimerProps {
   /** Total seconds for the countdown (typically 100) */
   totalSeconds: number;
@@ -46,19 +47,19 @@ export default function CountdownTimer({
 
   // Color based on remaining time
   const getColor = () => {
-    if (remaining > 60) return "#34C759"; // Green
-    if (remaining > 30) return "#FF9500"; // Yellow/Orange
-    return "#FF3B30"; // Red
+    if (remaining > 60) return "#10B981"; // Emerald
+    if (remaining > 30) return "#F59E0B"; // Amber
+    return "#EF4444"; // Rose
   };
 
   const getBgColor = () => {
-    if (remaining > 60) return "rgba(52, 199, 89, 0.08)";
-    if (remaining > 30) return "rgba(255, 149, 0, 0.08)";
-    return "rgba(255, 59, 48, 0.08)";
+    if (remaining > 60) return "rgba(16, 185, 129, 0.08)";
+    if (remaining > 30) return "rgba(245, 158, 11, 0.08)";
+    return "rgba(239, 68, 68, 0.08)";
   };
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-2.5">
       <div className="relative w-28 h-28">
         {/* Background circle */}
         <svg className="w-full h-full" viewBox="0 0 100 100">
@@ -67,8 +68,9 @@ export default function CountdownTimer({
             cy="50"
             r={radius}
             fill={getBgColor()}
-            stroke="#E5E5E7"
-            strokeWidth="3"
+            stroke="currentColor"
+            strokeWidth="3.5"
+            className="text-neutral-200/80 dark:text-neutral-800"
           />
           {/* Progress arc */}
           <circle
@@ -77,7 +79,7 @@ export default function CountdownTimer({
             r={radius}
             fill="none"
             stroke={getColor()}
-            strokeWidth="3"
+            strokeWidth="3.5"
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
@@ -88,26 +90,26 @@ export default function CountdownTimer({
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span
-            className="text-2xl font-semibold tabular-nums"
+            className="text-2xl font-bold font-mono tabular-nums leading-none"
             style={{ color: getColor() }}
           >
             {remaining}
           </span>
-          <span className="text-[10px] text-secondary font-medium uppercase tracking-wider">
+          <span className="text-[9px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-wider mt-1">
             seconds
           </span>
         </div>
       </div>
 
       {/* Status text */}
-      <div className="text-xs text-secondary text-center">
+      <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 text-center">
         {remaining > 60
-          ? "File will be auto-deleted"
+          ? "Ephemeral session active"
           : remaining > 30
-          ? "Running out of time..."
+          ? "Countdown accelerating..."
           : remaining > 0
-          ? "Almost expired!"
-          : "File deleted"}
+          ? "Expiring shortly!"
+          : "Buffers purged"}
       </div>
     </div>
   );

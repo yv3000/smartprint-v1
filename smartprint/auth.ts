@@ -21,8 +21,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     async signIn({ user, account, profile }) {
-      console.log("SignIn attempt:", user?.email)
-      
       // Update lastLoginAt for admin
       try {
         if (user?.id) {
@@ -43,15 +41,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return true
     },
     async session({ session, user }) {
-      console.log("Session created:", session?.user?.email)
       if (session.user && user) {
         session.user.id = user.id
       }
       return session
     },
     async redirect({ url, baseUrl }) {
-      // Always redirect to dashboard after successful login
-      // BUT if we have a specific callbackUrl in the params, use it
       try {
         const searchParams = new URL(url, baseUrl).searchParams;
         const callbackUrl = searchParams.get('callbackUrl');
@@ -76,5 +71,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: '/admin/auth',
     error: '/admin/auth',
   },
-  debug: true,
+  debug: process.env.NODE_ENV === "development",
 })

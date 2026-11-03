@@ -1,19 +1,22 @@
 "use client";
 
 import type { JobResponse } from "@/lib/types";
+import { FileText, Image as ImageIcon, Lock, Paperclip, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface JobCardProps {
   job: JobResponse;
   onClick: () => void;
 }
 
-function getFileTypeIcon(name: string): string {
+function getFileTypeIcon(name: string) {
   const ext = name.split(".").pop()?.toLowerCase();
-  if (ext === "pdf") return "📄";
-  if (["jpg", "jpeg", "png"].includes(ext || "")) return "🖼️";
-  if (ext === "docx") return "📝";
-  if (ext === "enc") return "🔐";
-  return "📎";
+  if (ext === "pdf") return <FileText className="w-4 h-4 text-rose-500" />;
+  if (["jpg", "jpeg", "png", "webp", "gif"].includes(ext || ""))
+    return <ImageIcon className="w-4 h-4 text-emerald-500" />;
+  if (["docx", "doc"].includes(ext || ""))
+    return <FileText className="w-4 h-4 text-indigo-500" />;
+  if (ext === "enc") return <Lock className="w-4 h-4 text-amber-500" />;
+  return <Paperclip className="w-4 h-4 text-neutral-400" />;
 }
 
 function getTimeSince(timestamp: number): string {
@@ -28,15 +31,35 @@ function getTimeSince(timestamp: number): string {
 function getStatusConfig(status: string): { label: string; className: string } {
   switch (status) {
     case "waiting":
-      return { label: "Waiting", className: "bg-accent/10 text-accent" };
+      return {
+        label: "Ready for Pickup",
+        className:
+          "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20",
+      };
     case "opened":
-      return { label: "Opened", className: "bg-warning/10 text-warning" };
+      return {
+        label: "Counting Down",
+        className:
+          "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20",
+      };
     case "printed":
-      return { label: "Printed", className: "bg-success/10 text-success" };
+      return {
+        label: "Printed",
+        className:
+          "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20",
+      };
     case "expired":
-      return { label: "Expired", className: "bg-secondary/10 text-secondary" };
+      return {
+        label: "Expired",
+        className:
+          "bg-neutral-500/10 text-neutral-500 dark:text-neutral-400 border border-neutral-500/20",
+      };
     default:
-      return { label: status, className: "bg-secondary/10 text-secondary" };
+      return {
+        label: status,
+        className:
+          "bg-neutral-500/10 text-neutral-500 dark:text-neutral-400 border border-neutral-500/20",
+      };
   }
 }
 
@@ -48,66 +71,80 @@ export default function JobCard({ job, onClick }: JobCardProps) {
     <button
       onClick={onClick}
       disabled={!isActive}
-      className={`w-full text-left p-5 rounded-2xl border transition-all ${
+      className={`w-full text-left p-5 rounded-2xl border transition-all duration-200 ${
         isActive
-          ? "border-border hover:border-secondary/40 hover:shadow-sm cursor-pointer card-hover"
-          : "border-border/60 opacity-50 cursor-not-allowed bg-gray-50/50"
+          ? "bg-white dark:bg-neutral-900/90 border-neutral-200/80 dark:border-neutral-800 hover:border-neutral-400 dark:hover:border-neutral-700 hover:shadow-md cursor-pointer active:scale-[0.99]"
+          : "border-neutral-200/40 dark:border-neutral-800/40 opacity-40 cursor-not-allowed bg-neutral-50/50 dark:bg-neutral-950/40"
       }`}
     >
-      {/* Top row: User ID + Status */}
+      {/* Top row: User ID / Token + Status */}
       <div className="flex items-start justify-between mb-4">
         <div>
-          <div className="text-lg font-semibold tracking-tight">{job.userId}</div>
-          <div className="text-xs text-secondary mt-0.5">
-            {getTimeSince(job.createdAt)}
+          <div className="flex items-center gap-2">
+            <span className="text-base font-bold tracking-tight text-neutral-900 dark:text-white font-mono">
+              {job.userId}
+            </span>
+            {isActive && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            )}
+          </div>
+          <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 flex items-center gap-1.5">
+            <Clock className="w-3 h-3 text-neutral-400" />
+            <span>{getTimeSince(job.createdAt)}</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {job.isEncrypted && (
-            <span className="text-xs px-2 py-1 rounded-md bg-foreground/5 text-foreground font-medium">
-              🔒 Secure
+            <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
+              <Lock className="w-3 h-3" />
+              <span>AES-256</span>
             </span>
           )}
-          <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${statusConfig.className}`}>
+          <span
+            className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold ${statusConfig.className}`}
+          >
             {statusConfig.label}
           </span>
         </div>
       </div>
 
-      {/* File icons */}
-      <div className="flex items-center gap-2 mb-3">
+      {/* File badges */}
+      <div className="flex items-center gap-2 mb-4">
         {job.fileNames.slice(0, 4).map((name, i) => (
           <div
             key={i}
-            className="w-8 h-8 rounded-lg bg-surface border border-border flex items-center justify-center"
+            className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200/60 dark:border-neutral-700/60 flex items-center justify-center shrink-0 shadow-sm"
             title={name}
           >
-            <span className="text-sm">{getFileTypeIcon(name)}</span>
+            {getFileTypeIcon(name)}
           </div>
         ))}
         {job.fileNames.length > 4 && (
-          <div className="w-8 h-8 rounded-lg bg-surface border border-border flex items-center justify-center text-xs text-secondary font-medium">
+          <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200/60 dark:border-neutral-700/60 flex items-center justify-center text-xs text-neutral-500 dark:text-neutral-400 font-semibold">
             +{job.fileNames.length - 4}
           </div>
         )}
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-secondary">
-          {job.fileCount} {job.fileCount === 1 ? "file" : "files"}
+      <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800/80">
+        <span className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
+          {job.fileCount} {job.fileCount === 1 ? "document" : "documents"}
         </span>
 
         {job.status === "opened" && job.remainingSeconds !== undefined && (
-          <span className={`text-xs font-medium ${
-            job.remainingSeconds > 60
-              ? "text-success"
-              : job.remainingSeconds > 30
-              ? "text-warning"
-              : "text-danger"
-          }`}>
-            {job.remainingSeconds}s remaining
+          <span
+            className={`text-xs font-semibold font-mono flex items-center gap-1 ${
+              job.remainingSeconds > 60
+                ? "text-emerald-600 dark:text-emerald-400"
+                : job.remainingSeconds > 30
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-rose-600 dark:text-rose-400"
+            }`}
+          >
+            <AlertCircle className="w-3 h-3" />
+            <span>{job.remainingSeconds}s remaining</span>
           </span>
         )}
       </div>

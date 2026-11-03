@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { validateFileToken, getFilePath } from "@/lib/storage";
+import { validateFileToken, getFilePath, getJobDir } from "@/lib/storage";
 import fs from "fs";
 import path from "path";
 
@@ -66,16 +66,25 @@ export async function GET(
       );
     }
 
-    // Ensure token matches the requested job
-    if (valid.jobId !== jobId) {
+    // Strict validation: Ensure token matches both requested job and file
+    if (valid.jobId !== jobId || valid.fileName !== name) {
       return NextResponse.json(
-        { error: "Token does not match job" },
+        { error: "Token mismatch for requested document" },
         { status: 403 }
       );
     }
 
-    // Get the file path
-    const filePath = getFilePath(jobId, name);
+    // Get the sanitized file path
+    const filePath = getFilePath(jobId, valid.fileName);
+    const expectedDir = path.resolve(getJobDir(jobId));
+
+    // Path traversal containment check
+    if (!path.resolve(filePath).startsWith(expectedDir)) {
+      return NextResponse.json(
+        { error: "Access denied" },
+        { status: 403 }
+      );
+    }
 
     if (!fs.existsSync(filePath)) {
       return NextResponse.json(
@@ -86,10 +95,10 @@ export async function GET(
 
     // Read the file
     const fileBuffer = fs.readFileSync(filePath);
-    const ext = path.extname(name).toLowerCase();
+    const ext = path.extname(valid.fileName).toLowerCase();
     const contentType = MIME_TYPES[ext] || "application/octet-stream";
 
-    // Return file with security headers — no caching, no download
+    // Return file with strict security headers — no caching, no download sniffing
     return new NextResponse(fileBuffer, {
       status: 200,
       headers: {
@@ -97,8 +106,8 @@ export async function GET(
         "Content-Length": fileBuffer.length.toString(),
         "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
         "Pragma": "no-cache",
-        "Content-Disposition": `inline; filename="${name}"`, // Prevent download prompt
         "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": `inline; filename="${encodeURIComponent(valid.fileName)}"`,
       },
     });
   } catch (error) {

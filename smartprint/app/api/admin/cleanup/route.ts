@@ -1,10 +1,21 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { rm } from "fs/promises";
-import { join } from "path";
+import { deleteJobFiles } from "@/lib/storage";
 
 export async function GET(req: NextRequest) {
   try {
+    const authHeader = req.headers.get("authorization");
+    const cronSecret = process.env.CRON_SECRET;
+    const isCronAuthorized = Boolean(cronSecret && authHeader === `Bearer ${cronSecret}`);
+
+    const session = await auth();
+    if (!isCronAuthorized && !session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const expiredJobs = await prisma.job.findMany({
       where: {
         openedAt: { 
@@ -16,19 +27,15 @@ export async function GET(req: NextRequest) {
     });
 
     for (const job of expiredJobs) {
-      // 1. Mark as expired
       await prisma.job.update({
         where: { id: job.id },
         data: { status: "expired" },
       });
 
-      // 2. Delete files
-      const storageDir = join(process.cwd(), "tmp", "smartprint", job.id);
       try {
-        await rm(storageDir, { recursive: true, force: true });
-        console.log(`Cleaned up job ${job.id}`);
+        deleteJobFiles(job.id);
       } catch (err) {
-        // Already gone or permission error
+        // Ignore if already deleted
       }
     }
 

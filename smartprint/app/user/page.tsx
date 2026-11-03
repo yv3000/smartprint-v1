@@ -559,8 +559,6 @@ function UserPageContent() {
                 isConnected ? "up-chip-success" : ""
               }`}
               style={{
-                background: isConnected ? "rgba(52,199,89,0.10)" : "rgba(0,0,0,0.04)",
-                color: isConnected ? "#1A8038" : "var(--up-text-2)",
                 fontSize: "1em",
                 fontWeight: 500,
                 cursor: "pointer",
@@ -847,7 +845,7 @@ function UserPageContent() {
                           ? "var(--up-accent)"
                           : past
                           ? "rgba(0,113,227,0.12)"
-                          : "rgba(0,0,0,0.06)",
+                          : "var(--up-hover)",
                         color: active ? "#fff" : past ? "var(--up-accent)" : "var(--up-text-2)",
                         fontSize: "0.92em",
                         fontWeight: 600,
@@ -1008,7 +1006,7 @@ function UserPageContent() {
                               <div
                                 className="w-full h-full flex items-center justify-center"
                                 style={{
-                                  background: "rgba(0,0,0,0.04)",
+                                  background: "var(--up-hover)",
                                   color: "var(--up-text-2)",
                                   fontSize: "0.92em",
                                   fontWeight: 600,
@@ -1081,7 +1079,7 @@ function UserPageContent() {
                       layout
                       className="relative flex items-center justify-center"
                       style={{
-                        background: "rgba(0,0,0,0.04)",
+                        background: "var(--up-hover)",
                         borderRadius: 12,
                         minHeight: "clamp(520px, 90vh, 1200px)",
                         overflow: "hidden",
@@ -1363,7 +1361,7 @@ function UserPageContent() {
                                                 height: ratioValue
                                                   ? `${Math.round(frame.height)}px`
                                                   : "100%",
-                                                backgroundColor: "rgba(0,0,0,0.03)",
+                                                backgroundColor: "var(--up-hover)",
                                                 border: ratioValue
                                                   ? "0.5px solid rgba(0,113,227,0.30)"
                                                   : "none",
@@ -1405,8 +1403,8 @@ function UserPageContent() {
                                                   style={{
                                                     width: "100%",
                                                     height: "100%",
-                                                    background: "rgba(0,0,0,0.02)",
-                                                    border: "0.5px dashed rgba(0,0,0,0.08)",
+                                                    background: "var(--up-hover)",
+                                                    border: "0.5px dashed var(--up-border)",
                                                     borderRadius: 4,
                                                   }}
                                                 />

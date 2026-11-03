@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import QRCode from "qrcode";
-import { Copy, Check, Download, QrCode, LogOut, Printer } from "lucide-react";
+import { Copy, Check, Download, QrCode, LogOut, Printer, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { signOut } from "next-auth/react";
 
@@ -16,7 +16,7 @@ export default function QRModal({ onClose }: QRModalProps) {
   const [shopId, setShopId] = useState("");
   const [shopName, setShopName] = useState("");
   const [isIdCopied, setIsIdCopied] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null); // For download logic
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     fetch("/api/admin/profile")
@@ -51,9 +51,6 @@ export default function QRModal({ onClose }: QRModalProps) {
   };
 
   const downloadQR = async () => {
-    if (!canvasRef.current) return;
-
-    // Create a new canvas for high-quality print
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -89,13 +86,13 @@ export default function QRModal({ onClose }: QRModalProps) {
     // Draw Brand
     ctx.font = '50px sans-serif';
     ctx.fillStyle = '#666666';
-    ctx.fillText('Powered by SmartPrint', canvas.width / 2, canvas.height - 50);
+    ctx.fillText('Powered by SmartPrint Protocol', canvas.width / 2, canvas.height - 50);
 
     const link = document.createElement("a");
     link.download = `smartprint-qr-${shopId}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
-    toast.success("QR Code & Shop ID downloaded to your Downloads folder!");
+    toast.success("High-res Counter QR saved to Downloads!");
   };
 
   const handleLogout = () => {
@@ -103,91 +100,104 @@ export default function QRModal({ onClose }: QRModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in overflow-hidden">
-      <div className="bg-white w-full max-w-[420px] max-h-[90vh] flex flex-col rounded-[32px] overflow-hidden shadow-2xl animate-scale-up">
-        {/* Header - Fixed */}
-        <div className="p-6 pb-4 flex justify-between items-start border-b border-border bg-white z-10">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in overflow-hidden">
+      <div className="bg-white dark:bg-[#121217] text-neutral-900 dark:text-neutral-100 border border-neutral-200/80 dark:border-neutral-800 w-full max-w-[420px] max-h-[92vh] flex flex-col rounded-3xl overflow-hidden shadow-2xl animate-scale-up">
+        {/* Header */}
+        <div className="px-6 py-4 flex justify-between items-center border-b border-neutral-100 dark:border-neutral-850">
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-[#111827]">{shopName}</h2>
-            <p className="text-xs text-secondary mt-0.5">SmartPrint Secure Access</p>
+            <h2 className="text-base font-bold tracking-tight text-neutral-900 dark:text-white">
+              {shopName}
+            </h2>
+            <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+              Counter Access & Customer Pairing
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-surface rounded-full transition-colors text-secondary hover:text-black">
-            <span className="text-2xl leading-none">×</span>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 pt-4 space-y-5 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
           {/* Shop ID Section */}
-          <div className="p-4 rounded-2xl bg-surface border border-border">
+          <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-secondary uppercase tracking-widest">Permanent Shop ID</span>
-              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-accent/10 rounded-full">
-                <div className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />
-                <span className="text-[9px] font-bold text-accent uppercase">Live</span>
+              <span className="text-[10px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-widest">
+                6-Digit Shop Identifier
+              </span>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                <span className="text-[9px] font-bold uppercase">Online</span>
               </div>
             </div>
-            <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-border">
-              <span className="text-xl font-mono font-bold tracking-[0.2em] text-[#111827] uppercase">{shopId}</span>
+            <div className="flex items-center justify-between bg-white dark:bg-neutral-850 p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-750 shadow-xs">
+              <span className="text-xl font-mono font-bold tracking-[0.2em] text-neutral-900 dark:text-white uppercase">
+                {shopId}
+              </span>
               <button
                 onClick={copyIdToClipboard}
-                className="p-1.5 hover:bg-surface rounded-lg transition-all active:scale-90"
+                className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-all active:scale-90 text-neutral-600 dark:text-neutral-300"
+                title="Copy Shop ID"
               >
-                {isIdCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-secondary" />}
+                {isIdCopied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
           </div>
 
-          {/* QR Section */}
+          {/* QR Code Section */}
           <div className="space-y-4">
             <div className="relative group">
-              {/* White square box with large padding (p-16) to ensure QR is small and centered like reference */}
-              <div className="aspect-square bg-white border border-gray-100 rounded-[40px] p-16 flex items-center justify-center overflow-hidden shadow-sm">
+              <div className="aspect-square bg-white border border-neutral-200 dark:border-neutral-800 rounded-3xl p-10 flex items-center justify-center overflow-hidden shadow-sm">
                 {qrDataUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img 
                     src={qrDataUrl} 
-                    alt="QR Code" 
+                    alt="Counter QR Code" 
                     className="w-full h-full object-contain pointer-events-none" 
                   />
                 ) : (
-                  <div className="w-full h-full animate-pulse bg-gray-50 rounded-2xl" />
+                  <div className="w-full h-full animate-pulse bg-neutral-100 dark:bg-neutral-800 rounded-2xl" />
                 )}
               </div>
               <button
                 onClick={downloadQR}
-                className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 text-white rounded-[40px] backdrop-blur-[2px]"
+                className="absolute inset-0 bg-neutral-900/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 text-white rounded-3xl backdrop-blur-xs font-semibold text-xs"
               >
-                <Download className="w-8 h-8" />
-                <span className="font-medium text-sm">Download PNG</span>
+                <Download className="w-6 h-6" />
+                <span>Save High-Res PNG</span>
               </button>
             </div>
 
             <div className="flex gap-2.5">
               <button
                 onClick={downloadQR}
-                className="flex-[2] h-12 flex items-center justify-center gap-2 bg-[#4F46E5] text-white rounded-xl font-bold text-sm hover:bg-[#4338CA] transition-all active:scale-[0.98] shadow-md shadow-indigo-100"
+                className="flex-[2] h-11 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-all active:scale-95 shadow-xs"
               >
-                <Printer className="w-4 h-4" />
-                Print Shop QR
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Standee QR</span>
               </button>
 
               <button
                 onClick={handleLogout}
-                className="flex-1 h-12 flex items-center justify-center gap-2 bg-red-50 text-red-600 border border-red-100 rounded-xl font-semibold text-sm hover:bg-red-100 transition-all active:scale-[0.98]"
+                className="flex-1 h-11 flex items-center justify-center gap-2 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-xl font-semibold text-xs hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all active:scale-95"
               >
-                <LogOut className="w-3.5 h-3.5" /> Out
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
               </button>
             </div>
           </div>
         </div>
 
-        {/* Footer - Fixed */}
-        <div className="px-6 py-3.5 bg-surface border-t border-border flex items-center gap-3">
-          <div className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center text-accent flex-shrink-0">
+        {/* Footer */}
+        <div className="px-6 py-3.5 bg-neutral-50 dark:bg-neutral-900/60 border-t border-neutral-100 dark:border-neutral-850 flex items-center gap-3">
+          <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
             <QrCode className="w-3.5 h-3.5" />
           </div>
-          <p className="text-[10px] text-secondary leading-tight">
-            Customers can scan this QR code or enter the 6-digit ID at any SmartPrint station.
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight">
+            Place this counter standee at your front desk for zero-install customer printing.
           </p>
         </div>
       </div>

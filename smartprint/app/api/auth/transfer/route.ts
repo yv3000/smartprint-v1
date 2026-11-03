@@ -54,6 +54,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Token expired' }, { status: 410 })
     }
 
+    // Replay attack protection: If already used, only allow within 15s of creation to permit duplicate desktop launches
+    if (transferRecord.used) {
+      const ageMs = Date.now() - new Date(transferRecord.createdAt).getTime();
+      if (ageMs > 15000) {
+        return NextResponse.json({ error: 'Token already redeemed' }, { status: 410 })
+      }
+    } else {
+      await prisma.electronTransferToken.update({
+        where: { token },
+        data: { used: true }
+      })
+    }
+
     // Get the actual NextAuth session token for this user
     const dbSession = await prisma.session.findFirst({
       where: {
@@ -65,15 +78,6 @@ export async function GET(request: NextRequest) {
 
     if (!dbSession) {
       return NextResponse.json({ error: 'No active session' }, { status: 404 })
-    }
-
-    // Mark as used after successful session resolution. If this token is already
-    // consumed due to a duplicate callback, continue returning success idempotently.
-    if (!transferRecord.used) {
-      await prisma.electronTransferToken.update({
-        where: { token },
-        data: { used: true }
-      })
     }
 
     return NextResponse.json({

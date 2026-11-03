@@ -4,6 +4,18 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import {
+  Printer,
+  QrCode,
+  Trash2,
+  Inbox,
+  Clock,
+  CheckCircle2,
+  Radio,
+  FileText,
+  AlertCircle,
+  Sparkles,
+} from "lucide-react";
 import JobCard from "@/components/admin/JobCard";
 import JobViewer from "@/components/admin/JobViewer";
 import QRModal from "@/components/admin/QRModal";
@@ -44,7 +56,6 @@ export default function AdminDashboard() {
     if (status === "authenticated") {
       fetchJobs();
       
-      // Also fetch shop name
       fetch("/api/admin/profile")
         .then(res => res.json())
         .then(data => {
@@ -124,8 +135,8 @@ export default function AdminDashboard() {
 
   if (status === "loading" || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#0B0B0F]">
-        <div className="animate-spin w-7 h-7 border-2 border-[#E5E7EB] dark:border-white/10 border-t-[#111827] dark:border-t-white rounded-full" />
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-[#0B0B0F]">
+        <div className="animate-spin w-8 h-8 border-2 border-neutral-300 dark:border-white/10 border-t-neutral-900 dark:border-t-white rounded-full" />
       </div>
     );
   }
@@ -138,98 +149,200 @@ export default function AdminDashboard() {
 
   return (
     <SecurityShield>
-      <div className="min-h-screen bg-white dark:bg-[#0B0B0F] transition-colors">
-        {/* Navbar */}
-        <nav className="sticky top-0 z-50 bg-white/80 dark:bg-[#0B0B0F]/80 backdrop-blur-xl border-b border-[#E5E7EB] dark:border-white/5 transition-colors">
-          <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#111827] dark:bg-white flex items-center justify-center">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-white dark:text-black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" />
-                </svg>
+      <div className="min-h-screen bg-neutral-50 dark:bg-[#0B0B0F] text-neutral-900 dark:text-neutral-100 transition-colors">
+        {/* Top Navbar */}
+        <nav className="sticky top-0 z-50 bg-white/80 dark:bg-[#0B0B0F]/80 backdrop-blur-xl border-b border-neutral-200/80 dark:border-white/5 transition-colors">
+          <div className="max-w-[1240px] mx-auto px-4 sm:px-6 h-15 flex items-center justify-between">
+            {/* Left: Brand + Status */}
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-neutral-900 dark:bg-white flex items-center justify-center shadow-xs">
+                <Printer className="w-4 h-4 text-white dark:text-neutral-900" />
               </div>
-              <span className="text-base font-semibold tracking-tight text-[#111827] dark:text-white">{shopName}</span>
-              <span className="text-[10px] text-[#6B7280] dark:text-neutral-400 px-1.5 py-0.5 rounded bg-[#F9FAFB] dark:bg-white/5 border border-[#E5E7EB] dark:border-white/10 ml-1 font-medium">Admin</span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full border ml-1 font-semibold ${
-                appSessionStatus === "online"
-                  ? "text-[#16A34A] bg-green-50 border-green-200 dark:bg-green-500/10 dark:border-green-500/30 dark:text-green-300"
-                  : "text-[#DC2626] bg-red-50 border-red-200 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-300"
-              }`}>
-                {appSessionStatus === "online" ? "Online" : "Offline"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-base font-bold tracking-tight text-neutral-900 dark:text-white">
+                  {shopName}
+                </span>
+                <span className="text-[10px] text-neutral-500 dark:text-neutral-400 px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-white/5 border border-neutral-200/80 dark:border-white/10 font-bold uppercase tracking-wider">
+                  Terminal
+                </span>
+              </div>
+
+              {/* Status Pill */}
+              <div
+                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-semibold transition-all ${
+                  appSessionStatus === "online"
+                    ? "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"
+                    : "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20"
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    appSessionStatus === "online"
+                      ? "bg-emerald-500 animate-pulse"
+                      : "bg-amber-500"
+                  }`}
+                />
+                <span>{appSessionStatus === "online" ? "Hardware Sync" : "Web Mode"}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2.5">
               <span
-                className="text-xs text-[#6B7280] dark:text-neutral-400 hidden sm:inline cursor-pointer hover:text-[#111827] dark:hover:text-white transition-colors"
+                className="text-xs text-neutral-500 dark:text-neutral-400 hidden sm:inline cursor-pointer hover:text-neutral-900 dark:hover:text-white transition-colors font-medium px-2 py-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-850"
                 onClick={() => setShowQR(true)}
               >
                 {session?.user?.email}
               </span>
+
               <ThemeToggle size="sm" />
-              <button onClick={() => setShowQR(true)} className="w-8 h-8 rounded-lg border border-[#E5E7EB] dark:border-white/10 flex items-center justify-center hover:bg-[#F9FAFB] dark:hover:bg-white/5 transition-colors" title="QR Code">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-[#111827] dark:text-white" strokeWidth="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/></svg>
+
+              <button
+                onClick={() => setShowQR(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-semibold transition-all active:scale-95 shadow-xs"
+                title="Counter QR & Shop ID"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Counter QR</span>
               </button>
             </div>
           </div>
         </nav>
 
-        <main className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6">
-          {/* Stats */}
-          <div className="grid grid-cols-4 gap-3 mb-6">
+        <main className="max-w-[1240px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-8">
             {[
-              { label: "Total", value: jobs.length, color: "text-[#111827] dark:text-white" },
-              { label: "Waiting", value: waitingJobs.length, color: "text-[#4F46E5] dark:text-indigo-300" },
-              { label: "Opened", value: openedJobs.length, color: "text-[#F59E0B] dark:text-amber-300" },
-              { label: "Done", value: completedJobs.length, color: "text-[#6B7280] dark:text-neutral-400" },
-            ].map(stat => (
-              <div key={stat.label} className="p-3 rounded-xl border border-[#E5E7EB] dark:border-white/10 bg-white dark:bg-white/5 transition-colors">
-                <div className="text-[10px] text-[#6B7280] dark:text-neutral-400 font-medium uppercase tracking-wider">{stat.label}</div>
-                <div className={`text-xl font-semibold mt-0.5 ${stat.color}`}>{stat.value}</div>
-              </div>
-            ))}
+              {
+                label: "All Jobs",
+                value: jobs.length,
+                icon: FileText,
+                accent: "text-neutral-900 dark:text-white",
+                bg: "bg-neutral-500/10",
+              },
+              {
+                label: "Awaiting Pickup",
+                value: waitingJobs.length,
+                icon: Radio,
+                accent: "text-indigo-600 dark:text-indigo-400",
+                bg: "bg-indigo-500/10",
+              },
+              {
+                label: "Processing",
+                value: openedJobs.length,
+                icon: Clock,
+                accent: "text-amber-600 dark:text-amber-400",
+                bg: "bg-amber-500/10",
+              },
+              {
+                label: "Completed",
+                value: completedJobs.length,
+                icon: CheckCircle2,
+                accent: "text-emerald-600 dark:text-emerald-400",
+                bg: "bg-emerald-500/10",
+              },
+            ].map(stat => {
+              const Icon = stat.icon;
+              return (
+                <div
+                  key={stat.label}
+                  className="p-4 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900/60 shadow-xs transition-all hover:shadow-sm"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-bold uppercase tracking-wider">
+                      {stat.label}
+                    </span>
+                    <div className={`p-1.5 rounded-lg ${stat.bg}`}>
+                      <Icon className={`w-3.5 h-3.5 ${stat.accent}`} />
+                    </div>
+                  </div>
+                  <div className={`text-2xl font-bold font-mono tracking-tight ${stat.accent}`}>
+                    {stat.value}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Header with Clear Completed */}
-          <div className="flex items-end justify-between mb-5">
+          {/* Queue Header & Actions */}
+          <div className="flex items-center justify-between mb-5 pb-3 border-b border-neutral-200/80 dark:border-neutral-800">
             <div>
-              <h2 className="text-lg font-semibold tracking-tight text-[#111827] dark:text-white">Print Queue</h2>
-              <p className="text-xs text-[#6B7280] dark:text-neutral-400 mt-0.5">Files auto-delete in 100 seconds after opening.</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-bold tracking-tight text-neutral-900 dark:text-white">
+                  Active Dispatch Queue
+                </h2>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-200/80 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-mono font-semibold">
+                  {jobs.length}
+                </span>
+              </div>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                Ephemeral print queue · 100-second self-destruct cycle upon access
+              </p>
             </div>
-            {/* Always show the Clear All button, but disabled if no jobs are ready to clear */}
+
+            {/* Clear All Trigger */}
             {!showClearConfirm ? (
               <button 
                 onClick={() => jobs.length > 0 && setShowClearConfirm(true)} 
                 disabled={jobs.length === 0}
-                className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-all border ${
+                className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl transition-all border ${
                   jobs.length > 0
-                    ? "text-[#6B7280] dark:text-neutral-300 hover:text-[#EF4444] dark:hover:text-red-300 border-[#E5E7EB] dark:border-white/10 hover:border-[#FCA5A5] dark:hover:border-red-500/30 cursor-pointer"
-                    : "text-gray-300 dark:text-neutral-600 border-gray-100 dark:border-white/5 cursor-not-allowed"
+                    ? "text-neutral-600 dark:text-neutral-300 hover:text-rose-600 dark:hover:text-rose-400 border-neutral-200 dark:border-neutral-800 hover:border-rose-300 dark:hover:border-rose-500/30 bg-white dark:bg-neutral-900 active:scale-95 cursor-pointer shadow-xs"
+                    : "text-neutral-400 dark:text-neutral-600 border-neutral-200/60 dark:border-neutral-800/60 bg-transparent cursor-not-allowed"
                 }`}
               >
-                Clear All
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Clear All</span>
               </button>
             ) : (
-              <div className="flex items-center gap-2 p-1.5 bg-red-50 dark:bg-red-500/10 border border-[#FCA5A5] dark:border-red-500/30 rounded-lg animate-in fade-in zoom-in duration-200">
-                <span className="text-[10px] text-[#EF4444] dark:text-red-300 font-bold uppercase tracking-wider ml-1">Delete {jobs.length}?</span>
-                <button onClick={() => setShowClearConfirm(false)} className="text-[10px] px-2 py-1 bg-white dark:bg-white/5 border border-[#E5E7EB] dark:border-white/10 rounded font-bold uppercase tracking-widest text-[#6B7280] dark:text-neutral-300 hover:bg-gray-50 dark:hover:bg-white/10">No</button>
-                <button onClick={handleClearAll} className="text-[10px] px-2 py-1 bg-[#EF4444] text-white rounded font-bold uppercase tracking-widest hover:bg-[#DC2626]">Yes</button>
+              <div className="flex items-center gap-2 p-1.5 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-xl animate-in fade-in duration-200">
+                <span className="text-[11px] text-rose-600 dark:text-rose-300 font-bold px-1">
+                  Purge {jobs.length} jobs?
+                </span>
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  className="text-xs px-2.5 py-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleClearAll}
+                  className="text-xs px-2.5 py-1 bg-rose-600 text-white rounded-lg font-semibold hover:bg-rose-700"
+                >
+                  Confirm
+                </button>
               </div>
             )}
           </div>
 
-          {/* Jobs grid */}
+          {/* Jobs Grid */}
           {jobs.length === 0 ? (
-            <div className="py-16 text-center">
-              <div className="w-14 h-14 rounded-xl bg-[#F9FAFB] dark:bg-white/5 border border-[#E5E7EB] dark:border-white/10 flex items-center justify-center mx-auto mb-4">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-[#6B7280] dark:text-neutral-400" strokeWidth="1.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            <div className="py-20 text-center rounded-3xl border border-dashed border-neutral-300/80 dark:border-neutral-800 bg-white/40 dark:bg-neutral-900/20">
+              <div className="w-16 h-16 rounded-2xl bg-neutral-100 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center mx-auto mb-4 text-neutral-400">
+                <Inbox className="w-8 h-8" />
               </div>
-              <h3 className="text-base font-medium text-[#111827] dark:text-white mb-1">No print jobs yet</h3>
-              <p className="text-sm text-[#6B7280] dark:text-neutral-400">Share your QR code to get started.</p>
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-1">
+                Queue is clear
+              </h3>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-xs mx-auto mb-5">
+                Customers can upload documents by scanning your counter QR code or entering your shop ID.
+              </p>
+              <button
+                onClick={() => setShowQR(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 rounded-xl text-xs font-bold hover:opacity-90 transition-all active:scale-95 shadow-sm"
+              >
+                <QrCode className="w-4 h-4" />
+                <span>Show Counter QR</span>
+              </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
               {jobs.map((job, i) => (
-                <div key={job.id} className="animate-fade-in" style={{ animationDelay: `${i * 40}ms`, animationFillMode: "backwards" }}>
+                <div
+                  key={job.id}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${i * 30}ms`, animationFillMode: "backwards" }}
+                >
                   <JobCard job={job} onClick={() => setSelectedJob(job)} />
                 </div>
               ))}
@@ -237,7 +350,15 @@ export default function AdminDashboard() {
           )}
         </main>
 
-        {selectedJob && <JobViewer job={selectedJob} adminSecret="" onClose={() => setSelectedJob(null)} onJobUpdate={handleJobUpdate} />}
+        {selectedJob && (
+          <JobViewer
+            job={selectedJob}
+            adminSecret=""
+            onClose={() => setSelectedJob(null)}
+            onJobUpdate={handleJobUpdate}
+          />
+        )}
+
         {showQR && <QRModal onClose={() => setShowQR(false)} />}
       </div>
     </SecurityShield>

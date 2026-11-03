@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { ShieldAlert } from "lucide-react";
 
 interface SecurityShieldProps {
   children: React.ReactNode;
@@ -127,35 +128,35 @@ export default function SecurityShield({ children }: SecurityShieldProps) {
       `}} />
       <div className={`secure-content relative ${isPrintingRef.current ? 'printing-active' : ''}`}>
         {/* Main content — blur when protection is active */}
-      <div
-        className={`transition-all duration-300 ${
-          showProtection ? "blur-protection" : ""
-        }`}
-        style={{
-          pointerEvents: showProtection ? "none" : "auto",
-        }}
-      >
-        {children}
-      </div>
-
-      {/* Screen protection overlay */}
-      {showProtection && (
-        <div className="screen-protection-overlay animate-fade-in">
-          <div className="text-center">
-            <div className="w-16 h-16 rounded-2xl bg-foreground/5 flex items-center justify-center mx-auto mb-6">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-semibold mb-2">Screen Protection Active</h2>
-            <p className="text-sm text-secondary max-w-xs mx-auto">
-              {devToolsOpen
-                ? "Please close developer tools to view documents."
-                : "Click this window to resume viewing documents."}
-            </p>
-          </div>
+        <div
+          className={`transition-all duration-300 ${
+            showProtection ? "blur-protection" : ""
+          }`}
+          style={{
+            pointerEvents: showProtection ? "none" : "auto",
+          }}
+        >
+          {children}
         </div>
-      )}
+
+        {/* Screen protection overlay */}
+        {showProtection && (
+          <div className="screen-protection-overlay animate-fade-in">
+            <div className="text-center p-6">
+              <div className="w-16 h-16 rounded-2xl bg-neutral-100 dark:bg-white/10 flex items-center justify-center mx-auto mb-4 text-neutral-900 dark:text-white shadow-sm">
+                <ShieldAlert className="w-8 h-8 text-amber-500" />
+              </div>
+              <h2 className="text-lg font-bold tracking-tight text-neutral-900 dark:text-white mb-1.5">
+                Screen Protection Engaged
+              </h2>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-xs mx-auto leading-relaxed">
+                {devToolsOpen
+                  ? "Developer tools detected. Please close DevTools to access decrypted print documents."
+                  : "Window out of focus. Click back into this window to resume viewing documents."}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

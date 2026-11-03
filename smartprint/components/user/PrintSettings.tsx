@@ -392,7 +392,7 @@ export default function PrintSettings({
                             background:
                               settings.pagesPerSheet === n
                                 ? "var(--up-accent)"
-                                : "rgba(0,0,0,0.04)",
+                                : "var(--up-hover)",
                             color:
                               settings.pagesPerSheet === n
                                 ? "#fff"
@@ -920,7 +920,7 @@ export default function PrintSettings({
                 height: 40,
                 borderRadius: 12,
                 flex: "none",
-                background: isEncrypted ? "var(--up-accent)" : "rgba(0,0,0,0.04)",
+                background: isEncrypted ? "var(--up-accent)" : "var(--up-hover)",
                 color: isEncrypted ? "#fff" : "var(--up-text-2)",
                 transition: "all 0.25s var(--up-ease)",
               }}

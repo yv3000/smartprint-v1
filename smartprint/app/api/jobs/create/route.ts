@@ -3,11 +3,29 @@ import prisma from "@/lib/prisma";
 import { getNextUserId } from "@/lib/usernames";
 import { isAdminOnline } from "@/lib/adminPresence";
 import { mkdir, writeFile } from "fs/promises";
-import { join } from "path";
+import { join, basename, extname } from "path";
 import { createId } from "@paralleldrive/cuid2";
 
 // Increase body size limit for file uploads
 export const runtime = "nodejs";
+
+const ALLOWED_EXTENSIONS = new Set([
+  // Documents
+  "pdf", "docx", "doc", "odt", "rtf", "txt",
+  // Spreadsheets
+  "xlsx", "xls", "ods", "csv",
+  // Presentations
+  "pptx", "ppt", "odp",
+  // Images
+  "jpg", "jpeg", "png", "gif", "webp", "bmp", "svg",
+  // Encrypted payloads from client-side Web Crypto
+  "enc"
+]);
+
+function isExtensionAllowed(fileName: string): boolean {
+  const ext = extname(fileName).replace(/^\./, "").toLowerCase();
+  return ALLOWED_EXTENSIONS.has(ext);
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,6 +44,16 @@ export async function POST(req: NextRequest) {
 
     if (!shopToken || !files.length) {
       return NextResponse.json({ error: "Missing required data" }, { status: 400 });
+    }
+
+    // Validate file extensions
+    for (const file of files) {
+      if (!isExtensionAllowed(file.name)) {
+        return NextResponse.json(
+          { error: `File type not supported for printing: ${file.name}` },
+          { status: 400 }
+        );
+      }
     }
 
     // 1. Find Admin
@@ -56,8 +84,11 @@ export async function POST(req: NextRequest) {
     
     const isEncrypted = isEncryptedStr === "true";
     
-    // Store filenames in settings since they are not in the top-level schema
-    settings.fileNames = files.map(f => f.name);
+    // Sanitize filenames and prevent path traversal
+    const safeFileNames = files.map((f) =>
+      basename(f.name).replace(/[/\\:*?"<>|\0]/g, "_").replace(/\.\./g, "_")
+    );
+    settings.fileNames = safeFileNames;
 
     console.log("[Job Create] Saving to Prisma for admin:", admin.id);
 
@@ -80,9 +111,11 @@ export async function POST(req: NextRequest) {
     const storageDir = join("/tmp", "smartprint", jobId);
     await mkdir(storageDir, { recursive: true });
 
-    for (const file of files) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const safeName = safeFileNames[i];
       const buffer = Buffer.from(await file.arrayBuffer());
-      const filePath = join(storageDir, file.name);
+      const filePath = join(storageDir, safeName);
       await writeFile(filePath, buffer);
     }
 

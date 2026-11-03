@@ -1,15 +1,16 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { isAdminOnline } from "@/lib/adminPresence";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ token: string }> }
+  { params }: { params: Promise<{ token: string }> | { token: string } }
 ) {
   try {
-    const { token } = await params;
-
-    console.log("Looking up shop with token:", token);
+    const resolvedParams = await Promise.resolve(params);
+    const token = resolvedParams.token;
 
     if (!token) {
       return NextResponse.json({ error: "Token required" }, { status: 400 });
@@ -28,8 +29,6 @@ export async function GET(
       },
     });
 
-    console.log("Found admin:", admin);
-
     if (!admin) {
       return NextResponse.json(
         { error: "Shop not found. Invalid or expired QR code." },
@@ -44,15 +43,11 @@ export async function GET(
       shopName: admin.shopName,
       qrCode: admin.qrCode,
       address: admin.address,
-      adminId: admin.id,
       isOnline: online,
       sessionStatus: online ? "online" : "offline",
     });
   } catch (error) {
-    console.error("Shop lookup error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("Shop token lookup error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

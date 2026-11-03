@@ -19,14 +19,19 @@ if (!fs.existsSync(STORAGE_DIR)) {
   fs.mkdirSync(STORAGE_DIR, { recursive: true });
 }
 
-// Secret for signing URLs — derived from admin ID
-const URL_SECRET = process.env.ADMIN_ID || "smartprint_default_secret";
+// Secret for signing URLs — derived from auth secret or fallback
+const URL_SECRET =
+  process.env.AUTH_SECRET ||
+  process.env.NEXTAUTH_SECRET ||
+  process.env.ADMIN_ID ||
+  "smartprint_default_secret";
 
 /**
  * Get the directory path for a specific job
  */
 export function getJobDir(jobId: string): string {
-  return path.join(STORAGE_DIR, jobId);
+  const safeJobId = path.basename(jobId);
+  return path.join(STORAGE_DIR, safeJobId);
 }
 
 /**
@@ -47,7 +52,8 @@ export async function saveFiles(
 
   for (const file of files) {
     // Sanitize filename — remove path separators and null bytes
-    const safeName = file.name
+    const safeName = path
+      .basename(file.name)
       .replace(/[/\\:*?"<>|\0]/g, "_")
       .replace(/\.\./g, "_");
 
@@ -64,8 +70,9 @@ export async function saveFiles(
  */
 export function getFilePath(jobId: string, fileName: string): string {
   // Sanitize to prevent directory traversal
+  const safeJobId = path.basename(jobId);
   const safeName = path.basename(fileName);
-  return path.join(getJobDir(jobId), safeName);
+  return path.join(STORAGE_DIR, safeJobId, safeName);
 }
 
 /**
@@ -77,19 +84,17 @@ export function jobFilesExist(jobId: string): boolean {
 }
 
 /**
- * Delete all files for a specific job
+ * Delete all files for a specific job cleanly
  */
 export function deleteJobFiles(jobId: string): void {
   const jobDir = getJobDir(jobId);
 
   if (fs.existsSync(jobDir)) {
-    // Remove all files in the directory
-    const files = fs.readdirSync(jobDir);
-    for (const file of files) {
-      fs.unlinkSync(path.join(jobDir, file));
+    try {
+      fs.rmSync(jobDir, { recursive: true, force: true });
+    } catch (e) {
+      console.error(`[Storage] Failed to delete jobDir ${jobDir}:`, e);
     }
-    // Remove the directory itself
-    fs.rmdirSync(jobDir);
   }
 }
 

@@ -1,16 +1,23 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAdminOnline } from "@/lib/adminPresence";
 
 export async function GET(
   req: Request,
-  { params }: { params: { shopId: string } }
+  { params }: { params: Promise<{ shopId: string }> | { shopId: string } }
 ) {
   try {
-    const { shopId } = params;
+    const resolvedParams = await Promise.resolve(params);
+    const shopId = resolvedParams.shopId;
+
+    if (!shopId || typeof shopId !== "string") {
+      return NextResponse.json({ success: false, error: "Invalid Shop ID" }, { status: 400 });
+    }
 
     const shop = await prisma.admin.findUnique({
-      where: { shopId: String(shopId).toLowerCase() },
+      where: { shopId: String(shopId).toLowerCase().trim() },
       select: {
         shopName: true,
         qrCode: true,

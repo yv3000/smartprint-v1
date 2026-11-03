@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/shops/nearby?lat=X&lng=Y — Find nearby shops
  */

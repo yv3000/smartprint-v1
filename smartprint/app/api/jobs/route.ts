@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/jobs — List all active print jobs (admin only)
  * 

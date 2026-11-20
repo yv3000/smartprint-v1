@@ -1,3 +1,4 @@
+*.exe
 # Black Book & Documentation (Academic report - kept local)
 blackbook/
 blackbook.zip
@@ -55,6 +56,9 @@ smartprint/public/uploads/*
 .DS_Store
 Thumbs.db
 .agents/
+!.agents/skills/smartprint-guardrails/
+!.agents/skills/smartprint-guardrails/**
+
 *.tsbuildinfo
 next-env.d.ts
 

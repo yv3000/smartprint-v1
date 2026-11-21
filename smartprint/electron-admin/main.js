@@ -5,7 +5,7 @@ const https = require('https')
 // --- CONFIGURATION ---
 // Set to http://localhost:3000 for local development
 const IS_DEV = process.env.NODE_ENV === 'development' || process.env.DEBUG_AUTH === 'true';
-const BASE_URL = IS_DEV ? 'http://localhost:3000' : 'https://smartprint-tau.vercel.app';
+const BASE_URL = IS_DEV ? 'http://localhost:3000' : 'https://smartprint-284884896914.asia-southeast1.run.app';
 // ---------------------
 
 const AUTH_URL = `${BASE_URL}/admin/auth`
@@ -154,7 +154,7 @@ function createWindow() {
     }
 
     // URLs within our app dashboard — load in the main window
-    if (url.includes('smartprint-tau.vercel.app/admin/dashboard')) {
+    if (url.startsWith(BASE_URL) && url.includes('/admin/dashboard')) {
       mainWindow.loadURL(url)
       return { action: 'deny' }
     }

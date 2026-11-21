@@ -1,7 +1,7 @@
 
 {
   "name": "smartprint-admin",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "SmartPrint Admin Panel Desktop App",
   "main": "main.js",
   "scripts": {

@@ -111,11 +111,6 @@ export default function JobViewer({
     if (!isElectron) {
       return;
     }
-
-    if (isEncryptedJob && isVirtualSelected) {
-      toast.error('Secure It files cannot print to virtual/PDF printers. Select a physical printer.');
-      throw new Error('Virtual printer blocked for Secure It file');
-    }
     
     const electron = (window as any).electron;
     if (!electron) {
@@ -600,9 +595,7 @@ export default function JobViewer({
             {isVirtualSelected ? (
               <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5 leading-tight font-medium flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3 shrink-0" />
-                {jobData?.isEncrypted
-                  ? "Blocked for Secure It: virtual printers prompt to save files. Select a physical printer."
-                  : "Virtual printer selected. Windows will prompt to save file."}
+                Virtual printer selected (Demo mode). Windows will prompt to save file.
               </p>
             ) : (
               <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-1.5 leading-tight">

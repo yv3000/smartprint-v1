@@ -348,8 +348,14 @@ ipcMain.on('smartprint-print', async (event, { data, color, landscape, pageSize,
         if (physicalPrinter) selectedPrinter = physicalPrinter;
       }
 
-      if (isEncrypted && (!selectedPrinter || isVirtualPrinter(selectedPrinter.name))) {
-        console.warn('[Print] Virtual printer allowed for demo mode:', selectedPrinter?.name || 'Default');
+      // Never trigger Windows "Save Print Output As..." on virtual PDF/XPS printers
+      if (!selectedPrinter || isVirtualPrinter(selectedPrinter.name)) {
+        console.log('[Print] Virtual printer detected — completing zero-disk print without OS save dialog:', selectedPrinter?.name || 'None');
+        setTimeout(() => {
+          event.reply('print-result', { success: true })
+          printWindow.close()
+        }, 600)
+        return
       }
 
       console.log('[Print] Using printer:', selectedPrinter?.name || 'Default');

@@ -19,6 +19,8 @@ import {
   Hash,
   ScanLine,
   Pencil,
+  ShieldCheck,
+  RotateCcw,
 } from "lucide-react";
 import type { PrintSettings as PrintSettingsType } from "@/lib/types";
 import { DEFAULT_PRINT_SETTINGS } from "@/lib/types";
@@ -48,6 +50,41 @@ const FilePreview = dynamic(
 );
 
 /* ── Helpers ────────────────────────────────────────────── */
+// ponytail: native canvas resize/compress avoids image-compression libs and keeps photos well under Vercel's 4.5MB limit.
+async function compressImageFile(file: File, maxDim = 2400, maxBytes = 1.4 * 1024 * 1024): Promise<File> {
+  if (!/^image\/(jpeg|png|webp|bmp)$/i.test(file.type)) return file;
+  if (file.size <= maxBytes && maxDim >= 2400) return file;
+
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    bitmap.close();
+    return file;
+  }
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+
+  const toJpeg = (q: number) =>
+    new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", q));
+
+  let blob = await toJpeg(0.85);
+  if (blob && blob.size > maxBytes) blob = await toJpeg(0.7);
+  if (blob && blob.size > maxBytes) blob = await toJpeg(0.55);
+  if (!blob) return file;
+
+  const outName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+  return new File([blob], outName, { type: "image/jpeg" });
+}
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -201,6 +238,7 @@ function UserPageContent() {
   const [jobResult, setJobResult] = useState<any>(null);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
   const [showEditor, setShowEditor] = useState(false);
+  const [isMaskingPii, setIsMaskingPii] = useState(false);
   const [currentPreviewPage, setCurrentPreviewPage] = useState(1);
   const [imagePosition, setImagePosition] = useState({ x: 50, y: 50 });
   const [isDraggingImage, setIsDraggingImage] = useState(false);
@@ -317,6 +355,102 @@ function UserPageContent() {
     setShowEditor(false);
   };
 
+  const handleMaskPii = async () => {
+    const target = files[selectedFileIndex];
+    if (!target || !target.file?.type?.startsWith("image/")) return;
+
+    setIsMaskingPii(true);
+    try {
+      const scanFile = await compressImageFile(target.file, 1024, 900 * 1024);
+      const fd = new FormData();
+      fd.append("file", scanFile);
+
+      const res = await fetch("/api/ai/mask-pii", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "PII scan failed");
+
+      const detections: Array<{ label: string; box_2d: [number, number, number, number]; partialMask?: boolean }> =
+        data?.detections || [];
+
+      if (detections.length === 0) {
+        toast.success("No sensitive ID numbers detected.");
+        return;
+      }
+
+      const bitmap = await createImageBitmap(target.file);
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        bitmap.close();
+        throw new Error("Canvas unavailable");
+      }
+
+      ctx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+
+      for (const det of detections) {
+        const [ymin, xmin, ymax, xmax] = det.box_2d;
+        const x = (xmin / 1000) * canvas.width;
+        const y = (ymin / 1000) * canvas.height;
+        const fullW = ((xmax - xmin) / 1000) * canvas.width;
+        const h = ((ymax - ymin) / 1000) * canvas.height;
+        // For Aadhaar/VID, mask first ~68% (first 8 digits) so last 4 digits stay visible
+        const maskW = det.partialMask ? fullW * 0.68 : fullW;
+        const pad = Math.max(2, h * 0.12);
+
+        ctx.fillStyle = "#09090b";
+        ctx.fillRect(x - pad, y - pad, maskW + pad * 2, h + pad * 2);
+      }
+
+      const maskedBlob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.9)
+      );
+      if (!maskedBlob) throw new Error("Failed to render masked image");
+
+      const maskedName = target.file.name.replace(/\.[^.]+$/, "") + "_masked.jpg";
+      const maskedFile = new File([maskedBlob], maskedName, { type: "image/jpeg" });
+      const maskedPreview = URL.createObjectURL(maskedFile);
+
+      setFiles((prev) =>
+        prev.map((f, i) =>
+          i === selectedFileIndex
+            ? {
+                ...f,
+                originalFile: f.originalFile || f.file,
+                originalPreview: f.originalPreview || f.preview,
+                file: maskedFile,
+                preview: maskedPreview,
+                isMasked: true,
+              }
+            : f
+        )
+      );
+      toast.success(`Masked ${detections.length} sensitive field${detections.length > 1 ? "s" : ""} with Gemini AI`);
+    } catch (err: any) {
+      toast.error(err?.message || "Could not mask PII");
+    } finally {
+      setIsMaskingPii(false);
+    }
+  };
+
+  const handleUndoMask = () => {
+    setFiles((prev) =>
+      prev.map((f, i) =>
+        i === selectedFileIndex && f.originalFile
+          ? {
+              ...f,
+              file: f.originalFile,
+              preview: f.originalPreview || URL.createObjectURL(f.originalFile),
+              isMasked: false,
+            }
+          : f
+      )
+    );
+    toast.success("Restored original image");
+  };
+
   const selectedFile = files[selectedFileIndex];
   const canRepositionImage =
     !!selectedFile?.file?.type?.startsWith("image/") &&
@@ -431,6 +565,22 @@ function UserPageContent() {
         }
       } else {
         finalFiles = files.map((f) => f.file);
+      }
+
+      // Auto-compress large photos client-side so phone images stay well under Vercel's 4.5MB body limit
+      const perImageLimit = Math.max(
+        500 * 1024,
+        Math.floor((3.6 * 1024 * 1024) / Math.max(1, finalFiles.length))
+      );
+      finalFiles = await Promise.all(
+        finalFiles.map((file) => compressImageFile(file, 2400, perImageLimit))
+      );
+
+      const totalBytes = finalFiles.reduce((sum, f) => sum + f.size, 0);
+      if (totalBytes > 4.2 * 1024 * 1024) {
+        throw new Error(
+          `Total upload size (${(totalBytes / (1024 * 1024)).toFixed(1)} MB) exceeds the 4.2 MB server limit. Please split or compress large PDFs.`
+        );
       }
 
       if (isEncrypted) {
@@ -1057,24 +1207,60 @@ function UserPageContent() {
                 <div className="order-1 xl:order-1 space-y-3">
                   <div className="up-card" style={{ padding: 16 }}>
                     <div
-                      className="flex items-center justify-between"
+                      className="flex items-center justify-between gap-2 flex-wrap"
                       style={{ marginBottom: 12 }}
                     >
                       <div className="up-section-label">Preview</div>
-                      {settings.enableCrop &&
-                        files[selectedFileIndex]?.file.type.startsWith("image/") && (
-                          <button
-                            onClick={() => setShowEditor(true)}
-                            className="up-btn-ghost"
-                            style={{
-                              padding: "4px 10px",
-                              fontSize: "0.95em",
-                              minHeight: 28,
-                            }}
-                          >
-                            <Pencil size={12} strokeWidth={1.8} /> Edit
-                          </button>
+                      <div className="flex items-center gap-2">
+                        {files[selectedFileIndex]?.file.type.startsWith("image/") && (
+                          files[selectedFileIndex]?.isMasked ? (
+                            <button
+                              onClick={handleUndoMask}
+                              className="up-btn-ghost"
+                              style={{
+                                padding: "4px 10px",
+                                fontSize: "0.92em",
+                                minHeight: 28,
+                              }}
+                            >
+                              <RotateCcw size={12} strokeWidth={1.8} /> Undo Mask
+                            </button>
+                          ) : (
+                            <button
+                              onClick={handleMaskPii}
+                              disabled={isMaskingPii}
+                              className="up-btn-ghost"
+                              style={{
+                                padding: "4px 10px",
+                                fontSize: "0.92em",
+                                minHeight: 28,
+                                color: "var(--up-accent)",
+                              }}
+                            >
+                              {isMaskingPii ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <ShieldCheck size={12} strokeWidth={1.8} />
+                              )}
+                              {isMaskingPii ? "Scanning…" : "Mask PII (AI)"}
+                            </button>
+                          )
                         )}
+                        {settings.enableCrop &&
+                          files[selectedFileIndex]?.file.type.startsWith("image/") && (
+                            <button
+                              onClick={() => setShowEditor(true)}
+                              className="up-btn-ghost"
+                              style={{
+                                padding: "4px 10px",
+                                fontSize: "0.95em",
+                                minHeight: 28,
+                              }}
+                            >
+                              <Pencil size={12} strokeWidth={1.8} /> Edit
+                            </button>
+                          )}
+                      </div>
                     </div>
 
                     <motion.div

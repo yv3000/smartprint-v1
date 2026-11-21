@@ -307,9 +307,18 @@ ipcMain.on('smartprint-open-external', (event, url) => {
 })
 
 // Handle silent printing from dashboard
-ipcMain.on('smartprint-print', async (event, { data, color, landscape, pageSize, copies, printerName }) => {
-  console.log('[Print] Received print request:', { color, landscape, pageSize, copies })
+ipcMain.on('smartprint-print', async (event, { data, color, landscape, pageSize, copies, printerName, isEncrypted }) => {
+  console.log('[Print] Received print request:', { color, landscape, pageSize, copies, isEncrypted: !!isEncrypted })
+
+  // Prevent Chromium download/save dialog if non-renderable data URL is passed
+  if (typeof data !== 'string' || !/^data:(application\/pdf|image\/)/i.test(data)) {
+    event.reply('print-result', { success: false, reason: 'Unsupported file format for direct hardware printing.' })
+    return
+  }
+
   const electronPageSize = getElectronPageSize(pageSize)
+  const virtualKeywords = ['pdf', 'xps', 'onenote', 'fax', 'microsoft print', 'send to', 'cutepdf', 'foxit', 'adobe pdf', 'save as']
+  const isVirtualPrinter = (name) => virtualKeywords.some(k => (name || '').toLowerCase().includes(k))
   
   let printWindow = new BrowserWindow({
     show: false,
@@ -333,13 +342,22 @@ ipcMain.on('smartprint-print', async (event, { data, color, landscape, pageSize,
       if (printerName) {
         const target = printers.find(p => p.name === printerName);
         if (target) selectedPrinter = target;
-      } else {
-        // Otherwise, if default is virtual, try to find a physical one
-        const virtualKeywords = ['pdf', 'xps', 'onenote', 'fax', 'microsoft print', 'send to'];
-        if (selectedPrinter && virtualKeywords.some(k => selectedPrinter.name.toLowerCase().includes(k))) {
-          const physicalPrinter = printers.find(p => !virtualKeywords.some(k => p.name.toLowerCase().includes(k)));
-          if (physicalPrinter) selectedPrinter = physicalPrinter;
-        }
+      } else if (selectedPrinter && isVirtualPrinter(selectedPrinter.name)) {
+        // If default is virtual, try to find a physical one
+        const physicalPrinter = printers.find(p => !isVirtualPrinter(p.name));
+        if (physicalPrinter) selectedPrinter = physicalPrinter;
+      }
+
+      // Security boundary: never allow encrypted ("Secure It") files to print to virtual/PDF printers
+      // because Windows prompts a "Save Print Output As..." dialog, defeating zero-retention.
+      if (isEncrypted && (!selectedPrinter || isVirtualPrinter(selectedPrinter.name))) {
+        console.warn('[Print] Blocked Secure It job on virtual printer:', selectedPrinter?.name || 'None');
+        event.reply('print-result', {
+          success: false,
+          reason: 'Blocked: Secure It files cannot print to virtual/PDF printers (prevents saving to disk). Connect a physical printer.'
+        });
+        printWindow.close();
+        return;
       }
 
       console.log('[Print] Using printer:', selectedPrinter?.name || 'Default');

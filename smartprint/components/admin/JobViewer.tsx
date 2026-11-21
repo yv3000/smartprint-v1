@@ -107,9 +107,14 @@ export default function JobViewer({
     window.navigator.userAgent.toLowerCase().includes('electron');
 
   // ELECTRON PRINT — no preview, direct to printer
-  const printViaElectron = async (fileBlob: Blob, settings: any) => {
+  const printViaElectron = async (fileBlob: Blob, settings: any, isEncryptedJob: boolean) => {
     if (!isElectron) {
       return;
+    }
+
+    if (isEncryptedJob && isVirtualSelected) {
+      toast.error('Secure It files cannot print to virtual/PDF printers. Select a physical printer.');
+      throw new Error('Virtual printer blocked for Secure It file');
     }
     
     const electron = (window as any).electron;
@@ -131,6 +136,7 @@ export default function JobViewer({
           scale: settings.scale || 100,
           copies: settings.copies || 1,
           printerName: selectedPrinterName,
+          isEncrypted: isEncryptedJob,
         });
         
         electron.once('print-result', (result: any) => {
@@ -475,7 +481,7 @@ export default function JobViewer({
       }
       
       if (isElectron) {
-        await printViaElectron(printBlob, currentJob.settings || {});
+        await printViaElectron(printBlob, currentJob.settings || {}, !!currentJob.isEncrypted);
       } else {
         printViaBrowser(printBlob, currentJob.settings || {}, printType);
       }
@@ -563,7 +569,7 @@ export default function JobViewer({
   };
 
   const isVirtualSelected = useMemo(() => {
-    const virtualKeywords = ['pdf', 'xps', 'onenote', 'fax', 'microsoft print', 'send to'];
+    const virtualKeywords = ['pdf', 'xps', 'onenote', 'fax', 'microsoft print', 'send to', 'cutepdf', 'foxit', 'adobe pdf', 'save as'];
     return virtualKeywords.some(k => selectedPrinterName.toLowerCase().includes(k));
   }, [selectedPrinterName]);
 
@@ -594,7 +600,9 @@ export default function JobViewer({
             {isVirtualSelected ? (
               <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5 leading-tight font-medium flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3 shrink-0" />
-                Virtual printer selected. Windows will prompt to save file.
+                {jobData?.isEncrypted
+                  ? "Blocked for Secure It: virtual printers prompt to save files. Select a physical printer."
+                  : "Virtual printer selected. Windows will prompt to save file."}
               </p>
             ) : (
               <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-1.5 leading-tight">

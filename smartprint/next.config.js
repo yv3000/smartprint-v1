@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  ...(process.env.CLOUD_RUN_BUILD === "true" ? { output: "standalone" } : {}),
   experimental: {
     // Lifts the Server Action body limit. NOTE: this only applies to
     // Server Actions, not Route Handlers (`app/api/.../route.ts`). The

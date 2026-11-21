@@ -50,27 +50,30 @@ Return ONLY valid JSON matching this schema:
 Coordinates in box_2d must be integers normalized to 0-1000 relative to image height/width.
 If no sensitive ID numbers are visible, return {"detections":[]}. Do NOT echo or transcribe the actual numbers.`;
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: file.type, data: base64Data } },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0,
-            responseMimeType: "application/json",
+    const isVertexExpressKey = apiKey.startsWith("AQ.");
+    const endpoint = isVertexExpressKey
+      ? `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`
+      : `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+    const geminiRes = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: file.type, data: base64Data } },
+            ],
           },
-        }),
-      }
-    );
+        ],
+        generationConfig: {
+          temperature: 0,
+          responseMimeType: "application/json",
+        },
+      }),
+    });
 
     if (!geminiRes.ok) {
       return NextResponse.json(

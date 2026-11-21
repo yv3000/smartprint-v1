@@ -1,0 +1,12 @@
+node_modules
+.next
+.vercel
+.env
+.env.*
+electron-admin
+data
+tmp
+generate_deck.js
+*.pdf
+*.exe
+*.log
